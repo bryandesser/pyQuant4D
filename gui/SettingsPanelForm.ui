@@ -88,7 +88,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>../icons/contrast.png</normaloff>../icons/contrast.png</iconset>
+           <normaloff>./icons/contrast.png</normaloff>./icons/contrast.png</iconset>
          </property>
         </widget>
        </item>
@@ -128,7 +128,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>../icons/link.png</normaloff>../icons/link.png</iconset>
+           <normaloff>./icons/link.png</normaloff>./icons/link.png</iconset>
          </property>
          <property name="checkable">
           <bool>true</bool>
@@ -227,7 +227,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>../icons/gamma.png</normaloff>../icons/gamma.png</iconset>
+           <normaloff>./icons/gamma.png</normaloff>./icons/gamma.png</iconset>
          </property>
         </widget>
        </item>
@@ -258,7 +258,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>../icons/frontWindow.png</normaloff>../icons/frontWindow.png</iconset>
+           <normaloff>./icons/frontWindow.png</normaloff>./icons/frontWindow.png</iconset>
          </property>
         </widget>
        </item>
@@ -320,7 +320,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>../icons/invertColors.png</normaloff>../icons/invertColors.png</iconset>
+           <normaloff>./icons/invertColors.png</normaloff>./icons/invertColors.png</iconset>
          </property>
          <property name="checkable">
           <bool>true</bool>
@@ -337,7 +337,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>../icons/Aperture.png</normaloff>../icons/Aperture.png</iconset>
+           <normaloff>./icons/Aperture.png</normaloff>./icons/Aperture.png</iconset>
          </property>
         </widget>
        </item>
@@ -396,7 +396,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>../icons/brightness.png</normaloff>../icons/brightness.png</iconset>
+           <normaloff>./icons/brightness.png</normaloff>./icons/brightness.png</iconset>
          </property>
         </widget>
        </item>
@@ -483,7 +483,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>../icons/axes.png</normaloff>../icons/axes.png</iconset>
+           <normaloff>./icons/axes.png</normaloff>./icons/axes.png</iconset>
          </property>
          <property name="checkable">
           <bool>true</bool>
@@ -500,7 +500,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>../icons/axis-y.png</normaloff>../icons/axis-y.png</iconset>
+           <normaloff>./icons/axis-y.png</normaloff>./icons/axis-y.png</iconset>
          </property>
          <property name="checkable">
           <bool>true</bool>
@@ -517,7 +517,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>../icons/right_rotate.png</normaloff>../icons/right_rotate.png</iconset>
+           <normaloff>./icons/right_rotate.png</normaloff>./icons/right_rotate.png</iconset>
          </property>
         </widget>
        </item>
@@ -528,7 +528,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>../icons/axes.png</normaloff>../icons/axes.png</iconset>
+           <normaloff>./icons/axes.png</normaloff>./icons/axes.png</iconset>
          </property>
          <property name="checkable">
           <bool>true</bool>
@@ -545,7 +545,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>../icons/refresh.png</normaloff>../icons/refresh.png</iconset>
+           <normaloff>./icons/refresh.png</normaloff>./icons/refresh.png</iconset>
          </property>
         </widget>
        </item>
@@ -605,7 +605,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>../icons/axis-x.png</normaloff>../icons/axis-x.png</iconset>
+           <normaloff>./icons/axis-x.png</normaloff>./icons/axis-x.png</iconset>
          </property>
          <property name="checkable">
           <bool>true</bool>
@@ -665,7 +665,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>../icons/right_rotate.png</normaloff>../icons/right_rotate.png</iconset>
+           <normaloff>./icons/right_rotate.png</normaloff>./icons/right_rotate.png</iconset>
          </property>
         </widget>
        </item>
@@ -676,7 +676,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>../icons/axis-x.png</normaloff>../icons/axis-x.png</iconset>
+           <normaloff>./icons/axis-x.png</normaloff>./icons/axis-x.png</iconset>
          </property>
          <property name="checkable">
           <bool>true</bool>
@@ -881,7 +881,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>../icons/axis-y.png</normaloff>../icons/axis-y.png</iconset>
+           <normaloff>./icons/axis-y.png</normaloff>./icons/axis-y.png</iconset>
          </property>
          <property name="checkable">
           <bool>true</bool>
@@ -944,7 +944,7 @@
            </property>
            <property name="icon">
             <iconset>
-             <normaloff>../icons/Aperture.png</normaloff>../icons/Aperture.png</iconset>
+             <normaloff>./icons/Aperture.png</normaloff>./icons/Aperture.png</iconset>
            </property>
           </widget>
          </item>
@@ -972,7 +972,7 @@
            </property>
            <property name="icon">
             <iconset>
-             <normaloff>../icons/colorwheel.png</normaloff>../icons/colorwheel.png</iconset>
+             <normaloff>./icons/colorwheel.png</normaloff>./icons/colorwheel.png</iconset>
            </property>
           </widget>
          </item>
@@ -1000,7 +1000,7 @@
            </property>
            <property name="icon">
             <iconset>
-             <normaloff>../icons/Aperture.png</normaloff>../icons/Aperture.png</iconset>
+             <normaloff>./icons/Aperture.png</normaloff>./icons/Aperture.png</iconset>
            </property>
           </widget>
          </item>
@@ -1375,7 +1375,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>../icons/help.png</normaloff>../icons/help.png</iconset>
+           <normaloff>./icons/help.png</normaloff>./icons/help.png</iconset>
          </property>
          <property name="autoRaise">
           <bool>true</bool>

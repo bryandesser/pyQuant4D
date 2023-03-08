@@ -61,7 +61,7 @@
            </property>
            <property name="icon">
             <iconset>
-             <normaloff>../icons/Aperture.png</normaloff>../icons/Aperture.png</iconset>
+             <normaloff>./icons/Aperture.png</normaloff>./icons/Aperture.png</iconset>
            </property>
           </widget>
          </item>
@@ -142,7 +142,7 @@
            </property>
            <property name="icon">
             <iconset>
-             <normaloff>../icons/colorPicker.png</normaloff>../icons/colorPicker.png</iconset>
+             <normaloff>./icons/colorPicker.png</normaloff>./icons/colorPicker.png</iconset>
            </property>
           </widget>
          </item>
@@ -165,7 +165,7 @@
            </property>
            <property name="icon">
             <iconset>
-             <normaloff>../icons/invertColors.png</normaloff>../icons/invertColors.png</iconset>
+             <normaloff>./icons/invertColors.png</normaloff>./icons/invertColors.png</iconset>
            </property>
           </widget>
          </item>
@@ -253,7 +253,7 @@
            </property>
            <property name="icon">
             <iconset>
-             <normaloff>../icons/colorwheel.png</normaloff>../icons/colorwheel.png</iconset>
+             <normaloff>./icons/colorwheel.png</normaloff>./icons/colorwheel.png</iconset>
            </property>
           </widget>
          </item>
@@ -830,7 +830,7 @@
               </property>
               <property name="icon">
                <iconset>
-                <normaloff>../icons/help.png</normaloff>../icons/help.png</iconset>
+                <normaloff>./icons/help.png</normaloff>./icons/help.png</iconset>
               </property>
               <property name="autoRaise">
                <bool>true</bool>
@@ -1232,7 +1232,7 @@
                </property>
                <property name="icon">
                 <iconset>
-                 <normaloff>../icons/link.png</normaloff>../icons/link.png</iconset>
+                 <normaloff>./icons/link.png</normaloff>./icons/link.png</iconset>
                </property>
                <property name="checkable">
                 <bool>true</bool>
@@ -1304,7 +1304,7 @@
                </property>
                <property name="icon">
                 <iconset>
-                 <normaloff>../icons/unlock.png</normaloff>../icons/unlock.png</iconset>
+                 <normaloff>./icons/unlock.png</normaloff>./icons/unlock.png</iconset>
                </property>
               </widget>
              </item>
@@ -1321,7 +1321,7 @@
                </property>
                <property name="icon">
                 <iconset>
-                 <normaloff>../icons/axis-y.png</normaloff>../icons/axis-y.png</iconset>
+                 <normaloff>./icons/axis-y.png</normaloff>./icons/axis-y.png</iconset>
                </property>
               </widget>
              </item>
@@ -1551,7 +1551,7 @@
               </property>
               <property name="icon">
                <iconset>
-                <normaloff>../icons/home.png</normaloff>../icons/home.png</iconset>
+                <normaloff>./icons/home.png</normaloff>./icons/home.png</iconset>
               </property>
              </widget>
             </item>
@@ -1691,7 +1691,7 @@
               </property>
               <property name="icon">
                <iconset>
-                <normaloff>../icons/right_rotate.png</normaloff>../icons/right_rotate.png</iconset>
+                <normaloff>./icons/right_rotate.png</normaloff>./icons/right_rotate.png</iconset>
               </property>
              </widget>
             </item>
@@ -1702,7 +1702,7 @@
               </property>
               <property name="icon">
                <iconset>
-                <normaloff>../icons/left_rotate.png</normaloff>../icons/left_rotate.png</iconset>
+                <normaloff>./icons/left_rotate.png</normaloff>./icons/left_rotate.png</iconset>
               </property>
              </widget>
             </item>
@@ -1736,7 +1736,7 @@
               </property>
               <property name="icon">
                <iconset>
-                <normaloff>../icons/invertColors.png</normaloff>../icons/invertColors.png</iconset>
+                <normaloff>./icons/invertColors.png</normaloff>./icons/invertColors.png</iconset>
               </property>
              </widget>
             </item>
@@ -1802,7 +1802,7 @@
               </property>
               <property name="icon">
                <iconset>
-                <normaloff>../icons/mirrored.png</normaloff>../icons/mirrored.png</iconset>
+                <normaloff>./icons/mirrored.png</normaloff>./icons/mirrored.png</iconset>
               </property>
              </widget>
             </item>
@@ -1890,7 +1890,7 @@
             </property>
             <property name="icon">
              <iconset>
-              <normaloff>../icons/right_rotate.png</normaloff>../icons/right_rotate.png</iconset>
+              <normaloff>./icons/right_rotate.png</normaloff>./icons/right_rotate.png</iconset>
             </property>
            </widget>
           </item>
@@ -1901,7 +1901,7 @@
             </property>
             <property name="icon">
              <iconset>
-              <normaloff>../icons/left_rotate.png</normaloff>../icons/left_rotate.png</iconset>
+              <normaloff>./icons/left_rotate.png</normaloff>./icons/left_rotate.png</iconset>
             </property>
            </widget>
           </item>
@@ -1979,7 +1979,7 @@
             </property>
             <property name="icon">
              <iconset>
-              <normaloff>../icons/delete.png</normaloff>../icons/delete.png</iconset>
+              <normaloff>./icons/delete.png</normaloff>./icons/delete.png</iconset>
             </property>
            </widget>
           </item>
@@ -2022,7 +2022,7 @@
             </property>
             <property name="icon">
              <iconset>
-              <normaloff>../icons/invertColors.png</normaloff>../icons/invertColors.png</iconset>
+              <normaloff>./icons/invertColors.png</normaloff>./icons/invertColors.png</iconset>
             </property>
            </widget>
           </item>
@@ -2033,7 +2033,7 @@
             </property>
             <property name="icon">
              <iconset>
-              <normaloff>../icons/Aperture.png</normaloff>../icons/Aperture.png</iconset>
+              <normaloff>./icons/Aperture.png</normaloff>./icons/Aperture.png</iconset>
             </property>
            </widget>
           </item>
@@ -2090,7 +2090,7 @@
             </property>
             <property name="icon">
              <iconset>
-              <normaloff>../icons/mirrored.png</normaloff>../icons/mirrored.png</iconset>
+              <normaloff>./icons/mirrored.png</normaloff>./icons/mirrored.png</iconset>
             </property>
            </widget>
           </item>
@@ -2129,7 +2129,7 @@
             </property>
             <property name="icon">
              <iconset>
-              <normaloff>../icons/colorPicker.png</normaloff>../icons/colorPicker.png</iconset>
+              <normaloff>./icons/colorPicker.png</normaloff>./icons/colorPicker.png</iconset>
             </property>
            </widget>
           </item>
@@ -2140,7 +2140,7 @@
             </property>
             <property name="icon">
              <iconset>
-              <normaloff>../icons/mirrorHorz.png</normaloff>../icons/mirrorHorz.png</iconset>
+              <normaloff>./icons/mirrorHorz.png</normaloff>./icons/mirrorHorz.png</iconset>
             </property>
            </widget>
           </item>
@@ -2151,7 +2151,7 @@
             </property>
             <property name="icon">
              <iconset>
-              <normaloff>../icons/mirrorVert.png</normaloff>../icons/mirrorVert.png</iconset>
+              <normaloff>./icons/mirrorVert.png</normaloff>./icons/mirrorVert.png</iconset>
             </property>
            </widget>
           </item>
@@ -2162,7 +2162,7 @@
             </property>
             <property name="icon">
              <iconset>
-              <normaloff>../icons/transpose.png</normaloff>../icons/transpose.png</iconset>
+              <normaloff>./icons/transpose.png</normaloff>./icons/transpose.png</iconset>
             </property>
            </widget>
           </item>
@@ -2193,7 +2193,7 @@
               </property>
               <property name="icon">
                <iconset>
-                <normaloff>../icons/circle.png</normaloff>../icons/circle.png</iconset>
+                <normaloff>./icons/circle.png</normaloff>./icons/circle.png</iconset>
               </property>
              </widget>
             </item>
@@ -2216,7 +2216,7 @@
               </property>
               <property name="icon">
                <iconset>
-                <normaloff>../icons/grid.png</normaloff>../icons/grid.png</iconset>
+                <normaloff>./icons/grid.png</normaloff>./icons/grid.png</iconset>
               </property>
              </widget>
             </item>
@@ -2239,7 +2239,7 @@
               </property>
               <property name="icon">
                <iconset>
-                <normaloff>../icons/bandpass.png</normaloff>../icons/bandpass.png</iconset>
+                <normaloff>./icons/bandpass.png</normaloff>./icons/bandpass.png</iconset>
               </property>
              </widget>
             </item>
@@ -2262,7 +2262,7 @@
               </property>
               <property name="icon">
                <iconset>
-                <normaloff>../icons/wedge.png</normaloff>../icons/wedge.png</iconset>
+                <normaloff>./icons/wedge.png</normaloff>./icons/wedge.png</iconset>
               </property>
              </widget>
             </item>
@@ -2285,7 +2285,7 @@
               </property>
               <property name="icon">
                <iconset>
-                <normaloff>../icons/poly.png</normaloff>../icons/poly.png</iconset>
+                <normaloff>./icons/poly.png</normaloff>./icons/poly.png</iconset>
               </property>
              </widget>
             </item>
@@ -2308,7 +2308,7 @@
               </property>
               <property name="icon">
                <iconset>
-                <normaloff>../icons/openMask.png</normaloff>../icons/openMask.png</iconset>
+                <normaloff>./icons/openMask.png</normaloff>./icons/openMask.png</iconset>
               </property>
              </widget>
             </item>
@@ -2331,7 +2331,7 @@
               </property>
               <property name="icon">
                <iconset>
-                <normaloff>../icons/math.png</normaloff>../icons/math.png</iconset>
+                <normaloff>./icons/math.png</normaloff>./icons/math.png</iconset>
               </property>
              </widget>
             </item>
@@ -2622,7 +2622,7 @@
    </property>
    <property name="icon">
     <iconset>
-     <normaloff>../icons/import.png</normaloff>../icons/import.png</iconset>
+     <normaloff>./icons/import.png</normaloff>./icons/import.png</iconset>
    </property>
    <property name="text">
     <string>Import Data...</string>
@@ -2650,7 +2650,7 @@
   <action name="ShowSettingsWdw">
    <property name="icon">
     <iconset>
-     <normaloff>../icons/settings.png</normaloff>../icons/settings.png</iconset>
+     <normaloff>./icons/settings.png</normaloff>./icons/settings.png</iconset>
    </property>
    <property name="text">
     <string>Preferences</string>
@@ -2676,7 +2676,7 @@
    </property>
    <property name="icon">
     <iconset>
-     <normaloff>../icons/Aperture.png</normaloff>../icons/Aperture.png</iconset>
+     <normaloff>./icons/Aperture.png</normaloff>./icons/Aperture.png</iconset>
    </property>
    <property name="text">
     <string>Show Real Space Mask</string>
@@ -2702,7 +2702,7 @@
    </property>
    <property name="icon">
     <iconset>
-     <normaloff>../icons/Aperture.png</normaloff>../icons/Aperture.png</iconset>
+     <normaloff>./icons/Aperture.png</normaloff>./icons/Aperture.png</iconset>
    </property>
    <property name="text">
     <string>Show Diffraction Mask</string>
@@ -2796,7 +2796,7 @@
   <action name="actionQuant4D_Manual">
    <property name="icon">
     <iconset>
-     <normaloff>../icons/help.png</normaloff>../icons/help.png</iconset>
+     <normaloff>./icons/help.png</normaloff>./icons/help.png</iconset>
    </property>
    <property name="text">
     <string>Quant4D Help</string>
@@ -2816,7 +2816,7 @@
    </property>
    <property name="icon">
     <iconset>
-     <normaloff>../icons/math.png</normaloff>../icons/math.png</iconset>
+     <normaloff>./icons/math.png</normaloff>./icons/math.png</iconset>
    </property>
    <property name="text">
     <string>Custom Aperture Maths</string>
@@ -2828,7 +2828,7 @@
   <action name="ShowSaveWdw">
    <property name="icon">
     <iconset>
-     <normaloff>../icons/save.png</normaloff>../icons/save.png</iconset>
+     <normaloff>./icons/save.png</normaloff>./icons/save.png</iconset>
    </property>
    <property name="text">
     <string>Save Images...</string>
@@ -2862,7 +2862,7 @@
   <action name="AutoSaveImg">
    <property name="icon">
     <iconset>
-     <normaloff>../icons/autoSave.png</normaloff>../icons/autoSave.png</iconset>
+     <normaloff>./icons/autoSave.png</normaloff>./icons/autoSave.png</iconset>
    </property>
    <property name="text">
     <string>Auto Save Images...</string>
@@ -2877,7 +2877,7 @@
    </property>
    <property name="icon">
     <iconset>
-     <normaloff>../icons/colorwheel.png</normaloff>../icons/colorwheel.png</iconset>
+     <normaloff>./icons/colorwheel.png</normaloff>./icons/colorwheel.png</iconset>
    </property>
    <property name="text">
     <string>Show Phase Colorwheel</string>
@@ -2889,7 +2889,7 @@
   <action name="UpdateImages">
    <property name="icon">
     <iconset>
-     <normaloff>../icons/refresh.png</normaloff>../icons/refresh.png</iconset>
+     <normaloff>./icons/refresh.png</normaloff>./icons/refresh.png</iconset>
    </property>
    <property name="text">
     <string>Update All Images</string>
@@ -2901,7 +2901,7 @@
   <action name="actionBrightness_and_Contrast">
    <property name="icon">
     <iconset>
-     <normaloff>../icons/image_display.png</normaloff>../icons/image_display.png</iconset>
+     <normaloff>./icons/image_display.png</normaloff>./icons/image_display.png</iconset>
    </property>
    <property name="text">
     <string>Brightness and Contrast</string>
