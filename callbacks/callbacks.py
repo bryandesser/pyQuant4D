@@ -1,20 +1,13 @@
-from configparser import Interpolation
-import sys
 import os
-import time
-import inspect
 import re
 import torch
 import gc
 import numpy as np
-import psutil
 from PyQt5 import QtWidgets as qtw
-from PyQt5 import QtGui as qtg
 from PyQt5 import QtCore as qtc
 from callbacks.utils import on_ImportDataButton_clicked, rangeImportExport#, on_actionShow_Diffraction_Pattern_triggered
 from callbacks.ioUtils import prepEMPAD
-from callbacks.appClass import appStruct
-from callbacks.imageUtils import annularDetectorCallbacks
+from callbacks.imageUtils import moveAnnR
 
 def importCallbacks():
     pass
@@ -424,12 +417,12 @@ def realSpaceROICallbacks():
     pass
 
 def on_DetrMode_currentIndexChanged(self):
-    dmod = self.DetrMode.currentText()
-    if dmod=="Import Preview":
+    dmod = self.DetrMode.currentData()
+    if dmod=="PrvwMod":
         self.DfrnDetrTabGroup.setCurrentIndex(0)
-    elif dmod=="Alignment":
+    elif dmod=="AlignMod":
         self.DfrnDetrTabGroup.setCurrentIndex(1)
-    elif dmod=="Annular Round":
+    elif dmod=="AnnMod":
         self.DfrnDetrTabGroup.setCurrentIndex(2)
         self.dpcControls.setVisible(False)
         self.comControls.setVisible(False)
@@ -441,7 +434,7 @@ def on_DetrMode_currentIndexChanged(self):
         # self.ScanDirYFlip.setEnabled(False)
         # self.ScanDirUnlock.setEnabled(False)
         # self.ScanDir.setEnabled(False)
-    elif dmod=="Segmented (DPC)":
+    elif dmod=="DPCMod":
         self.DfrnDetrTabGroup.setCurrentIndex(2)
         self.dpcControls.setVisible(True)
         self.comControls.setVisible(True)
@@ -453,7 +446,7 @@ def on_DetrMode_currentIndexChanged(self):
         # self.ScanDirYFlip.setEnabled(True)
         # self.ScanDirUnlock.setEnabled(True)
         # self.ScanDir.setEnabled(True)
-    elif dmod=="Center of Mass":
+    elif dmod=="CoMMod":
         self.DfrnDetrTabGroup.setCurrentIndex(2)
         self.dpcControls.setVisible(False)
         self.comControls.setVisible(True)
@@ -465,39 +458,10 @@ def on_DetrMode_currentIndexChanged(self):
         # self.ScanDirYFlip.setEnabled(True)
         # self.ScanDirUnlock.setEnabled(True)
         # self.ScanDir.setEnabled(True)
-    elif dmod=="Virtual Aperture":
+    elif dmod=="VrApMod":
         self.DfrnDetrTabGroup.setCurrentIndex(3)
-    elif dmod=="Custom Detectors":
+    elif dmod=="CustMod":
         self.DfrnDetrTabGroup.setCurrentIndex(4)
-    else:
-        print("ELSE")
-    # if dmod
-    #     case "PrvwMod"
-    #         app.PreviewGrid.Visible = 'on';
-    #         previewCallbacks(app,event)
-    #     case "AlignMod"
-    #         app.AlignmentGrid.Visible = 'on';
-    #         transBeamCallbacks(app,event)
-    #     case {"AnnMod", "CoMMod", "DPCMod"}
-    #         app.AnnDetrGrid.Visible = 'on';
-    #         annularDetectorCallbacks(app, event)
-    #         if dmod ~= "AnnMod" % 'CoMMod' OR 'DPCMod'
-    #         plotImage(app, event, 'ColorWheel') % Plot ColorWheel
-    #         figure(app.Fig.CoMPhMag);  figure(app.Fig.ColorWheel)
-    #         if ~app.P.ScanDirInit
-    #             flashBackground(app, app.ScanDirGrid); % Flashing to align scan direction
-    #         end
-    #         end
-    #     case "VrApMod" % 'Virtual Aperture'
-    #         app.VirtualApertureGrid.Visible = 'on';
-    #         virtualApertureCallbacks(app, event);
-    #     case "CustMod"
-    #         app.CustomDetectorGrid.Visible = 'on';  app.MathTab.Parent = app.SettingsTabGroup;
-    #         customDetectorCallbacks(app, event)
-    #         figure(app.Fig.DfrnMask)
-      
-def detrCoordCallbacks():
-    pass
 
 def datasetOptCallbacks():
     pass
@@ -558,7 +522,11 @@ def slotsSignals(self):
     self.DetrMode.currentIndexChanged.connect(lambda: on_DetrMode_currentIndexChanged(self))
 
     # detector slider/numerical field connections
-    self.AnnRi_NF.valueChanged.connect(lambda: annularDetectorCallbacks(self))
+    self.AnnRi_NF.valueChanged.connect(lambda: moveAnnR(self))
+    self.AnnRo_NF.valueChanged.connect(lambda: moveAnnR(self))
+    self.AnnRi.valueChanged.connect(lambda: moveAnnR(self))
+    self.DetrMode.currentIndexChanged.connect(lambda: moveAnnR(self))
+    self.UpdateImages.triggered.connect(lambda: moveAnnR(self))
 
 
     

@@ -1,12 +1,8 @@
-import PyQt5
 import numpy as np
-import time
 import re
-import matplotlib.pyplot as plt
 from PyQt5 import QtWidgets as qtw
 from PyQt5 import QtCore as qtc
-from PyQt5 import QtGui as qtg
-from datetime import datetime
+from callbacks.imageUtils import integrateAnnular, detrCoordCallbacks, drawAnnDetr
 
 class importThread(qtc.QObject):
     result = qtc.pyqtSignal(np.ndarray)
@@ -103,26 +99,38 @@ def readEMPAD(self):
         self.Data = np.memmap(filename, dataType,'r')["data"]
 
 def finishImport(self):
-    reinitializeUI(self)
-    
+    # integrate annular images #TODO #TEMPORARY
+    self.B0 = [64.3641,63.7125]
+    integrateAnnular(self)
+            
     # finalize progressBar
     self.progressBar.setMaximum(100)
     self.progressBar.setValue(100)
     self.progressBar.setTextVisible(False)
 
+    # display the total pacbed and resulting image to start
     self.Image.Dfrn = self.Fig.Dfrn.ax.imshow(self.Data.sum(axis=0).reshape(self.D.NPx))
     self.Image.Real = self.Fig.Real.ax.imshow(self.Data.sum(axis=1).reshape(self.D.NFr))
     self.Fig.Dfrn.setVisible(True)
     self.Fig.Real.setVisible(True)
 
+    # update annular QRangeSlider to match
+    self.AnnRi.setValue((self.AnnRi.minimum(),self.AnnRi.maximum()))
+
     self.progressBar.setEnabled(False)
 
+    reinitializeUI(self)
+    detrCoordCallbacks(self) #TODO - add alignment routines
+
 def reinitializeUI(self):
-    # start with a mostly blank UI
+    # make control panels visible again
     self.RealSpacePanel.setVisible(True)
     self.progressBarPanel.setVisible(True)
     self.DfrnDetrTabGroup.setVisible(True)
     self.DetectorModeGroup.setVisible(True)
+
+    # start in alignment mode
+    self.DetrMode.setCurrentIndex(1)
 
     # Import Data is the only option to start
     # turn off ALL actions

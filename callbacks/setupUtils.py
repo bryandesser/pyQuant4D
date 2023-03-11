@@ -7,6 +7,7 @@ from PyQt5 import QtWidgets as qtw
 from PyQt5 import QtCore as qtc
 from callbacks.appClass import appStruct
 from callbacks.callbacks import plotColorwheel, slotsSignals
+from callbacks.imageUtils import drawAnnDetr
     
 def startupFcn(self):
     from callbacks.guiClass import ImageWindow, SaveWindow, SettingsWindow, ImportWindow
@@ -234,6 +235,9 @@ def startupFcn(self):
 
     # enable custom slot/signal interfaces
     slotsSignals(self)
+
+    # generate adf annotations
+    drawAnnDetr(self)
 
     # start with a mostly blank UI
     self.RealSpacePanel.setVisible(False)

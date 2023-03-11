@@ -1,6 +1,7 @@
 import sys
 from PyQt5 import QtWidgets as qtw
 from PyQt5 import uic
+import numpy as np
 
 class T:
     FileSize = 0
@@ -50,6 +51,7 @@ class D:
     NoteFileMeta = ''
     NoteImp = ''
     h5ds = []
+    annWidth = 0.5 # annuli width for BF/ADF integration
 
 class C:
     ScreenSize = []
@@ -117,7 +119,12 @@ class Image:
     Preview = None
 
 class A:
-    pass
+    circX = np.cos(np.arange(0,2.01*np.pi,np.pi/100))
+    circY = np.sin(np.arange(0,2.01*np.pi,np.pi/100))
+    adfInnerPt = None
+    adfInnerCirc = None
+    adfOuterPt = None
+    adfOuterCirc = None
 
 class Mask:
     pass

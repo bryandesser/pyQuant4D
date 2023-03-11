@@ -4,7 +4,6 @@ from PyQt5 import QtGui as qtg
 from PyQt5 import QtCore as qtc
 from PyQt5 import uic
 from callbacks.setupUtils import startupFcn
-from datetime import datetime
 
 import matplotlib
 matplotlib.use('Qt5Agg')
@@ -15,7 +14,8 @@ import matplotlib.pyplot as plt
 
 # Convert .ui Files from QT Designer to python
 # Main window
-MW_Ui, MW_Base = uic.loadUiType(sys.path[0]+"/gui/Quant4D_FigForm.ui")
+#MW_Ui, MW_Base = uic.loadUiType(sys.path[0]+"/gui/Quant4D_FigForm.ui")
+MW_Ui, MW_Base = uic.loadUiType(sys.path[0]+"/gui/Quant4D_FigFormRangeSlider.ui")
 # Import window
 IW_Ui, IW_Base = uic.loadUiType(sys.path[0]+"/gui/ImportDataForm.ui")
 # Settings window
