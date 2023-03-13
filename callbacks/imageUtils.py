@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.patches as patches
 from callbacks.annotationsClass import DraggablePoint
+from PyQt5 import QtCore as qtc
 
 
 def integrateAnnular(self):
@@ -32,45 +33,45 @@ def integrateAnnular(self):
 
 def drawAnnDetr(self):
     c = self.B0
-    r1 = 7.3614/np.sqrt(2) #TODO
-    r2 = 2*r1
+    r1 = self.AnnRi.value()[0]
+    r2 = self.AnnRi.value()[0]
 
     # generate two points that a user can drag
-    innerPt = self.Fig.Dfrn.ax.add_patch(patches.Circle((c[0]+r1,c[1]-r1),radius=1,color='r'))
-    outerPt = self.Fig.Dfrn.ax.add_patch(patches.Circle((c[0]+r2,c[1]-r2),radius=1,color='r'))
+    if self.A.adfInnerPt is None:
+        self.A.adfInnerPt = DraggablePoint(self.Fig.Dfrn.ax.add_patch(patches.Circle((c[0]+r1,c[1]-r1),radius=1,color='r')))
+        self.A.adfInnerPt.connect()
+        self.A.adfInnerPt.redrawCircle.connect(lambda: moveAnnR(self))
+        self.pointPickerRadius.connect(lambda: self.A.adfInnerPt.setPointPickerRadius(self.screen().physicalDotsPerInch()))
 
-    self.A.adfInnerPt = DraggablePoint(innerPt)
-    self.A.adfOuterPt = DraggablePoint(outerPt)
-    self.A.adfInnerPt.connect()
-    self.A.adfOuterPt.connect()
-    self.A.adfInnerPt.redrawCircle.connect(lambda: replotCirc(self))
-    self.A.adfOuterPt.redrawCircle.connect(lambda: replotCirc(self))
+    if self.A.adfOuterPt is None:    
+        self.A.adfOuterPt = DraggablePoint(self.Fig.Dfrn.ax.add_patch(patches.Circle((c[0]+r2,c[1]-r2),radius=1,color='r')))
+        self.A.adfOuterPt.connect()
+        self.A.adfOuterPt.redrawCircle.connect(lambda: moveAnnR(self))
+        self.pointPickerRadius.connect(lambda: self.A.adfOuterPt.setPointPickerRadius(self.screen().physicalDotsPerInch()))
 
     # add circles and points to pacbed plot
-    self.A.adfInnerCirc = self.Fig.Dfrn.ax.plot(self.A.circX*r1*np.sqrt(2)+c[0],self.A.circY*r1*np.sqrt(2)+c[1],color='r')
-    self.A.adfOuterCirc = self.Fig.Dfrn.ax.plot(self.A.circX*r2*np.sqrt(2)+c[0],self.A.circY*r2*np.sqrt(2)+c[1],color='r')
+    if self.A.adfInnerCirc is None:
+        self.A.adfInnerCirc = self.Fig.Dfrn.ax.plot(self.A.circX*r1*np.sqrt(2)+c[0],self.A.circY*r1*np.sqrt(2)+c[1],color='r')
+    if self.A.adfOuterCirc is None:
+        self.A.adfOuterCirc = self.Fig.Dfrn.ax.plot(self.A.circX*r2*np.sqrt(2)+c[0],self.A.circY*r2*np.sqrt(2)+c[1],color='r')
 
     
 def replotCirc(self):
-    r1 = np.linalg.norm(np.subtract(self.B0,self.A.adfInnerPt.point.center))
+    r1 = self.AnnRi.value()[0]/2
     self.A.adfInnerCirc[0].set_data(self.A.circX*r1+self.B0[0],self.A.circY*r1+self.B0[1])
-    r2 = np.linalg.norm(np.subtract(self.B0,self.A.adfOuterPt.point.center))
+    r2 = self.AnnRi.value()[1]/2
     self.A.adfOuterCirc[0].set_data(self.A.circX*r2+self.B0[0],self.A.circY*r2+self.B0[1])
-    #moveAnnR(self)
+    self.Fig.Dfrn.canvas.draw()
 
 def moveAnnR(self):
     innerRadius,outerRadius = self.AnnRi.value()
-    detRot = self.DetRot.value()
-    scanDir = self.ScanDir.value()
-    scanFlip = 1-2*self.ScanDirYFlip.isChecked()
-
 
     scale = self.DfPxR
     match self.sender():
-        # case self.A.AnnInner: #TODO
-        #     innerRadius = evt.CurrentRadius
-        # case self.A.AnnOuter:
-        #     outerRadius = evt.CurrentRadius
+        case self.A.adfInnerPt: #TODO
+            innerRadius = round(np.linalg.norm(np.subtract(self.B0,self.A.adfInnerPt.point.center))/self.D.annWidth)
+        case self.A.adfOuterPt:
+            outerRadius = round(np.linalg.norm(np.subtract(self.B0,self.A.adfOuterPt.point.center))/self.D.annWidth)
         case self.AnnRi:
             innerRadius,outerRadius = self.AnnRi.value()
         case self.AnnRi_NF:
@@ -78,12 +79,20 @@ def moveAnnR(self):
         case self.AnnRo_NF:
             outerRadius = round(self.AnnRo_NF.value()/self.D.annWidth/scale)
 
-    # Restrict Inner/Outer radii
-    if self.sender() is self.AnnRi_NF: #TODO add annotations
-        innerRadius = max(0, min(innerRadius, outerRadius))
-    elif self.sender() is self.AnnRo_NF: #TODO add annotations
-        outerRadius = min(max(outerRadius, innerRadius), self.P.RMax)
+    # allow user to drag inner/outer annulus over the other, swapping their relationships
+    if innerRadius>outerRadius:
+        innerRadius,outerRadius = outerRadius,innerRadius
+        self.A.adfInnerPt,self.A.adfOuterPt = self.A.adfOuterPt,self.A.adfInnerPt
+        self.A.adfInnerCirc,self.A.adfOuterCirc = self.A.adfOuterCirc,self.A.adfInnerCirc
 
+    # inner radius cannot be less than 0
+    if innerRadius<0:
+        innerRadius = 0
+
+    # outer radius cannot be greater than max scattering angle
+    if outerRadius>self.P.RMax:
+        outerRadius = self.P.RMax
+    
     # avoid triggering a valueChanged loop by blocking signals
     self.AnnRi.blockSignals(True)
     self.AnnRi_NF.blockSignals(True)
@@ -100,16 +109,9 @@ def moveAnnR(self):
     self.AnnRo_NF.blockSignals(False)
 
     # update point centers
-    self.A.adfInnerPt.point.center = self.B0 + np.array([1,-1])*self.AnnRi.value()[0]/np.sqrt(2)
-    self.A.adfOuterPt.point.center = self.B0 + np.array([1,-1])*self.AnnRi.value()[1]/np.sqrt(2)
+    self.A.adfInnerPt.point.center = self.B0 + np.array([1,-1])*self.AnnRi.value()[0]*self.D.annWidth/np.sqrt(2)
+    self.A.adfOuterPt.point.center = self.B0 + np.array([1,-1])*self.AnnRi.value()[1]*self.D.annWidth/np.sqrt(2)
     replotCirc(self)
-
-    # Update ROI #TODO
-    #self.A.AnnInner.setRadius(innerRadius)
-    #self.A.AnnOuter.setRadius(outerRadius)
-
-    # Update UI with Limits check
-    #setExself.sender()(evt, [self.AnnRi; self.AnnRo; self.AnnRi_NF; self.AnnRo_NF],{'Value'},{innerRadius; outerRadius; min(innerRadius*scale, self.P.RMax*scale); min(outerRadius*scale, self.P.RMax*scale)}); #TODO
 
     #if isStaticEvt(evt): #TODO
     #    mockUICallbacks(app,self.SaveImgPrefix) # Update saving prefix

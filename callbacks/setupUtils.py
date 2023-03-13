@@ -68,6 +68,9 @@ def startupFcn(self):
         self.C.monitorAvailWidth = self.C.monitorWidth - self.C.toolbarWidth
         self.C.monitorAvailHeight = self.C.monitorHeight - self.C.toolbarHeight
 
+        # current monitor dpi
+        self.C.dpi = self.screen().physicalDotsPerInch()
+
         # window positioning
         self.C.sz = int(np.floor(np.minimum(self.C.monitorAvailWidth-4*self.C.decorPad-2*self.C.mplDecor.width(),self.C.monitorAvailHeight-2*self.C.titleHeight-2*self.C.decorPad-2*self.C.mplDecor.height()))/2)
         self.C.shc = self.C.monitorAvailWidth/2

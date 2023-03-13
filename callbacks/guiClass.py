@@ -25,6 +25,7 @@ EW_Ui, EW_Base = uic.loadUiType(sys.path[0]+"/gui/SavePanelForm.ui")
 
 
 class MainWindow(MW_Base, MW_Ui):
+    pointPickerRadius = qtc.pyqtSignal(float)
     
     def __init__(self):
         super().__init__()
@@ -35,7 +36,11 @@ class MainWindow(MW_Base, MW_Ui):
 
         # place gui and show
         self.move(self.C.hOffset,self.C.vOffset)
-        self.show()    
+        self.show()
+
+        # connect screenChange slot/signal
+        self.windowHandle().screenChanged.connect(lambda: self.C.__setattr__("dpi",self.screen().physicalDotsPerInch()))
+        self.windowHandle().screenChanged.connect(lambda: self.pointPickerRadius.emit(self.screen().physicalDotsPerInch()))
 
     def closeEvent(self, event):
         reply = qtw.QMessageBox.question(self, 'Window Close', 'Are you sure you want to quit?',
@@ -49,7 +54,6 @@ class MainWindow(MW_Base, MW_Ui):
             event.ignore()
     
     def receiveThreadData(self,data):
-        print(data.shape)
         self.Data = data
 
     

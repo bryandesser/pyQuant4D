@@ -61,6 +61,7 @@ class C:
     monitorHeight = []
     monitorAvailWidth = []
     monitorAvailHeight = []
+    dpi = []
     hOffset = []
     vOffset = []
     toolbarWidth = []

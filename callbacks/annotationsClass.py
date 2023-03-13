@@ -1,16 +1,20 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from matplotlib.backend_tools import Cursors
 from PyQt5 import QtCore as qtc
+from PyQt5 import QtGui as qtg
 
 class DraggablePoint(qtc.QObject):
     redrawCircle = qtc.pyqtSignal()
+    
     lock = None #only one can be animated at a time
     def __init__(self, point):
         super().__init__()
         self.point = point
         self.press = None
         self.background = None
+        self.radius = 1
 
     def connect(self):
         'connect to all the events we need'
@@ -21,7 +25,7 @@ class DraggablePoint(qtc.QObject):
     def on_press(self, event):
         if event.inaxes != self.point.axes: return
         if DraggablePoint.lock is not None: return
-        contains, attrd = self.point.contains(event)
+        contains, attrd = self.point.contains(event)#,radius=self.radius)
         if not contains: return
         self.press = (self.point.center), event.xdata, event.ydata
         DraggablePoint.lock = self
@@ -33,6 +37,9 @@ class DraggablePoint(qtc.QObject):
         canvas.draw()
         self.background = canvas.copy_from_bbox(self.point.axes.bbox)
 
+        # update cursor
+        canvas.set_cursor(Cursors.HAND)
+
         # now redraw just the rectangle
         axes.draw_artist(self.point)
 
@@ -40,9 +47,16 @@ class DraggablePoint(qtc.QObject):
         canvas.blit(axes.bbox)
 
     def on_motion(self, event):
+        contains, _ = self.point.contains(event)#,radius=self.radius)
+        if contains:
+            self.point.figure.canvas.set_cursor(Cursors.HAND)
+        else:
+            self.point.figure.canvas.set_cursor(Cursors.POINTER)
+
         if DraggablePoint.lock is not self:
             return
         if event.inaxes != self.point.axes: return
+
         self.point.center, xpress, ypress = self.press
         dx = event.xdata - xpress
         dy = event.ydata - ypress
@@ -50,6 +64,7 @@ class DraggablePoint(qtc.QObject):
 
         canvas = self.point.figure.canvas
         axes = self.point.axes
+
         # restore the background region
         canvas.restore_region(self.background)
 
@@ -59,7 +74,6 @@ class DraggablePoint(qtc.QObject):
         # replot the annulus
         self.redrawCircle.emit()
 
-
     def on_release(self, event):
         'on release we reset the press data'
         if DraggablePoint.lock is not self:
@@ -68,9 +82,15 @@ class DraggablePoint(qtc.QObject):
         self.press = None
         DraggablePoint.lock = None
 
+        # update cursor
+        self.point.figure.canvas.set_cursor(Cursors.POINTER)
+
         # turn off the rect animation property and reset the background
         self.point.set_animated(False)
         self.background = None
 
         # redraw the full figure
-        self.point.figure.canvas.draw()
+        self.point.figure.canvas.draw()       
+    
+    def setPointPickerRadius(self,radius):
+        self.radius = radius/2
