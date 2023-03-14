@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 # Convert .ui Files from QT Designer to python
 # Main window
 #MW_Ui, MW_Base = uic.loadUiType(sys.path[0]+"/gui/Quant4D_FigForm.ui")
-MW_Ui, MW_Base = uic.loadUiType(sys.path[0]+"/gui/Quant4D_FigFormRangeSlider.ui")
+MW_Ui, MW_Base = uic.loadUiType(sys.path[0]+"/gui/Quant4D_FigForm.ui")
 # Import window
 IW_Ui, IW_Base = uic.loadUiType(sys.path[0]+"/gui/ImportDataForm.ui")
 # Settings window
