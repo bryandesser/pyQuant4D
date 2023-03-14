@@ -32,24 +32,20 @@ def integrateAnnular(self):
     self.P.RMax = k.max()
 
 def drawAnnDetr(self):
+    """ initiallize the annular detector annotations """
+    # define center location and starting radii for annular detector
     c = self.B0
-    r1 = self.AnnRi.value()[0]
-    r2 = self.AnnRi.value()[0]
+    r1 = self.AnnRi.value()[0]/2
+    r2 = self.AnnRi.value()[1]/2
 
-    # generate two points that a user can drag
-    if self.A.adfInnerPt is None:
-        self.A.adfInnerPt = DraggablePoint(self.Fig.Dfrn.ax.add_patch(patches.Circle((c[0]+r1,c[1]-r1),radius=1,color='r')))
-        self.A.adfInnerPt.connect()
-        self.A.adfInnerPt.redrawCircle.connect(lambda: moveAnnR(self))
-        self.pointPickerRadius.connect(lambda: self.A.adfInnerPt.setPointPickerRadius(self.screen().physicalDotsPerInch()))
+    # # generate two points that a user can drag to control the annular detector
+    if self.A.adfPt is None:
+        self.A.adfPt = DraggablePoint(self.Fig.Dfrn.ax.scatter(c[0]+np.array([r1,r2]),c[1]-np.array([r1,r2]),s=25,c='r'))
+        self.A.adfPt.connect()
+        self.A.adfPt.redrawCircle.connect(lambda: moveAnnR(self))
+        self.pointPickerRadius.connect(lambda: self.A.adfPt.setPointPickerRadius(self.screen().physicalDotsPerInch()))
 
-    if self.A.adfOuterPt is None:    
-        self.A.adfOuterPt = DraggablePoint(self.Fig.Dfrn.ax.add_patch(patches.Circle((c[0]+r2,c[1]-r2),radius=1,color='r')))
-        self.A.adfOuterPt.connect()
-        self.A.adfOuterPt.redrawCircle.connect(lambda: moveAnnR(self))
-        self.pointPickerRadius.connect(lambda: self.A.adfOuterPt.setPointPickerRadius(self.screen().physicalDotsPerInch()))
-
-    # add circles and points to pacbed plot
+    # add circles to pacbed plot, these are not draggable
     if self.A.adfInnerCirc is None:
         self.A.adfInnerCirc = self.Fig.Dfrn.ax.plot(self.A.circX*r1*np.sqrt(2)+c[0],self.A.circY*r1*np.sqrt(2)+c[1],color='r')
     if self.A.adfOuterCirc is None:
@@ -57,32 +53,39 @@ def drawAnnDetr(self):
 
     
 def replotCirc(self):
+    """ update the ciruclar annotations on the diffraction pattern """
+    
     r1 = self.AnnRi.value()[0]/2
     self.A.adfInnerCirc[0].set_data(self.A.circX*r1+self.B0[0],self.A.circY*r1+self.B0[1])
+    
     r2 = self.AnnRi.value()[1]/2
     self.A.adfOuterCirc[0].set_data(self.A.circX*r2+self.B0[0],self.A.circY*r2+self.B0[1])
+    
+    # update diffraction pattern figure
     self.Fig.Dfrn.canvas.draw()
 
 def moveAnnR(self):
-    innerRadius,outerRadius = self.AnnRi.value()
-
+    # get diffraction scale set by user during alignment
     scale = self.DfPxR
+
+    # get inner/outer adf radii from the calling widget
     match self.sender():
-        case self.A.adfInnerPt: #TODO
-            innerRadius = round(np.linalg.norm(np.subtract(self.B0,self.A.adfInnerPt.point.center))/self.D.annWidth)
-        case self.A.adfOuterPt:
-            outerRadius = round(np.linalg.norm(np.subtract(self.B0,self.A.adfOuterPt.point.center))/self.D.annWidth)
+        # draggable points on annular detector annothation
+        case self.A.adfPt:
+            innerRadius, outerRadius = np.rint(np.linalg.norm(self.B0-self.A.adfPt.point.get_offsets(),axis=1)/self.D.annWidth).astype(int)
+        # QRangeSlider
         case self.AnnRi:
             innerRadius,outerRadius = self.AnnRi.value()
+        # Inner Radius QDoubleSpinBox
         case self.AnnRi_NF:
             innerRadius = round(self.AnnRi_NF.value()/self.D.annWidth/scale)
+        # Outer Radius QDoubleSpinBox 
         case self.AnnRo_NF:
             outerRadius = round(self.AnnRo_NF.value()/self.D.annWidth/scale)
 
     # allow user to drag inner/outer annulus over the other, swapping their relationships
     if innerRadius>outerRadius:
         innerRadius,outerRadius = outerRadius,innerRadius
-        self.A.adfInnerPt,self.A.adfOuterPt = self.A.adfOuterPt,self.A.adfInnerPt
         self.A.adfInnerCirc,self.A.adfOuterCirc = self.A.adfOuterCirc,self.A.adfInnerCirc
 
     # inner radius cannot be less than 0
@@ -108,9 +111,14 @@ def moveAnnR(self):
     self.AnnRi_NF.blockSignals(False)
     self.AnnRo_NF.blockSignals(False)
 
-    # update point centers
-    self.A.adfInnerPt.point.center = self.B0 + np.array([1,-1])*self.AnnRi.value()[0]*self.D.annWidth/np.sqrt(2)
-    self.A.adfOuterPt.point.center = self.B0 + np.array([1,-1])*self.AnnRi.value()[1]*self.D.annWidth/np.sqrt(2)
+    # update point centers when updated via QRangeSlider or QDoubleSpinBoxes
+    if self.sender() is not self.A.adfPt:
+        centers = self.A.adfPt.point.get_offsets()-self.B0
+        angles = np.arctan2(centers[:,0],centers[:,1])
+        centers = np.array([np.sin(angles),np.cos(angles)]).T*np.array([[innerRadius],[outerRadius]])*self.D.annWidth+self.B0
+        self.A.adfPt.point.set_offsets(centers)
+    
+    # update circles on adf detector and refresh diffraction figure (self.Fig.Dfrn)
     replotCirc(self)
 
     #if isStaticEvt(evt): #TODO
@@ -120,7 +128,8 @@ def moveAnnR(self):
     #if dmod == "DPCMod":
     #    self.moveSeg()
 
-    # add one to outer limit because python doesn't include the last term
+    # refresh real-space image given new inner/outer radii
+    # (add one to outer limit because python doesn't include the last term of the range)
     self.Image.Real.set_data(self.adfImages[:,:,innerRadius:outerRadius+1].sum(axis=2))
     self.Image.Real.autoscale()
     self.Fig.Real.canvas.draw()

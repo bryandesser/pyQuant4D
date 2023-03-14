@@ -126,6 +126,7 @@ class A:
     adfInnerCirc = None
     adfOuterPt = None
     adfOuterCirc = None
+    adfPt = None
 
 class Mask:
     pass

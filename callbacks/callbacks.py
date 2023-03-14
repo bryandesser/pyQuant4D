@@ -45,6 +45,13 @@ def on_ImpFileSelect_clicked(self):
 
         # ensure ImportWindow remains on top
         self.ImportWindow.activateWindow()
+
+        # set default button to "Import Data"
+        self.ImportWindow.ImportDataButton.setDefault(True)
+        self.ImportWindow.ImportDataButton.setAutoDefault(True)
+        self.ImportWindow.ImportDataButton.setFocus(True)
+        self.ImportWindow.ImpFileSelect.setAutoDefault(False)
+        self.ImportWindow.ImpFileSelect.setDefault(False)
     
     # get file directory, name, extension, and size. display in filesize field
     if os.path.isfile(self.ImportWindow.ImpFilePath.text()):
@@ -564,6 +571,13 @@ def unHideOpenWindows(self):
 def on_ShowImportWdw_triggered(self):
     self.ShowImportWdw.setChecked(not self.ImportWindow.isVisible())
     self.ImportWindow.setVisible(self.ShowImportWdw.isChecked())
+    
+    # set default button to "Select"
+    self.ImportWindow.ImportDataButton.setDefault(False)
+    self.ImportWindow.ImportDataButton.setAutoDefault(False)
+    self.ImportWindow.ImpFileSelect.setDefault(True)
+    self.ImportWindow.ImpFileSelect.setAutoDefault(True)
+
     if self.ShowImportWdw.isChecked():
         hideAllWindows(self)
         self.ImportWindow.activateWindow()

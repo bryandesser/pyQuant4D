@@ -1,9 +1,6 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 from matplotlib.backend_tools import Cursors
 from PyQt5 import QtCore as qtc
-from PyQt5 import QtGui as qtg
+import numpy as np
 
 class DraggablePoint(qtc.QObject):
     redrawCircle = qtc.pyqtSignal()
@@ -13,6 +10,7 @@ class DraggablePoint(qtc.QObject):
         super().__init__()
         self.point = point
         self.press = None
+        self.idx = 0
         self.background = None
         self.radius = 1
 
@@ -25,9 +23,17 @@ class DraggablePoint(qtc.QObject):
     def on_press(self, event):
         if event.inaxes != self.point.axes: return
         if DraggablePoint.lock is not None: return
-        contains, attrd = self.point.contains(event)#,radius=self.radius)
+        
+        # check that mouse press contains one of the DraggablePoints
+        contains, attrd = self.point.contains(event)
+
         if not contains: return
-        self.press = (self.point.center), event.xdata, event.ydata
+        # if the point is contained, save point index (i.e. adfInner or adfOuter)
+        self.idx = attrd["ind"][0]
+
+        # save info to the self.press 
+        self.press = (self.point.get_offsets()[attrd["ind"][0]]), event.xdata, event.ydata
+
         DraggablePoint.lock = self
 
         # draw everything but the selected rectangle and store the pixel buffer
@@ -47,6 +53,8 @@ class DraggablePoint(qtc.QObject):
         canvas.blit(axes.bbox)
 
     def on_motion(self, event):
+        # monitor mouse location, if hovering over a Draggable point,
+        # change the cursor to HAND, if not, return to standard pointer
         contains, _ = self.point.contains(event)#,radius=self.radius)
         if contains:
             self.point.figure.canvas.set_cursor(Cursors.HAND)
@@ -60,7 +68,10 @@ class DraggablePoint(qtc.QObject):
         self.point.center, xpress, ypress = self.press
         dx = event.xdata - xpress
         dy = event.ydata - ypress
-        self.point.center = (self.point.center[0]+dx, self.point.center[1]+dy)
+        centers = self.point.get_offsets()
+        centers[self.idx] = np.array([self.point.center[0]+dx, self.point.center[1]+dy])
+
+        self.point.set_offsets(centers)
 
         canvas = self.point.figure.canvas
         axes = self.point.axes
@@ -94,3 +105,4 @@ class DraggablePoint(qtc.QObject):
     
     def setPointPickerRadius(self,radius):
         self.radius = radius/2
+        self.point.set_sizes(2*[self.radius/2])
