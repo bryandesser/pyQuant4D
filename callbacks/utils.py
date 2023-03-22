@@ -67,6 +67,18 @@ def gatherImportOptions(self):
         self.D.h5ds = self.D.subImg
 
 def rangeImportExport(self, src):
+    # self.ImportWindow.IPxX1.setMaximum(self.D.NPxX)
+    # self.ImportWindow.IPxY1.setMaximum(self.D.NPxY)
+    # self.ImportWindow.INPxX.setMaximum(self.D.NPxX)
+    # self.ImportWindow.INPxY.setMaximum(self.D.NPxY)
+    # self.ImportWindow.IPxD.setMaximum(min(self.D.NPx))
+
+    # self.ImportWindow.IFrX1.setMaximum(self.D.NFrX)
+    # self.ImportWindow.IFrY1.setMaximum(self.D.NFrY)
+    # self.ImportWindow.INFrX.setMaximum(self.D.NFrX)
+    # self.ImportWindow.INFrX.setMaximum(self.D.NFrY)
+    # self.ImportWindow.IFrD.setMaximum(min(self.D.NFr))
+
     # spinner upper/lower limits must be different, so now set lower limit `0` but force minimum to `1`
     if hasattr(src,'value'):
         val = np.maximum(src.value(), 1)
@@ -86,10 +98,10 @@ def rangeImportExport(self, src):
     # `O`: "I" or "E" for Import/Export
     if "Import" in src.accessibleDescription():
         O = "I"
-        dnp = np.asarray([self.ImportWindow.findChild(qtw.QSpinBox,"DN"+U+"X").value(), self.ImportWindow.findChild(qtw.QSpinBox,"DN"+U+"Y").value()]) # Raw dataset dimensions, e.g. self.ImportWindow.DNPxX.value()
+        dnp = np.asarray([self.ImportWindow.findChild(qtw.QSpinBox,"DN"+U+"X").value(), self.ImportWindow.findChild(qtw.QSpinBox,"DN"+U+"Y").value()]).astype(int) # Raw dataset dimensions, e.g. self.ImportWindow.DNPxX.value()
     else: # Export
         O = "E"
-        dnp = np.asarray(getattr(self.D,"N"+U)) # Loaded dataset dimensions
+        dnp = np.asarray(getattr(self.D,"N"+U)).astype(int) # Loaded dataset dimensions
     
     # Get values from UI
     binDist = np.asarray(self.ImportWindow.findChild(qtw.QSpinBox,O+U+"D").value()) # Binning/Sampling (self.ImportWindow.IPxD, self.ImportWindow.EPxD, self.ImportWindow.IFrD or self.ImportWindow.EFrD)
@@ -138,7 +150,8 @@ def rangeImportExport(self, src):
         s = np.asarray([0,1])
 
     if U == "Px":
-        numPoints[s] = np.maximum(np.asarray([1,1]), np.minimum(numPoints[s], np.floor((dnp[s]-initPoint[s]+1)/binDist)))  # Determine N-Points X/Y if not source
+        numPoints[s] = np.maximum(1, np.minimum(numPoints[s], np.floor((dnp[s]-initPoint[s]+1)/binDist)))  # Determine N-Points X/Y if not source
+        #numPoints[s] = np.maximum(np.asarray([1,1]), np.minimum(numPoints[s], np.floor((dnp[s]-initPoint[s]+1)/binDist)))  # Determine N-Points X/Y if not source
         initPoint = np.minimum(initPoint, dnp-numPoints*binDist+1)
         endPoint = initPoint+numPoints*binDist-1 # Endpoints of Pixel ranges
         l1 = dnp-binDist+1
@@ -193,7 +206,7 @@ def rangeImportExport(self, src):
 
 # Function to unload data and clean all images
 def unloadData(self, keep_p):
-    self.setWindowTitle("Qunat4D")
+    self.setWindowTitle("Quant4D")
 
 #def importData(self):
 def on_ImportDataButton_clicked(self):
@@ -205,6 +218,11 @@ def on_ImportDataButton_clicked(self):
         self.SaveWindow.SaveDir.setText(self.D.fileDir)
         self.SaveWindow.SaveImgPrefix.setText(self.D.fileName+"_")
         gatherImportOptions(self)
+        
+        # TODO
+        #if self.ImportWindow.MedipixButton.isChecked():
+        #     readMRC(self)
+        #elif self.ImportWindow.EMPADButton.isChecked():
         readEMPAD(self)
 
         # Start file reading here

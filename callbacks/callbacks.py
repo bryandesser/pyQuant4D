@@ -5,40 +5,40 @@ import gc
 import numpy as np
 from PyQt5 import QtWidgets as qtw
 from PyQt5 import QtCore as qtc
-from callbacks.utils import on_ImportDataButton_clicked, rangeImportExport#, on_actionShow_Diffraction_Pattern_triggered
-from callbacks.ioUtils import prepEMPAD
+from callbacks.utils import on_ImportDataButton_clicked, rangeImportExport, gatherImportOptions#, on_actionShow_Diffraction_Pattern_triggered
+from callbacks.ioUtils import prepEMPAD, prepDM
 from callbacks.imageUtils import moveAnnR
 
 def importCallbacks():
     pass
 
-#@qtc.pyqtSlot()
 def on_ImpFileSelect_clicked(self):
     # if the user pushes the "Select" button in the Import window, open file dialog, filter for known filetypes
-    if self.sender()==self.ImportWindow.ImpFileSelect:
+    if self.sender() is self.ImportWindow.ImpFileSelect:
         fDialog  = qtw.QFileDialog(self)
         fDialog.setWindowTitle("Select 4DSTEM Dataset")
         fDialog.setNameFilter("(*.raw *.mib *.mrc *.dm3 *.dm4 *.npy *.h5 *.hdf5);;(*.*)")
         fDialog.setDirectory(qtc.QDir.currentPath())
-        self.D.fileName = None
+        fileName = None
         if fDialog.exec_() == qtw.QDialog.Accepted:
-            self.D.fileName = fDialog.selectedFiles()
-        else:
+            fileName = fDialog.selectedFiles()
+        else: # user selected cancel
             self.ImportWindow.activateWindow()
+            self.ImportWindow.ImportDataButton.setDefault(False)
+            self.ImportWindow.ImportDataButton.setAutoDefault(False)
+            self.ImportWindow.ImpFileSelect.setFocus(True)
+            self.ImportWindow.ImpFileSelect.setAutoDefault(True)
+            self.ImportWindow.ImpFileSelect.setDefault(True)
             return
 
         # reflect user selection in path field box
-        if self.D.fileName is not None:
+        if fileName is not None:
+            self.D.fileName = fileName
             self.fname = str(self.D.fileName[0])
             self.ImportWindow.ImpFilePath.setText(self.fname)
             # activate rest of wigets in window
             for widget in self.ImportWindow.children():
                 widget.setEnabled(True)
-        else:
-            # activate rest of wigets in window
-            for widget in self.ImportWindow.children():
-                widget.setEnabled(False)
-            self.ImportWindow.ImpFileSelect.setEnabled(True)
         
         # switch to directory containing dataset for future saving
         os.chdir(qtc.QDir.currentPath())
@@ -63,18 +63,19 @@ def on_ImpFileSelect_clicked(self):
         self.ImportWindow.ImpActualFilesize.setText("{} bytes, {:.2f} GiB".format(self.T.FileSize,self.T.FileSize/1024**3))
 
         # activate preset buttons if file extension matches a known filetype, else custom
-        if self.D.fileExt.casefold()==".raw".casefold():
-            self.ImportWindow.EMPADButton.setChecked(1)
-        elif self.D.fileExt.casefold()==".mib".casefold():
-            self.ImportWindow.MedipixButton.setChecked(1)
-        elif self.D.fileExt.casefold()==".mrc".casefold():
-            self.ImportWindow.MRCButton.setChecked(1)
-        elif self.D.fileExt.casefold()==".dm3".casefold() or self.D.fileExt.casefold()==".dm4".casefold():
-            self.ImportWindow.DM34Button.setChecked(1)
-        elif self.D.fileExt.casefold()==".h5".casefold():
-            self.ImportWindow.HDF5Button.setChecked(1)
-        else:
-            self.ImportWindow.CustomButton.setChecked(1)
+        match self.D.fileExt.casefold():
+            case ".raw":
+                self.ImportWindow.EMPADButton.setChecked(1)
+            case ".mib":
+                self.ImportWindow.MedipixButton.setChecked(1)
+            case ".mrc":
+                self.ImportWindow.MRCButton.setChecked(1)
+            case ".dm3"|".dm4":
+                self.ImportWindow.DM34Button.setChecked(1)
+            case ".h5":
+                self.ImportWindow.HDF5Button.setChecked(1)
+            case other:
+                self.ImportWindow.CustomButton.setChecked(1)
     
     # if filename is incorrect/does not exist...
     else:
@@ -94,8 +95,8 @@ def importFileType(self):
 
     # Guess numbers of Frame X and Y from 3D dataset (with only Frame X)
     def guessFramesFromDimZ(dz):
-        self.ImportWindow.DNFrX.setValue(np.round(np.sqrt(dz)))
-        self.ImportWindow.DNFrY.setValue(np.round(dz/self.ImportWindow.DNFrX.value()))
+        self.ImportWindow.DNFrX.setValue(np.round(np.sqrt(dz)).astype(int))
+        self.ImportWindow.DNFrY.setValue(np.round(dz/self.ImportWindow.DNFrX.value()).astype(int))
 
     # Guess dataset size from fileName in the following style (only the first match):
     #   fileName = 'fooAxBxCxDbar', where:  A = NPxX, B = NPxY, C = NFrX, D = NFrY, and are numbers
@@ -128,10 +129,10 @@ def importFileType(self):
     # H5 and other binary/raw data types are allowed, but user-dependent.
 
     # available data types and their plain text names
-    dataType = ['unknown','int8','uint8','int16','uint16','single','int32','uint32','double','int64','uint64']
+    dataType = ['unknown','i1','u1','i2','u2','f4','i4','u4','f8','i8','u8']
     dataTypeText = ['Select Data Type...','8-bit Signed','8-bit Unsigned','16-bit Signed','16-bit Unsigned','32-bit Real', \
                     '32-bit Signed','32-bit Unsigned','64-bit Real','64-bit Signed','64-bit Unsigned']
-    
+
     # add to combobox
     self.ImportWindow.ImpDataType.clear()
     for dtt,dt in zip(dataTypeText,dataType):
@@ -155,7 +156,7 @@ def importFileType(self):
 
         elif self.ImportWindow.MedipixButton.isChecked():
             # available data types and their plain text names - Medipix edition
-            dataType = ['unknown','uint8','uint16','uint32']
+            dataType = ['unknown','u1','u2','u4']
             dataTypeText = ['Select Data Type...','1 or 6-bit Padded Unsigned','12-bit Padded Unsigned','24-bit Padded Unsigned']
             
             # add to combobox
@@ -174,12 +175,13 @@ def importFileType(self):
                 datatype = fmeta[6].casefold()
                 bitsize = int(fmeta[-2])
                 if datatype[0] == 'u':
-                    if bitsize in [1,6]: # uint8
-                        self.ImportWindow.ImpDataType.setCurrentIndex(1)
-                    elif bitsize == 12: # uint16
-                        self.ImportWindow.ImpDataType.setCurrentIndex(2)
-                    elif bitsize ==24: # uint32
-                        self.ImportWindow.ImpDataType.setCurrentIndex(3)
+                    match bitsize:
+                        case 1|6:
+                            self.ImportWindow.ImpDataType.setCurrentIndex(1)
+                        case 12:
+                            self.ImportWindow.ImpDataType.setCurrentIndex(2)
+                        case 24:
+                            self.ImportWindow.ImpDataType.setCurrentIndex(3)
                 self.ImportWindow.FrHead.setValue(int(fmeta[2]))
                 self.ImportWindow.ImpByteOrder.setValue(1) # 'b'
                 self.ImportWindow.DNPxX.setValue(int(fmeta[4]))
@@ -200,10 +202,10 @@ def importFileType(self):
                 # Bytes for Endianness
                 e = np.fromfile(self.ImportWindow.ImpFilePath.text(),count=2,dtype=np.uint8,offset=212)
                 if e[0] == 68 and e[1] in [65, 68]:
-                    self.ImportWindow.ImpByteOrder.setValue(0) # 'l'
+                    self.ImportWindow.ImpByteOrder.setCurrentIndex(0) # 'l'
                     bo = 'Little Endian'
                 elif e[0] == 17 and e[1] == 17:
-                    self.ImportWindow.ImpByteOrder.setValue(1) # 'b'
+                    self.ImportWindow.ImpByteOrder.setCurrentIndex(1) # 'b'
                     bo = 'Big Endian'
                 else:
                     bo = 'Unknown Endianness'
@@ -218,32 +220,34 @@ def importFileType(self):
                 getDimFromName(self.ImportWindow.ImpFilePath.text())
 
                 dataType = np.fromfile(self.ImportWindow.ImpFilePath.text(),count=1,dtype=np.uint32,offset=12)
-                if dataType==0:
-                    self.ImportWindow.ImpDataType.setCurrentIndex(1)
-                    tnote = '8-bit Signed Integer'
-                elif dataType==1:
-                    self.ImportWindow.ImpDataType.setCurrentIndex(3)
-                    tnote = '16-bit Signed Integer'
-                elif dataType==2:
-                    self.ImportWindow.ImpDataType.setCurrentIndex(5)
-                    tnote = '32-bit Real Float'
-                elif dataType==3:
-                    tnote = '16-bit Complex Signed Integer, unsupported'
-                elif dataType==4:
-                    tnote = '32-bit Complex Float, unsupported'
-                elif dataType==6:
-                    self.ImportWindow.ImpDataType.Value = 'uint16'
-                    tnote = '16-bit Unsigned Integer'
-                else:
-                    tnote = 'Uknown data type'
+                match dataType:
+                    case 0:
+                        self.ImportWindow.ImpDataType.setCurrentIndex(1)
+                        tnote = '8-bit Signed Integer'
+                    case 1:
+                        self.ImportWindow.ImpDataType.setCurrentIndex(3)
+                        tnote = '16-bit Signed Integer'
+                    case 2:
+                        self.ImportWindow.ImpDataType.setCurrentIndex(5)
+                        tnote = '32-bit Real Float'
+                    case 3:
+                        tnote = '16-bit Complex Signed Integer, unsupported'
+                    case 4:
+                        tnote = '32-bit Complex Float, unsupported'
+                    case 6:
+                        self.ImportWindow.ImpDataType.Value = 'uint16'
+                        tnote = '16-bit Unsigned Integer'
+                    case other:
+                        tnote = 'Uknown data type'
 
                 self.ImportWindow.DataOffset.setValue(1024)
                 notes = 'Dim: X = '+str(dim[0])+', Y = '+str(dim[1])+', Z = '+str(dim[2])+'\n'+tnote+', '+bo+'\n** MRC files have a 1024-byte data offset'
             else:
                 notes = 'Unrecognizable as MRC.\n\n"MAP " word missed.'
                 err = -1
+                return
         elif self.ImportWindow.DM34Button.isChecked():
-            print('DM3/4')
+            prepDM(self)
         elif self.ImportWindow.HDF5Button.isChecked():
             print('HDF5')
         else:
@@ -262,6 +266,7 @@ def importFileType(self):
         warnDiag.setWindowTitle("Invalid Data Type!")
 
     #% Reset import range selections
+    gatherImportOptions(self)
     rangeImportExport(self, self.ImportWindow.DNPxX)
     rangeImportExport(self, self.ImportWindow.DNFrX)
     importBoxInput(self)
@@ -276,6 +281,9 @@ def importBoxInput(self):
             self.ImportWindow.ImpEstFilesize.setStyleSheet("color: rgb(128, 128, 0);")
         else:
             self.ImportWindow.ImpEstFilesize.setStyleSheet("color: rgb(255, 0, 0);")
+        
+        # keep the same font after changing color
+        self.ImportWindow.ImpEstFilesize.setFont(self.ImportWindow.ImpActualFilesize.font())
 
         # Estimate the amount of memory needed to hold the largest arrays in memory
         # Estimate of the distance to the far corner of the diffraciton pattern
@@ -359,6 +367,7 @@ def importBoxInput(self):
         if not "Real" in self.sender().accessibleDescription():
             real_src = self.ImportWindow.IFrD
     
+    gatherImportOptions(self)
     dnote,_,_,nPx,_ = rangeImportExport(self, dfrn_src)
     rnote,_,_,nFr,_ = rangeImportExport(self, real_src)
     
@@ -370,8 +379,8 @@ def importBoxInput(self):
     # Allow for virtual memory mapping in some situations
     if self.ImportWindow.FrHead.value() == 0 and self.ImportWindow.FrFoot.value() == 0 \
         and (not self.ImportWindow.HDF5Button.isChecked() or self.ImportWindow.DataOffset.value()) \
-        and self.ImportWindow.ImpByteOrder.value() == self.C.SysEndian \
-        and not 'int' in self.ImportWindow.ImpDataType.Value \
+        and self.ImportWindow.ImpByteOrder.currentData() == self.C.SysEndian \
+        and not 'int' in self.ImportWindow.ImpDataType.currentData() \
         and [self.ImportWindow.DNPxX.value(), self.ImportWindow.DNPxY.value(), self.ImportWindow.DNFrX.value(), self.ImportWindow.DNFrY.value()]==irng:
         self.ImportWindow.ImpMemType.setEnabled(True)
     else:
@@ -380,19 +389,19 @@ def importBoxInput(self):
     
     # Calculate dataset size and memory usage
     if self.ImportWindow.ImpDataType.currentIndex != 0:
-        byte_size = getattr(self.ByteSize,self.ImportWindow.ImpDataType.itemData(self.ImportWindow.ImpDataType.currentIndex()))
+        byte_size = getattr(self.ByteSize,self.ImportWindow.ImpDataType.currentData())
         self.T.EstSize = self.ImportWindow.DataOffset.value() + self.T.fileTail \
             + (self.ImportWindow.FrHead.value()+self.ImportWindow.DNPxX.value()*self.ImportWindow.DNPxY.value()*byte_size+self.ImportWindow.FrFoot.value()) \
             * self.ImportWindow.DNFrX.value()*self.ImportWindow.DNFrY.value()
         self.ImportWindow.ImpEstFilesize.setText("{} bytes, {:.2f} GiB".format(self.T.EstSize,self.T.EstSize/1024**3))
 
-        if 'int' in self.ImportWindow.ImpDataType.itemData(self.ImportWindow.ImpDataType.currentIndex()):
+        if (self.ImportWindow.ImpDataType.currentData() != 'unknown') and (np.issubdtype(self.ImportWindow.ImpDataType.currentData(),np.integer)):
             if byte_size > 4:
-                f = 'double'
+                f = 'f8'
             else:
-                f = 'single'
+                f = 'f4'
             byte_size = getattr(self.ByteSize,f)
-            notes = notes+"\nDataset will be converted into "+byte_size*8+"-bit Real."
+            notes = notes+"\nDataset will be converted into "+str(byte_size*8)+"-bit Real."
         
         notes = notes+"\nImport by "+self.ImportWindow.ImpMemType.currentText()+"\n"+checkMem(nPx,nFr,byte_size)
         notes = notes+"\n\n"+checkGPUMEM(nPx,nFr)
@@ -509,7 +518,30 @@ def slotsSignals(self):
     self.ImportWindow.ImportCancelButton.clicked.connect(lambda:on_ShowImportWdw_triggered(self))
     self.ImportWindow.ImpFileSelect.clicked.connect(lambda:on_ImpFileSelect_clicked(self))
     self.ImportWindow.ImportDataButton.clicked.connect(lambda:on_ImportDataButton_clicked(self))
-    
+    self.ImportWindow.ImpKeepP.clicked.connect(lambda: importBoxInput(self))
+    self.ImportWindow.ImpGPU.currentIndexChanged.connect(lambda: importBoxInput(self))
+    self.ImportWindow.ImpFrPart.clicked.connect(lambda: importBoxInput(self))
+    self.ImportWindow.ImpPxPart.clicked.connect(lambda: importBoxInput(self))
+    self.ImportWindow.IFrD.valueChanged.connect(lambda: importBoxInput(self))
+    self.ImportWindow.IFrY1.valueChanged.connect(lambda: importBoxInput(self))
+    self.ImportWindow.INFrX.valueChanged.connect(lambda: importBoxInput(self))
+    self.ImportWindow.IFrX1.valueChanged.connect(lambda: importBoxInput(self))
+    self.ImportWindow.INFrY.valueChanged.connect(lambda: importBoxInput(self))
+    self.ImportWindow.IPxD.valueChanged.connect(lambda: importBoxInput(self))
+    self.ImportWindow.INPxY.valueChanged.connect(lambda: importBoxInput(self))
+    self.ImportWindow.IPxY1.valueChanged.connect(lambda: importBoxInput(self))
+    self.ImportWindow.INPxX.valueChanged.connect(lambda: importBoxInput(self))
+    self.ImportWindow.IPxX1.valueChanged.connect(lambda: importBoxInput(self))
+    self.ImportWindow.DNFrY.valueChanged.connect(lambda: importBoxInput(self))
+    self.ImportWindow.DNFrX.valueChanged.connect(lambda: importBoxInput(self))
+    self.ImportWindow.DNPxY.valueChanged.connect(lambda: importBoxInput(self))
+    self.ImportWindow.DNPxX.valueChanged.connect(lambda: importBoxInput(self))
+    self.ImportWindow.ImpByteOrder.currentIndexChanged.connect(lambda: importBoxInput(self))
+    self.ImportWindow.ImpDataType.currentIndexChanged.connect(lambda: importBoxInput(self))
+    self.ImportWindow.DataOffset.valueChanged.connect(lambda: importBoxInput(self))
+    self.ImportWindow.FrFoot.valueChanged.connect(lambda: importBoxInput(self))
+    self.ImportWindow.FrHead.valueChanged.connect(lambda: importBoxInput(self))
+
     # menu action slots/signals
     self.actionShow_Diffraction_Pattern.triggered.connect(lambda: self.Fig.Dfrn.setVisible(self.actionShow_Diffraction_Pattern.isChecked()))
     self.actionShow_Diffraction_Mask.triggered.connect(lambda: self.Fig.DfrnMask.setVisible(self.actionShow_Diffraction_Mask.isChecked()))

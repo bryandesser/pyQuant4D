@@ -135,16 +135,17 @@ class G:
     pass
 
 class ByteSize:
-    uint8 = 1
-    int8 = 1
-    uint16 = 2
-    int16 = 2
-    single = 4
-    int32 = 4
-    uint32 = 4
-    double = 8
-    int64 = 8
-    uint64 = 8
+    u1 = 1
+    i1 = 1
+    u2 = 2
+    i2 = 2
+    f4 = 4
+    i4 = 4
+    u4 = 4
+    f8 = 8
+    i8 = 8
+    u8 = 8
+    unknown = 0
 
 class Fig:
     ColorWheel = None
