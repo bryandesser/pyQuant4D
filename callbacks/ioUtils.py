@@ -3,22 +3,40 @@ import re
 from PyQt5 import QtWidgets as qtw
 from PyQt5 import QtCore as qtc
 from callbacks.imageUtils import integrateAnnular, detrCoordCallbacks, Worker
+from multiprocessing.pool import ThreadPool
+import psutil
+from datetime import datetime
 
 class importThread(qtc.QObject):
     result = qtc.pyqtSignal(np.ndarray)
     finished = qtc.pyqtSignal()
 
-    def __init__(self,filename,dataType,frameCount,dataOffset):
+    def __init__(self,filename,dataType,dtype,pixCount,frameCount,dataOffset):
         super().__init__()
         self.filename = filename
         self.dataType = dataType
+        self.dType = dtype
+        self.pixCount = pixCount
         self.frameCount = frameCount
         self.dataOffset = dataOffset
+        self.isInt = np.issubdtype(self.dType,np.integer)
+
 
     def run(self):
-        self.Data = np.fromfile(self.filename, dtype=self.dataType, count=self.frameCount, offset=self.dataOffset)["data"]
+        if self.isInt:
+            self.DataMemmap = np.memmap(self.filename, dtype=self.dType, mode = "c", offset=self.dataOffset, shape=(self.frameCount,self.pixCount))
+            self.Data = np.zeros(shape=self.DataMemmap.shape,dtype=np.float32)
+            nThreads = psutil.cpu_count(logical=False)
+            with ThreadPool(processes=nThreads) as pool:
+                pool.map(self.convertInt2Float,range(self.DataMemmap.shape[0]))
+            pool.join()
+        else:
+            self.Data = np.fromfile(self.filename, dtype=self.dataType, count=self.frameCount, offset=self.dataOffset)["data"]
         self.result.emit(self.Data)
         self.finished.emit()
+    
+    def convertInt2Float(self,val):
+        self.Data[val,:] = self.DataMemmap[val,:].astype(np.float32)
 
 def prepEMPAD(self):
     # filename from import dialog
@@ -489,6 +507,9 @@ def prepDM(self):
     #if dims[3] == 1: #TODO
     #    guessFramesFromDimZ(dims[2])
 
+    self.ImportWindow.FrHead.setValue(0)
+    self.ImportWindow.FrFoot.setValue(0)
+
 def readEMPAD(self):
     self.ImportWindow.hide()
     self.ShowImportWdw.setChecked(False)
@@ -520,10 +541,10 @@ def readEMPAD(self):
     self.progressBarPanel.setVisible(True)
     self.progressBarPanel.setEnabled(True)
 
-    # Read in the file on a separate thread
+    # Read in the file on a separate thread, if dtype is int, default to memmap and convert to float
     if self.ImportWindow.ImpMemType.currentIndex()==0: # physical memory
         self.workerThread = qtc.QThread()
-        self.worker = importThread(filename,dataType,framesx*framesy,dataOffset)
+        self.worker = importThread(filename,dataType,self.D.DataType,nopix*nopiy,framesx*framesy,dataOffset)
         self.worker.moveToThread(self.workerThread)
         self.workerThread.started.connect(self.worker.run)
         self.worker.result.connect(self.receiveThreadData)
@@ -534,30 +555,28 @@ def readEMPAD(self):
         self.Data = np.memmap(filename, dataType,'r')["data"]
 
 def finishImport(self):
-    # convert integers to floats for multiplication purposes #TODO?
-    if np.issubdtype(self.Data.dtype,np.integer):
-       if self.D.ByteSize > 4:
-           self.Data = self.Data.astype(np.double)
-       else:
-           self.Data = self.Data.astype(np.single)
-
     # integrate annular images #TODO
-    self.B0 = [64.3641,63.7125]
-    #self.B0 = [259.5970,270.3951]
+    #self.B0 = [64.3641,63.7125] # ga2o3 empad
+    self.B0 = [259.5970,270.3951] # mrc triangle
+    #self.B0 = [462.6025,521.6588] # PIO dm4
     
-    # push annular integration to a worker pool #TODO #TEMPORARY
-     # Pass the function to execute
-    #worker = Worker(lambda: integrateAnnular(self)) # Any other args, kwargs are passed to the run function
-    #worker.signals.result.connect(self.print_output)
-    #worker.signals.finished.connect(self.thread_complete)
-    #worker.signals.progress.connect(self.progress_fn)
+    print("finishImport(self) on thread {}".format(int(qtc.QThread.currentThreadId())))
 
-    # Execute
+    # push annular integration to a worker threadpool
+    #print("worker established: {}".format(datetime.now()))
+    #worker = Worker(integrateAnnular,self)
+    #worker.signals.result.connect(self.receiveWorkerData)
+    #worker.signals.finished.connect(lambda: reinitializeUI(self))
+    #print("threadpool established: {}".format(datetime.now()))
+    #self.threadpool = qtc.QThreadPool()
+    print("threadpool started: {}".format(datetime.now()))
     #self.threadpool.start(worker)
-    
-    # UNTHREADED #TODO #TEMPORARY
+
     integrateAnnular(self)
-            
+    reinitializeUI(self)
+
+def reinitializeUI(self):
+    print("threadpool finished: {}".format(datetime.now()))
     # finalize progressBar
     self.progressBar.setMaximum(100)
     self.progressBar.setValue(100)
@@ -574,10 +593,6 @@ def finishImport(self):
 
     self.progressBar.setEnabled(False)
 
-    reinitializeUI(self)
-    detrCoordCallbacks(self) #TODO - add alignment routines
-
-def reinitializeUI(self):
     # make control panels visible again
     self.RealSpacePanel.setVisible(True)
     self.progressBarPanel.setVisible(True)
@@ -592,3 +607,5 @@ def reinitializeUI(self):
     for action in self.findChildren(qtw.QAction):
         if not action.isSeparator():
             action.setEnabled(True)
+    
+    detrCoordCallbacks(self)

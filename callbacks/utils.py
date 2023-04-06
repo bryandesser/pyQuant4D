@@ -67,18 +67,6 @@ def gatherImportOptions(self):
         self.D.h5ds = self.D.subImg
 
 def rangeImportExport(self, src):
-    # self.ImportWindow.IPxX1.setMaximum(self.D.NPxX)
-    # self.ImportWindow.IPxY1.setMaximum(self.D.NPxY)
-    # self.ImportWindow.INPxX.setMaximum(self.D.NPxX)
-    # self.ImportWindow.INPxY.setMaximum(self.D.NPxY)
-    # self.ImportWindow.IPxD.setMaximum(min(self.D.NPx))
-
-    # self.ImportWindow.IFrX1.setMaximum(self.D.NFrX)
-    # self.ImportWindow.IFrY1.setMaximum(self.D.NFrY)
-    # self.ImportWindow.INFrX.setMaximum(self.D.NFrX)
-    # self.ImportWindow.INFrX.setMaximum(self.D.NFrY)
-    # self.ImportWindow.IFrD.setMaximum(min(self.D.NFr))
-
     # spinner upper/lower limits must be different, so now set lower limit `0` but force minimum to `1`
     if hasattr(src,'value'):
         val = np.maximum(src.value(), 1)

@@ -3,78 +3,43 @@ import matplotlib.patches as patches
 from callbacks.annotationsClass import DraggablePoint
 from PyQt5 import QtCore as qtc
 import traceback, sys
+from datetime import datetime
 
 class WorkerSignals(qtc.QObject):
-    '''
-    Defines the signals available from a running worker thread.
-
-    Supported signals are:
-
-    finished
-        No data
-
-    error
-        tuple (exctype, value, traceback.format_exc() )
-
-    result
-        object data returned from processing, anything
-
-    progress
-        int indicating % progress
-
-    '''
     finished = qtc.pyqtSignal()
     error = qtc.pyqtSignal(tuple)
-    result = qtc.pyqtSignal(object)
+    result = qtc.pyqtSignal(np.ndarray)
     progress = qtc.pyqtSignal(int)
 
 
 class Worker(qtc.QRunnable):
-    '''
-    Worker thread
-
-    Inherits from QRunnable to handler worker thread setup, signals and wrap-up.
-
-    :param callback: The function callback to run on this worker thread. Supplied args and
-                     kwargs will be passed through to the runner.
-    :type callback: function
-    :param args: Arguments to pass to the callback function
-    :param kwargs: Keywords to pass to the callback function
-
-    '''
-
-    def __init__(self, fn, *args, **kwargs):
+    def __init__(self, fn, *args):
         super(Worker, self).__init__()
 
         # Store constructor arguments (re-used for processing)
         self.fn = fn
-        self.args = args
-        self.kwargs = kwargs
+        self.args = args[0]
         self.signals = WorkerSignals()
 
-        # Add the callback to our kwargs
-        self.kwargs['progress_callback'] = self.signals.progress
-
-    @qtc.pyqtSlot()
     def run(self):
-        '''
-        Initialise the runner function with passed args, kwargs.
-        '''
-
-        # Retrieve args/kwargs here; and fire processing using them
+        print("Worker(qtc.QRunnable).run() on thread {}".format(qtc.QThread.currentThreadId()))
+        # run the function, return results, and signal finished
         try:
-            result = self.fn(*self.args, **self.kwargs)
+            adfImages = self.fn(self.args)
         except:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
             self.signals.error.emit((exctype, value, traceback.format_exc()))
         else:
-            self.signals.result.emit(result)  # Return the result of the processing
+            self.signals.result.emit(adfImages)  # Return the result of the processing
         finally:
             self.signals.finished.emit()  # Done
+            print("finished at {}".format(datetime.now()))
 
 
 def integrateAnnular(self):
+    print("integrateAnnular(self) on thread {}".format(qtc.QThread.currentThreadId()))
+    print("started at {}".format(datetime.now()))
     # generate meshgrid, divide by annulus width and round so distance increments away
     # from transmitted beam as integers to allow for direct use with QRangeSlider[int]
     # and array indexing; self.D.annWidth = 0.5 by default
@@ -89,7 +54,7 @@ def integrateAnnular(self):
 
     # generate all adf images from 0.0.5 pixel annuli; reshape to 3D for faster plotting
     self.adfImages = self.Data@adfMask
-    self.adfImages=np.reshape(self.adfImages,(self.D.NFrX,self.D.NFrY,-1))
+    self.adfImages = np.reshape(self.adfImages,(self.D.NFrY,self.D.NFrX,-1))
 
     # set adfInner and adfOuter slider limits based on k.max()
     self.AnnRi.setMaximum(k.max())
@@ -100,6 +65,39 @@ def integrateAnnular(self):
     
     # set maximum scattering angle
     self.P.RMax = k.max()
+
+    return self.adfImages
+
+def integrateAnnularThreaded(self):
+    print("integrateAnnular(self) on thread {}".format(qtc.QThread.currentThreadId()))
+    print("started at {}".format(datetime.now()))
+    # generate meshgrid, divide by annulus width and round so distance increments away
+    # from transmitted beam as integers to allow for direct use with QRangeSlider[int]
+    # and array indexing; self.D.annWidth = 0.5 by default
+    xgrid,ygrid = np.ogrid[-self.B0[0]:self.D.NPxX-self.B0[0],-self.B0[1]:self.D.NPxY-self.B0[1]]
+    k = np.int32(np.sqrt(xgrid**2+ygrid**2)/self.D.annWidth).flatten()
+
+    # generate a vector of pixel distances from transmitted beam center (divided by annWidth)
+    distance = np.arange(0,k.max()+1)
+
+    # create adf annular masks of annWidth pixel width
+    adfMask = np.where((k.reshape(1,len(k))>=distance.reshape(len(distance),1)) & (k.reshape(1,len(k))<(distance.reshape(len(distance),1)+0.5)), True, False).T
+
+    # generate all adf images from 0.0.5 pixel annuli; reshape to 3D for faster plotting
+    self.adfImages = self.Data@adfMask
+    self.adfImages = np.reshape(self.adfImages,(self.D.NFrY,self.D.NFrX,-1))
+
+    # set adfInner and adfOuter slider limits based on k.max()
+    self.AnnRi.setMaximum(k.max())
+
+    # set adfInner and adfOuter numerical field limits based on k.max()/2
+    self.AnnRi_NF.setMaximum(k.max()*self.D.annWidth)
+    self.AnnRo_NF.setMaximum(k.max()*self.D.annWidth)
+    
+    # set maximum scattering angle
+    self.P.RMax = k.max()
+
+    return self.adfImages
 
 def drawAnnDetr(self):
     """ initiallize the annular detector annotations """

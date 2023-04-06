@@ -55,6 +55,9 @@ class MainWindow(MW_Base, MW_Ui):
     
     def receiveThreadData(self,data):
         self.Data = data
+    
+    def receiveWorkerData(self,adfImages):
+        self.adfImages = adfImages
 
     
 
