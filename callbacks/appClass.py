@@ -103,6 +103,22 @@ class Prev:
     AnnR = []
     CoM_P = []
 
+class Fig:
+    ColorWheel = None
+    ColorWheelMask = None
+    Dfrn = None
+    DfrnMask = None
+    Real  = None
+    CoMPhMag = None
+    CoMPh = None
+    CoMMag = None
+    CoMX = None
+    CoMY = None
+    dCoM = None
+    iCoM = None
+    RealMask = None
+    Preview = None
+
 class Image:
     ColorWheel = None
     ColorWheelMask = None
@@ -127,6 +143,8 @@ class A:
     adfOuterPt = None
     adfOuterCirc = None
     adfPt = None
+    tbPt = None
+    tbCirc = None
 
 class Mask:
     pass
@@ -146,21 +164,6 @@ class ByteSize:
     i8 = 8
     u8 = 8
     unknown = 0
-
-class Fig:
-    ColorWheel = None
-    Dfrn = None
-    DfrnMask = None
-    Real  = None
-    CoMPhMag = None
-    CoMPh = None
-    CoMMag = None
-    CoMX = None
-    CoMY = None
-    dCoM = None
-    iCoM = None
-    RealMask = None
-    Preview = None
 
 def appStruct(self):
     setattr(self,'B0',[0,0])

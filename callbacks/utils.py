@@ -193,7 +193,7 @@ def rangeImportExport(self, src):
     return notes,binDist,initPoint,numPoints,endPoint
 
 # Function to unload data and clean all images
-def unloadData(self, keep_p):
+def unloadData(self, keep_p=False):
     self.setWindowTitle("Quant4D")
 
 #def importData(self):
@@ -205,6 +205,8 @@ def on_ImportDataButton_clicked(self):
         self.setWindowTitle(self.D.fileName)
         self.SaveWindow.SaveDir.setText(self.D.fileDir)
         self.SaveWindow.SaveImgPrefix.setText(self.D.fileName+"_")
+        
+        unloadData(self)
         gatherImportOptions(self)
         
         # TODO

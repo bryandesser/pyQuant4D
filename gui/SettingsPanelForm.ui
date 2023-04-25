@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>260</width>
-    <height>380</height>
+    <width>377</width>
+    <height>523</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -16,14 +16,8 @@
     <height>360</height>
    </size>
   </property>
-  <property name="maximumSize">
-   <size>
-    <width>260</width>
-    <height>380</height>
-   </size>
-  </property>
   <property name="windowTitle">
-   <string>Form</string>
+   <string>Settings</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <property name="leftMargin">
@@ -45,21 +39,15 @@
     <number>0</number>
    </property>
    <item row="0" column="0">
-    <widget class="QTabWidget" name="SettingsPanel">
+    <widget class="QTabWidget" name="SettingsTabGroup">
      <property name="minimumSize">
       <size>
        <width>24</width>
        <height>24</height>
       </size>
      </property>
-     <property name="maximumSize">
-      <size>
-       <width>260</width>
-       <height>380</height>
-      </size>
-     </property>
      <property name="currentIndex">
-      <number>1</number>
+      <number>0</number>
      </property>
      <widget class="QWidget" name="DisplayTab">
       <attribute name="title">
@@ -81,17 +69,6 @@
        <property name="spacing">
         <number>4</number>
        </property>
-       <item row="6" column="0">
-        <widget class="QToolButton" name="DispContrastReset">
-         <property name="text">
-          <string>...</string>
-         </property>
-         <property name="icon">
-          <iconset>
-           <normaloff>./icons/contrast.png</normaloff>./icons/contrast.png</iconset>
-         </property>
-        </widget>
-       </item>
        <item row="2" column="0" colspan="3">
         <widget class="QLabel" name="DispCMapLabel">
          <property name="text">
@@ -99,39 +76,6 @@
          </property>
          <property name="alignment">
           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="7" column="1" colspan="4">
-        <widget class="QSlider" name="DispGamma">
-         <property name="maximum">
-          <number>2</number>
-         </property>
-         <property name="singleStep">
-          <number>0</number>
-         </property>
-         <property name="pageStep">
-          <number>1</number>
-         </property>
-         <property name="value">
-          <number>1</number>
-         </property>
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="6">
-        <widget class="QToolButton" name="DispLock">
-         <property name="text">
-          <string>...</string>
-         </property>
-         <property name="icon">
-          <iconset>
-           <normaloff>./icons/link.png</normaloff>./icons/link.png</iconset>
-         </property>
-         <property name="checkable">
-          <bool>true</bool>
          </property>
         </widget>
        </item>
@@ -204,6 +148,49 @@
          </item>
         </widget>
        </item>
+       <item row="7" column="5" colspan="2">
+        <widget class="QDoubleSpinBox" name="DispGamma_NF">
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+         <property name="decimals">
+          <number>0</number>
+         </property>
+         <property name="maximum">
+          <double>2.000000000000000</double>
+         </property>
+         <property name="value">
+          <double>1.000000000000000</double>
+         </property>
+        </widget>
+       </item>
+       <item row="6" column="5" colspan="2">
+        <widget class="QDoubleSpinBox" name="DispContrast_NF">
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+         <property name="suffix">
+          <string> %</string>
+         </property>
+         <property name="decimals">
+          <number>0</number>
+         </property>
+         <property name="value">
+          <double>50.000000000000000</double>
+         </property>
+        </widget>
+       </item>
+       <item row="8" column="0">
+        <widget class="QToolButton" name="ShowMaskWdw">
+         <property name="text">
+          <string>...</string>
+         </property>
+         <property name="icon">
+          <iconset>
+           <normaloff>icons/Aperture.png</normaloff>icons/Aperture.png</iconset>
+         </property>
+        </widget>
+       </item>
        <item row="0" column="1" colspan="2">
         <widget class="QLabel" name="DispImageLabel">
          <property name="font">
@@ -220,17 +207,6 @@
          </property>
         </widget>
        </item>
-       <item row="7" column="0">
-        <widget class="QToolButton" name="DispGammaReset">
-         <property name="text">
-          <string>...</string>
-         </property>
-         <property name="icon">
-          <iconset>
-           <normaloff>./icons/gamma.png</normaloff>./icons/gamma.png</iconset>
-         </property>
-        </widget>
-       </item>
        <item row="6" column="1" colspan="4">
         <widget class="QSlider" name="DispContrast">
          <property name="value">
@@ -238,6 +214,46 @@
          </property>
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="1" colspan="4">
+        <widget class="QSlider" name="DispBrightness">
+         <property name="maximum">
+          <number>100</number>
+         </property>
+         <property name="value">
+          <number>50</number>
+         </property>
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="0">
+        <widget class="QToolButton" name="DispBrightnessReset">
+         <property name="text">
+          <string>...</string>
+         </property>
+         <property name="icon">
+          <iconset>
+           <normaloff>icons/brightness.png</normaloff>icons/brightness.png</iconset>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="5" colspan="2">
+        <widget class="QDoubleSpinBox" name="DispBrightness_NF">
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+         <property name="suffix">
+          <string> %</string>
+         </property>
+         <property name="decimals">
+          <number>0</number>
+         </property>
+         <property name="value">
+          <double>50.000000000000000</double>
          </property>
         </widget>
        </item>
@@ -251,30 +267,17 @@
          </property>
         </widget>
        </item>
-       <item row="0" column="0">
-        <widget class="QToolButton" name="ShowImageWdw">
+       <item row="0" column="6">
+        <widget class="QToolButton" name="DispLock">
          <property name="text">
           <string>...</string>
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>./icons/frontWindow.png</normaloff>./icons/frontWindow.png</iconset>
+           <normaloff>icons/link.png</normaloff>icons/link.png</iconset>
          </property>
-        </widget>
-       </item>
-       <item row="4" column="0" colspan="7">
-        <widget class="QGraphicsView" name="HistAxes">
-         <property name="minimumSize">
-          <size>
-           <width>0</width>
-           <height>129</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>129</height>
-          </size>
+         <property name="checkable">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
@@ -313,6 +316,17 @@
          </property>
         </widget>
        </item>
+       <item row="0" column="0">
+        <widget class="QToolButton" name="ShowImageWdw">
+         <property name="text">
+          <string>...</string>
+         </property>
+         <property name="icon">
+          <iconset>
+           <normaloff>icons/frontWindow.png</normaloff>icons/frontWindow.png</iconset>
+         </property>
+        </widget>
+       </item>
        <item row="2" column="6">
         <widget class="QToolButton" name="DispCMapInvert">
          <property name="text">
@@ -320,98 +334,59 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>./icons/invertColors.png</normaloff>./icons/invertColors.png</iconset>
+           <normaloff>icons/invertColors.png</normaloff>icons/invertColors.png</iconset>
          </property>
          <property name="checkable">
           <bool>true</bool>
          </property>
         </widget>
        </item>
-       <item row="0" column="3" colspan="3">
-        <widget class="QComboBox" name="DispImage"/>
-       </item>
-       <item row="8" column="0">
-        <widget class="QToolButton" name="ShowMaskWdw">
-         <property name="text">
-          <string>...</string>
-         </property>
-         <property name="icon">
-          <iconset>
-           <normaloff>./icons/Aperture.png</normaloff>./icons/Aperture.png</iconset>
-         </property>
-        </widget>
-       </item>
-       <item row="5" column="5" colspan="2">
-        <widget class="QDoubleSpinBox" name="DispBrightness_NF">
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-         <property name="suffix">
-          <string> %</string>
-         </property>
-         <property name="decimals">
-          <number>0</number>
-         </property>
-         <property name="value">
-          <double>50.000000000000000</double>
-         </property>
-        </widget>
-       </item>
-       <item row="7" column="5" colspan="2">
-        <widget class="QDoubleSpinBox" name="DispGamma_NF">
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-         <property name="decimals">
-          <number>0</number>
-         </property>
+       <item row="7" column="1" colspan="4">
+        <widget class="QSlider" name="DispGamma">
          <property name="maximum">
-          <double>2.000000000000000</double>
+          <number>2</number>
          </property>
-         <property name="value">
-          <double>1.000000000000000</double>
-         </property>
-        </widget>
-       </item>
-       <item row="6" column="5" colspan="2">
-        <widget class="QDoubleSpinBox" name="DispContrast_NF">
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-         <property name="suffix">
-          <string> %</string>
-         </property>
-         <property name="decimals">
+         <property name="singleStep">
           <number>0</number>
          </property>
-         <property name="value">
-          <double>50.000000000000000</double>
-         </property>
-        </widget>
-       </item>
-       <item row="5" column="0">
-        <widget class="QToolButton" name="DispBrightnessReset">
-         <property name="text">
-          <string>...</string>
-         </property>
-         <property name="icon">
-          <iconset>
-           <normaloff>./icons/brightness.png</normaloff>./icons/brightness.png</iconset>
-         </property>
-        </widget>
-       </item>
-       <item row="5" column="1" colspan="4">
-        <widget class="QSlider" name="DispBrightness">
-         <property name="maximum">
-          <number>100</number>
+         <property name="pageStep">
+          <number>1</number>
          </property>
          <property name="value">
-          <number>50</number>
+          <number>1</number>
          </property>
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
          </property>
         </widget>
+       </item>
+       <item row="6" column="0">
+        <widget class="QToolButton" name="DispContrastReset">
+         <property name="text">
+          <string>...</string>
+         </property>
+         <property name="icon">
+          <iconset>
+           <normaloff>icons/contrast.png</normaloff>icons/contrast.png</iconset>
+         </property>
+        </widget>
+       </item>
+       <item row="7" column="0">
+        <widget class="QToolButton" name="DispGammaReset">
+         <property name="text">
+          <string>...</string>
+         </property>
+         <property name="icon">
+          <iconset>
+           <normaloff>icons/gamma.png</normaloff>icons/gamma.png</iconset>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="3" colspan="3">
+        <widget class="QComboBox" name="DispImage"/>
+       </item>
+       <item row="4" column="0" colspan="7" alignment="Qt::AlignHCenter|Qt::AlignVCenter">
+        <widget class="QWidget" name="HistAxes" native="true"/>
        </item>
       </layout>
      </widget>
@@ -420,154 +395,6 @@
        <string>Misc</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout_3">
-       <item row="10" column="0" colspan="8">
-        <widget class="QLabel" name="ShowImageWindowsPanel">
-         <property name="font">
-          <font>
-           <weight>75</weight>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="text">
-          <string>Show Image Windows</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignBottom|Qt::AlignHCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1" colspan="6">
-        <widget class="QLabel" name="DetectorCoordinatePanel">
-         <property name="font">
-          <font>
-           <weight>75</weight>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="text">
-          <string>Detector Coordinate Options</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignBottom|Qt::AlignHCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="5" column="5">
-        <widget class="QToolButton" name="WdwSetDfrn">
-         <property name="minimumSize">
-          <size>
-           <width>23</width>
-           <height>0</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>23</width>
-           <height>16777215</height>
-          </size>
-         </property>
-         <property name="font">
-          <font>
-           <pointsize>9</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>Set</string>
-         </property>
-        </widget>
-       </item>
-       <item row="7" column="1">
-        <widget class="QToolButton" name="ShowRealAxes">
-         <property name="text">
-          <string>...</string>
-         </property>
-         <property name="icon">
-          <iconset>
-           <normaloff>./icons/axes.png</normaloff>./icons/axes.png</iconset>
-         </property>
-         <property name="checkable">
-          <bool>true</bool>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="7" column="3">
-        <widget class="QToolButton" name="RvsYReal">
-         <property name="text">
-          <string>...</string>
-         </property>
-         <property name="icon">
-          <iconset>
-           <normaloff>./icons/axis-y.png</normaloff>./icons/axis-y.png</iconset>
-         </property>
-         <property name="checkable">
-          <bool>true</bool>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="7" column="5">
-        <widget class="QToolButton" name="RotRealIcon">
-         <property name="text">
-          <string>...</string>
-         </property>
-         <property name="icon">
-          <iconset>
-           <normaloff>./icons/right_rotate.png</normaloff>./icons/right_rotate.png</iconset>
-         </property>
-        </widget>
-       </item>
-       <item row="4" column="1">
-        <widget class="QToolButton" name="ShowDfrnAxes">
-         <property name="text">
-          <string>...</string>
-         </property>
-         <property name="icon">
-          <iconset>
-           <normaloff>./icons/axes.png</normaloff>./icons/axes.png</iconset>
-         </property>
-         <property name="checkable">
-          <bool>true</bool>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="0">
-        <widget class="QToolButton" name="LiveUpdateImageIcon">
-         <property name="text">
-          <string>...</string>
-         </property>
-         <property name="icon">
-          <iconset>
-           <normaloff>./icons/refresh.png</normaloff>./icons/refresh.png</iconset>
-         </property>
-        </widget>
-       </item>
-       <item row="9" column="6" colspan="2">
-        <widget class="QToolButton" name="WdwSetAllReal">
-         <property name="minimumSize">
-          <size>
-           <width>64</width>
-           <height>0</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>64</width>
-           <height>16777215</height>
-          </size>
-         </property>
-         <property name="text">
-          <string>Set All</string>
-         </property>
-        </widget>
-       </item>
        <item row="6" column="0" colspan="8">
         <widget class="QLabel" name="RealSpaceWindowPanel">
          <property name="font">
@@ -584,310 +411,14 @@
          </property>
         </widget>
        </item>
-       <item row="2" column="6" colspan="2">
-        <widget class="QComboBox" name="DCUnit">
-         <item>
-          <property name="text">
-           <string>mrad</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>pixel</string>
-          </property>
-         </item>
-        </widget>
-       </item>
-       <item row="7" column="2">
-        <widget class="QToolButton" name="RvsXReal">
+       <item row="0" column="0">
+        <widget class="QToolButton" name="LiveUpdateImageIcon">
          <property name="text">
           <string>...</string>
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>./icons/axis-x.png</normaloff>./icons/axis-x.png</iconset>
-         </property>
-         <property name="checkable">
-          <bool>true</bool>
-         </property>
-         <property name="checked">
-          <bool>false</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="4" column="6" colspan="2">
-        <widget class="QComboBox" name="RotDfrn">
-         <item>
-          <property name="text">
-           <string>0 °</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>90 °</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>180 °</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>-90 °</string>
-          </property>
-         </item>
-        </widget>
-       </item>
-       <item row="0" column="5" colspan="3">
-        <widget class="QComboBox" name="CalcPolicy">
-         <item>
-          <property name="text">
-           <string>Active</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>Reduced</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>Passive</string>
-          </property>
-         </item>
-        </widget>
-       </item>
-       <item row="4" column="5">
-        <widget class="QToolButton" name="RotDfrnIcon">
-         <property name="text">
-          <string>...</string>
-         </property>
-         <property name="icon">
-          <iconset>
-           <normaloff>./icons/right_rotate.png</normaloff>./icons/right_rotate.png</iconset>
-         </property>
-        </widget>
-       </item>
-       <item row="4" column="2">
-        <widget class="QToolButton" name="RvsXDfrn">
-         <property name="text">
-          <string>...</string>
-         </property>
-         <property name="icon">
-          <iconset>
-           <normaloff>./icons/axis-x.png</normaloff>./icons/axis-x.png</iconset>
-         </property>
-         <property name="checkable">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="5" column="6" colspan="2">
-        <widget class="QToolButton" name="WdwSetAllDfrn">
-         <property name="minimumSize">
-          <size>
-           <width>64</width>
-           <height>0</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>64</width>
-           <height>16777215</height>
-          </size>
-         </property>
-         <property name="text">
-          <string>Set All</string>
-         </property>
-        </widget>
-       </item>
-       <item row="3" column="1" colspan="6">
-        <widget class="QLabel" name="DatasetInfoPanel">
-         <property name="font">
-          <font>
-           <weight>75</weight>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="text">
-          <string>Dataset Info</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignBottom|Qt::AlignHCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="3" colspan="3">
-        <widget class="QComboBox" name="DCPos">
-         <item>
-          <property name="text">
-           <string>Relative</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>Absolute</string>
-          </property>
-         </item>
-        </widget>
-       </item>
-       <item row="7" column="6" colspan="2">
-        <widget class="QComboBox" name="RotReal">
-         <item>
-          <property name="text">
-           <string>0 °</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>90 °</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>180 °</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>-90 °</string>
-          </property>
-         </item>
-        </widget>
-       </item>
-       <item row="5" column="0" colspan="5">
-        <layout class="QHBoxLayout" name="DiffractionWindowHGrid">
-         <property name="spacing">
-          <number>0</number>
-         </property>
-         <item>
-          <widget class="QLabel" name="WdwWDfrnLabel">
-           <property name="maximumSize">
-            <size>
-             <width>20</width>
-             <height>16777215</height>
-            </size>
-           </property>
-           <property name="text">
-            <string>W: </string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QSpinBox" name="WdwWDfrn">
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-           <property name="buttonSymbols">
-            <enum>QAbstractSpinBox::NoButtons</enum>
-           </property>
-           <property name="suffix">
-            <string> px</string>
-           </property>
-           <property name="minimum">
-            <number>1</number>
-           </property>
-           <property name="maximum">
-            <number>10000</number>
-           </property>
-           <property name="value">
-            <number>400</number>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QLabel" name="WdwHDfrnLabel">
-           <property name="maximumSize">
-            <size>
-             <width>22</width>
-             <height>16777215</height>
-            </size>
-           </property>
-           <property name="text">
-            <string> H: </string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QSpinBox" name="WdwHDfrn">
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-           <property name="buttonSymbols">
-            <enum>QAbstractSpinBox::NoButtons</enum>
-           </property>
-           <property name="suffix">
-            <string> px</string>
-           </property>
-           <property name="minimum">
-            <number>1</number>
-           </property>
-           <property name="maximum">
-            <number>10000</number>
-           </property>
-           <property name="value">
-            <number>400</number>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </item>
-       <item row="9" column="5">
-        <widget class="QToolButton" name="WdwSetReal">
-         <property name="minimumSize">
-          <size>
-           <width>23</width>
-           <height>0</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>23</width>
-           <height>16777215</height>
-          </size>
-         </property>
-         <property name="text">
-          <string>Set</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="1" colspan="4">
-        <widget class="QLabel" name="CalcPolicyLabel">
-         <property name="font">
-          <font>
-           <weight>75</weight>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="text">
-          <string>Calculation Policy</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="4" column="3">
-        <widget class="QToolButton" name="RvsYDfrn">
-         <property name="text">
-          <string>...</string>
-         </property>
-         <property name="icon">
-          <iconset>
-           <normaloff>./icons/axis-y.png</normaloff>./icons/axis-y.png</iconset>
-         </property>
-         <property name="checkable">
-          <bool>true</bool>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
+           <normaloff>icons/refresh.png</normaloff>icons/refresh.png</iconset>
          </property>
         </widget>
        </item>
@@ -904,15 +435,9 @@
              <height>24</height>
             </size>
            </property>
-           <property name="maximumSize">
-            <size>
-             <width>59</width>
-             <height>24</height>
-            </size>
-           </property>
            <property name="font">
             <font>
-             <pointsize>8</pointsize>
+             <pointsize>12</pointsize>
             </font>
            </property>
            <property name="text">
@@ -928,15 +453,9 @@
              <height>24</height>
             </size>
            </property>
-           <property name="maximumSize">
-            <size>
-             <width>59</width>
-             <height>24</height>
-            </size>
-           </property>
            <property name="font">
             <font>
-             <pointsize>8</pointsize>
+             <pointsize>12</pointsize>
             </font>
            </property>
            <property name="text">
@@ -944,7 +463,7 @@
            </property>
            <property name="icon">
             <iconset>
-             <normaloff>./icons/Aperture.png</normaloff>./icons/Aperture.png</iconset>
+             <normaloff>icons/Aperture.png</normaloff>icons/Aperture.png</iconset>
            </property>
           </widget>
          </item>
@@ -956,15 +475,9 @@
              <height>24</height>
             </size>
            </property>
-           <property name="maximumSize">
-            <size>
-             <width>59</width>
-             <height>24</height>
-            </size>
-           </property>
            <property name="font">
             <font>
-             <pointsize>8</pointsize>
+             <pointsize>12</pointsize>
             </font>
            </property>
            <property name="text">
@@ -972,7 +485,7 @@
            </property>
            <property name="icon">
             <iconset>
-             <normaloff>./icons/colorwheel.png</normaloff>./icons/colorwheel.png</iconset>
+             <normaloff>icons/colorwheel.png</normaloff>icons/colorwheel.png</iconset>
            </property>
           </widget>
          </item>
@@ -984,15 +497,9 @@
              <height>24</height>
             </size>
            </property>
-           <property name="maximumSize">
-            <size>
-             <width>59</width>
-             <height>24</height>
-            </size>
-           </property>
            <property name="font">
             <font>
-             <pointsize>8</pointsize>
+             <pointsize>12</pointsize>
             </font>
            </property>
            <property name="text">
@@ -1000,7 +507,7 @@
            </property>
            <property name="icon">
             <iconset>
-             <normaloff>./icons/Aperture.png</normaloff>./icons/Aperture.png</iconset>
+             <normaloff>icons/Aperture.png</normaloff>icons/Aperture.png</iconset>
            </property>
           </widget>
          </item>
@@ -1012,15 +519,9 @@
              <height>24</height>
             </size>
            </property>
-           <property name="maximumSize">
-            <size>
-             <width>59</width>
-             <height>24</height>
-            </size>
-           </property>
            <property name="font">
             <font>
-             <pointsize>8</pointsize>
+             <pointsize>12</pointsize>
             </font>
            </property>
            <property name="text">
@@ -1036,15 +537,9 @@
              <height>24</height>
             </size>
            </property>
-           <property name="maximumSize">
-            <size>
-             <width>59</width>
-             <height>24</height>
-            </size>
-           </property>
            <property name="font">
             <font>
-             <pointsize>8</pointsize>
+             <pointsize>12</pointsize>
             </font>
            </property>
            <property name="text">
@@ -1060,15 +555,9 @@
              <height>24</height>
             </size>
            </property>
-           <property name="maximumSize">
-            <size>
-             <width>59</width>
-             <height>24</height>
-            </size>
-           </property>
            <property name="font">
             <font>
-             <pointsize>8</pointsize>
+             <pointsize>12</pointsize>
             </font>
            </property>
            <property name="text">
@@ -1084,15 +573,9 @@
              <height>24</height>
             </size>
            </property>
-           <property name="maximumSize">
-            <size>
-             <width>59</width>
-             <height>24</height>
-            </size>
-           </property>
            <property name="font">
             <font>
-             <pointsize>8</pointsize>
+             <pointsize>12</pointsize>
             </font>
            </property>
            <property name="text">
@@ -1108,15 +591,9 @@
              <height>24</height>
             </size>
            </property>
-           <property name="maximumSize">
-            <size>
-             <width>59</width>
-             <height>24</height>
-            </size>
-           </property>
            <property name="font">
             <font>
-             <pointsize>8</pointsize>
+             <pointsize>12</pointsize>
             </font>
            </property>
            <property name="text">
@@ -1132,15 +609,9 @@
              <height>24</height>
             </size>
            </property>
-           <property name="maximumSize">
-            <size>
-             <width>59</width>
-             <height>24</height>
-            </size>
-           </property>
            <property name="font">
             <font>
-             <pointsize>8</pointsize>
+             <pointsize>12</pointsize>
             </font>
            </property>
            <property name="text">
@@ -1156,15 +627,9 @@
              <height>24</height>
             </size>
            </property>
-           <property name="maximumSize">
-            <size>
-             <width>59</width>
-             <height>24</height>
-            </size>
-           </property>
            <property name="font">
             <font>
-             <pointsize>8</pointsize>
+             <pointsize>12</pointsize>
             </font>
            </property>
            <property name="text">
@@ -1180,15 +645,9 @@
              <height>24</height>
             </size>
            </property>
-           <property name="maximumSize">
-            <size>
-             <width>59</width>
-             <height>24</height>
-            </size>
-           </property>
            <property name="font">
             <font>
-             <pointsize>8</pointsize>
+             <pointsize>12</pointsize>
             </font>
            </property>
            <property name="text">
@@ -1295,6 +754,419 @@
          </item>
         </layout>
        </item>
+       <item row="10" column="0" colspan="8">
+        <widget class="QLabel" name="ShowImageWindowsPanel">
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Show Image Windows</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignBottom|Qt::AlignHCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="7" column="5">
+        <widget class="QToolButton" name="RotRealIcon">
+         <property name="text">
+          <string>...</string>
+         </property>
+         <property name="icon">
+          <iconset>
+           <normaloff>icons/right_rotate.png</normaloff>icons/right_rotate.png</iconset>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="5" colspan="3">
+        <widget class="QComboBox" name="CalcPolicy">
+         <item>
+          <property name="text">
+           <string>Active</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Reduced</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Passive</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item row="9" column="5">
+        <widget class="QToolButton" name="WdwSetReal">
+         <property name="minimumSize">
+          <size>
+           <width>23</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>12</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>Set</string>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="2">
+        <widget class="QToolButton" name="RvsXDfrn">
+         <property name="text">
+          <string>...</string>
+         </property>
+         <property name="icon">
+          <iconset>
+           <normaloff>icons/axis-x.png</normaloff>icons/axis-x.png</iconset>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="7" column="6" colspan="2">
+        <widget class="QComboBox" name="RotReal">
+         <item>
+          <property name="text">
+           <string>0 °</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>90 °</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>180 °</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>-90 °</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item row="4" column="6" colspan="2">
+        <widget class="QComboBox" name="RotDfrn">
+         <item>
+          <property name="text">
+           <string>0 °</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>90 °</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>180 °</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>-90 °</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item row="7" column="1">
+        <widget class="QToolButton" name="ShowRealAxes">
+         <property name="text">
+          <string>...</string>
+         </property>
+         <property name="icon">
+          <iconset>
+           <normaloff>icons/axes.png</normaloff>icons/axes.png</iconset>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="5">
+        <widget class="QToolButton" name="WdwSetDfrn">
+         <property name="minimumSize">
+          <size>
+           <width>23</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>12</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>Set</string>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="0" colspan="5">
+        <layout class="QHBoxLayout" name="DiffractionWindowHGrid">
+         <property name="spacing">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="WdwWDfrnLabel">
+           <property name="maximumSize">
+            <size>
+             <width>20</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>W: </string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QSpinBox" name="WdwWDfrn">
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+           <property name="buttonSymbols">
+            <enum>QAbstractSpinBox::NoButtons</enum>
+           </property>
+           <property name="suffix">
+            <string> px</string>
+           </property>
+           <property name="minimum">
+            <number>1</number>
+           </property>
+           <property name="maximum">
+            <number>10000</number>
+           </property>
+           <property name="value">
+            <number>400</number>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="WdwHDfrnLabel">
+           <property name="maximumSize">
+            <size>
+             <width>22</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="text">
+            <string> H: </string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QSpinBox" name="WdwHDfrn">
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+           <property name="buttonSymbols">
+            <enum>QAbstractSpinBox::NoButtons</enum>
+           </property>
+           <property name="suffix">
+            <string> px</string>
+           </property>
+           <property name="minimum">
+            <number>1</number>
+           </property>
+           <property name="maximum">
+            <number>10000</number>
+           </property>
+           <property name="value">
+            <number>400</number>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item row="5" column="6" colspan="2">
+        <widget class="QToolButton" name="WdwSetAllDfrn">
+         <property name="text">
+          <string>Set All</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1" colspan="6">
+        <widget class="QLabel" name="DetectorCoordinatePanel">
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Detector Coordinate Options</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignBottom|Qt::AlignHCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="7" column="2">
+        <widget class="QToolButton" name="RvsXReal">
+         <property name="text">
+          <string>...</string>
+         </property>
+         <property name="icon">
+          <iconset>
+           <normaloff>icons/axis-x.png</normaloff>icons/axis-x.png</iconset>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="checked">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="5">
+        <widget class="QToolButton" name="RotDfrnIcon">
+         <property name="text">
+          <string>...</string>
+         </property>
+         <property name="icon">
+          <iconset>
+           <normaloff>icons/right_rotate.png</normaloff>icons/right_rotate.png</iconset>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="1" colspan="6">
+        <widget class="QLabel" name="DatasetInfoPanel">
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Dataset Info</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignBottom|Qt::AlignHCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="3">
+        <widget class="QToolButton" name="RvsYDfrn">
+         <property name="text">
+          <string>...</string>
+         </property>
+         <property name="icon">
+          <iconset>
+           <normaloff>icons/axis-y.png</normaloff>icons/axis-y.png</iconset>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="3" colspan="3">
+        <widget class="QComboBox" name="DCPos">
+         <item>
+          <property name="text">
+           <string>Relative</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Absolute</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item row="7" column="3">
+        <widget class="QToolButton" name="RvsYReal">
+         <property name="text">
+          <string>...</string>
+         </property>
+         <property name="icon">
+          <iconset>
+           <normaloff>icons/axis-y.png</normaloff>icons/axis-y.png</iconset>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1" colspan="4">
+        <widget class="QLabel" name="CalcPolicyLabel">
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Calculation Policy</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="1">
+        <widget class="QToolButton" name="ShowDfrnAxes">
+         <property name="text">
+          <string>...</string>
+         </property>
+         <property name="icon">
+          <iconset>
+           <normaloff>icons/axes.png</normaloff>icons/axes.png</iconset>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="6" colspan="2">
+        <widget class="QComboBox" name="DCUnit">
+         <item>
+          <property name="text">
+           <string>mrad</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>pixel</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item row="9" column="6" colspan="2">
+        <widget class="QToolButton" name="WdwSetAllReal">
+         <property name="text">
+          <string>Set All</string>
+         </property>
+        </widget>
+       </item>
       </layout>
      </widget>
      <widget class="QWidget" name="InfoTab">
@@ -1375,7 +1247,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>./icons/help.png</normaloff>./icons/help.png</iconset>
+           <normaloff>icons/help.png</normaloff>icons/help.png</iconset>
          </property>
          <property name="autoRaise">
           <bool>true</bool>

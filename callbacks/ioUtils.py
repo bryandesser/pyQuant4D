@@ -554,24 +554,117 @@ def readEMPAD(self):
     else: # lazy loading
         self.Data = np.memmap(filename, dataType,'r')["data"]
 
+def prepareData(self):
+    from callbacks.guiClass import ImageWindow
+    #self.T.progDLG = progDLG(self, 'Preparing data ...', "Data Preparation"); #TODO
+
+    # Detector controls
+    self.P.ScanDirInit = 0 # Reset alignments
+    self.DetrMode.blockSignals(True)
+    self.DetrMode.setCurrentIndex(self.DetrMode.findData("AlignMod"))
+    self.DetrMode.blockSignals(False)
+    self.NSeg.setValue(4)
+    self.NRung.setValue(1)
+    self.DetRot.setValue(0)
+    self.DetRot_NF.setValue(0)
+    self.ScanDir.setValue(0)
+    self.ScanDir_NF.setValue(0)
+
+    self.VrApSymm.setCurrentIndex(0)
+    self.VrApInvert.setChecked(False)
+    self.VrApMirror.setChecked(False)
+    self.VrApMirrRot.setValue(0)
+    self.VrApMirrRot_NF.setValue(0)
+
+    # Alignments
+    self.P.DfCtr = self.D.NPx/2+.5 # Exact center of the Diffraction image
+    self.P.RsCtr = self.D.NFr/2+.5 # Exact center of the Real-space image
+    self.Alpha.Value = 12
+    self.P.VrApXY = self.P.DfCtr
+
+    # Axes limits, restrict to avoid rounding to pixels outside the image
+    self.P.DfrnAxLim = [0, self.D.NPxX, 0, self.D.NPxY]
+    self.P.RealAxLim = [0, self.D.NFrX, 0, self.D.NFrY]
+
+    # initialize diffraction space axis limits
+    self.Fig.Dfrn.ax.set_xbound(self.P.DfrnAxLim[0:2])
+    self.Fig.Dfrn.ax.set_ybound(self.P.DfrnAxLim[2:4])
+    self.Fig.Dfrn.canvas.draw()
+
+    # initialize real space axis limits
+    self.Fig.Real.ax.set_xbound(self.P.RealAxLim[0:2])
+    self.Fig.Real.ax.set_ybound(self.P.RealAxLim[2:4])
+    self.Fig.Real.canvas.draw()
+
+    # Transmitted Beam controls
+    if self.sender() is not self.SettingsWindow.SwapRealXY: # Keep transmitted beam alignment if swapping Real-space X/Y
+        self.P.TransBeamInit = 0
+        # set transmitted beam slider ranges and values
+        self.TBR.setRange(0,max(self.D.NPx))
+        self.TBX.setRange(0,self.D.NPxX)
+        self.TBY.setRange(0,self.D.NPxY)
+        self.TBR.setValue(min(self.D.NPx)/10)
+        self.TBX.setValue(self.P.DfCtr[0])
+        self.TBY.setValue(self.P.DfCtr[1])
+        self.TBX_NF.setRange(0,self.D.NPxX)
+        self.TBY_NF.setRange(0,self.D.NPxY)
+        self.TBX_NF.setValue(self.P.DfCtr[0])
+        self.TBY_NF.setValue(self.P.DfCtr[1])
+        #transBeamCallbacks(self,evt) # Update Transmitted Beam dependant variables #TODO
+
+    # Real-space ROI controls
+    self.FrameX.setRange(0,self.D.NFrX)
+    self.FrameY.setRange(0,self.D.NFrY)
+    self.FrameX.setValue(round(self.P.RsCtr[0]))
+    self.FrameY.setValue(round(self.P.RsCtr[1]))
+    self.RealROIInvert.setChecked(False)
+    self.RealROIShape.setCurrentIndex(0) # "full"
+
+    # Export controls
+    #exportCallbacks(self, struct("Source",self.ExpPxPart,"EventName",[],"Value",0))#TODO
+    #exportCallbacks(self, struct("Source",self.ExpFrPart,"EventName",[],"Value",0))#TODO
+
+    # initiate image display parameters for all ImageWindows
+    for ax in [getattr(self.Fig,child) for child in dir(self.Fig)]:
+        if isinstance(ax,ImageWindow):
+            ax.brightness = 50
+            ax.contrast = 50
+            ax.gamma = 1
+            ax.maskOpa = 0
+            ax.vecField = 0
+
+    #mockUICallbacks(self,self.UpdateImages) # Update all images #TODO
+    #delete(self.T.progDLG);  # Close progress bar and Enable panel objects #TODO
+    #mockUICallbacks(self,self.DetrMode)  # Enter intializing alignment #TODO
+
+    #initialize SettingsWindow and move next to main UI window
+    self.SettingsWindow.SettingsTabGroup.setCurrentIndex(0) # "Display" tab
+    self.SettingsWindow.setVisible(True)
+    pos = self.SettingsWindow.geometry()
+    pos.moveLeft(self.geometry().getRect()[0]+self.geometry().getRect()[2]+self.C.decorPad*2)
+    pos.moveTop(self.geometry().getRect()[1])
+    self.SettingsWindow.setGeometry(pos)
+
+    #flashBackground(self, [self.DfrnCalibGrid self.TransBeamAlignGrid])
+
 def finishImport(self):
     # integrate annular images #TODO
-    #self.B0 = [64.3641,63.7125] # ga2o3 empad
-    self.B0 = [259.5970,270.3951] # mrc triangle
+    self.B0 = [64.3641,63.7125] # ga2o3 empad
+    #self.B0 = [259.5970,270.3951] # mrc triangle
     #self.B0 = [462.6025,521.6588] # PIO dm4
     
-    print("finishImport(self) on thread {}".format(int(qtc.QThread.currentThreadId())))
-
-    # push annular integration to a worker threadpool
+    # push annular integration to a worker threadpool #TODO
+    #print("finishImport(self) on thread {}".format(int(qtc.QThread.currentThreadId())))
     #print("worker established: {}".format(datetime.now()))
     #worker = Worker(integrateAnnular,self)
     #worker.signals.result.connect(self.receiveWorkerData)
     #worker.signals.finished.connect(lambda: reinitializeUI(self))
     #print("threadpool established: {}".format(datetime.now()))
     #self.threadpool = qtc.QThreadPool()
-    print("threadpool started: {}".format(datetime.now()))
+    #print("threadpool started: {}".format(datetime.now()))
     #self.threadpool.start(worker)
 
+    prepareData(self)
     integrateAnnular(self)
     reinitializeUI(self)
 

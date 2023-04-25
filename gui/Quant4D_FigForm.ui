@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>365</width>
+    <width>485</width>
     <height>778</height>
    </rect>
   </property>
@@ -665,7 +665,7 @@
            </widget>
           </item>
           <item row="9" column="0" colspan="4">
-           <widget class="QSlider" name="TBX">
+           <widget class="QDoubleSlider" name="TBX">
             <property name="maximum">
              <number>100</number>
             </property>
@@ -678,7 +678,7 @@
            </widget>
           </item>
           <item row="11" column="0" colspan="4">
-           <widget class="QSlider" name="TBY">
+           <widget class="QDoubleSlider" name="TBY">
             <property name="maximum">
              <number>100</number>
             </property>
@@ -736,7 +736,7 @@
            </widget>
           </item>
           <item row="7" column="0" colspan="4">
-           <widget class="QSlider" name="TBR">
+           <widget class="QDoubleSlider" name="TBR">
             <property name="mouseTracking">
              <bool>false</bool>
             </property>
@@ -942,6 +942,9 @@
             <property name="suffix">
              <string> mrad</string>
             </property>
+            <property name="value">
+             <double>12.000000000000000</double>
+            </property>
            </widget>
           </item>
           <item row="2" column="2" colspan="2">
@@ -967,6 +970,9 @@
             <property name="maximum">
              <double>1000.000000000000000</double>
             </property>
+            <property name="value">
+             <double>1.000000000000000</double>
+            </property>
            </widget>
           </item>
           <item row="6" column="2" colspan="2">
@@ -982,6 +988,9 @@
             </property>
             <property name="suffix">
              <string> px</string>
+            </property>
+            <property name="value">
+             <double>1.000000000000000</double>
             </property>
            </widget>
           </item>
@@ -1256,7 +1265,7 @@
               </widget>
              </item>
              <item row="1" column="1" colspan="2">
-              <widget class="QSlider" name="ScanDir">
+              <widget class="QDoubleSlider" name="ScanDir">
                <property name="orientation">
                 <enum>Qt::Horizontal</enum>
                </property>
@@ -1371,7 +1380,7 @@
               </widget>
              </item>
              <item row="2" column="1" colspan="4">
-              <widget class="QSlider" name="DetRot">
+              <widget class="QDoubleSlider" name="DetRot">
                <property name="orientation">
                 <enum>Qt::Horizontal</enum>
                </property>
@@ -1499,7 +1508,7 @@
              <enum>QLayout::SetFixedSize</enum>
             </property>
             <item row="6" column="0" colspan="8">
-             <widget class="QSlider" name="VrApX">
+             <widget class="QDoubleSlider" name="VrApX">
               <property name="orientation">
                <enum>Qt::Horizontal</enum>
               </property>
@@ -1555,7 +1564,7 @@
              </widget>
             </item>
             <item row="13" column="0" colspan="8">
-             <widget class="QSlider" name="VrApMirrRot">
+             <widget class="QDoubleSlider" name="VrApMirrRot">
               <property name="orientation">
                <enum>Qt::Horizontal</enum>
               </property>
@@ -1572,7 +1581,7 @@
              </widget>
             </item>
             <item row="8" column="0" colspan="8">
-             <widget class="QSlider" name="VrApY">
+             <widget class="QDoubleSlider" name="VrApY">
               <property name="orientation">
                <enum>Qt::Horizontal</enum>
               </property>
@@ -1668,7 +1677,7 @@
              </widget>
             </item>
             <item row="4" column="0" colspan="8">
-             <widget class="QSlider" name="VrApR">
+             <widget class="QDoubleSlider" name="VrApR">
               <property name="orientation">
                <enum>Qt::Horizontal</enum>
               </property>
@@ -2439,8 +2448,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>365</width>
-     <height>26</height>
+     <width>485</width>
+     <height>24</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -2857,6 +2866,11 @@
  <customwidgets>
   <customwidget>
    <class>QRangeSlider</class>
+   <extends>QSlider</extends>
+   <header>superqt</header>
+  </customwidget>
+  <customwidget>
+   <class>QDoubleSlider</class>
    <extends>QSlider</extends>
    <header>superqt</header>
   </customwidget>

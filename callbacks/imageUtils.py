@@ -68,37 +68,6 @@ def integrateAnnular(self):
 
     return self.adfImages
 
-def integrateAnnularThreaded(self):
-    print("integrateAnnular(self) on thread {}".format(qtc.QThread.currentThreadId()))
-    print("started at {}".format(datetime.now()))
-    # generate meshgrid, divide by annulus width and round so distance increments away
-    # from transmitted beam as integers to allow for direct use with QRangeSlider[int]
-    # and array indexing; self.D.annWidth = 0.5 by default
-    xgrid,ygrid = np.ogrid[-self.B0[0]:self.D.NPxX-self.B0[0],-self.B0[1]:self.D.NPxY-self.B0[1]]
-    k = np.int32(np.sqrt(xgrid**2+ygrid**2)/self.D.annWidth).flatten()
-
-    # generate a vector of pixel distances from transmitted beam center (divided by annWidth)
-    distance = np.arange(0,k.max()+1)
-
-    # create adf annular masks of annWidth pixel width
-    adfMask = np.where((k.reshape(1,len(k))>=distance.reshape(len(distance),1)) & (k.reshape(1,len(k))<(distance.reshape(len(distance),1)+0.5)), True, False).T
-
-    # generate all adf images from 0.0.5 pixel annuli; reshape to 3D for faster plotting
-    self.adfImages = self.Data@adfMask
-    self.adfImages = np.reshape(self.adfImages,(self.D.NFrY,self.D.NFrX,-1))
-
-    # set adfInner and adfOuter slider limits based on k.max()
-    self.AnnRi.setMaximum(k.max())
-
-    # set adfInner and adfOuter numerical field limits based on k.max()/2
-    self.AnnRi_NF.setMaximum(k.max()*self.D.annWidth)
-    self.AnnRo_NF.setMaximum(k.max()*self.D.annWidth)
-    
-    # set maximum scattering angle
-    self.P.RMax = k.max()
-
-    return self.adfImages
-
 def drawAnnDetr(self):
     """ initiallize the annular detector annotations """
     # define center location and starting radii for annular detector
@@ -119,6 +88,12 @@ def drawAnnDetr(self):
     if self.A.adfOuterCirc is None:
         self.A.adfOuterCirc = self.Fig.Dfrn.ax.plot(self.A.circX*r2*np.sqrt(2)+c[0],self.A.circY*r2*np.sqrt(2)+c[1],color='r')
 
+def annDetrVisibility(self,state):
+    # show/hide adf annotations
+    self.A.adfInnerCirc[0]._visible = state
+    self.A.adfOuterCirc[0]._visible = state
+    self.A.adfPt.point.set_visible(state)
+    self.Fig.Dfrn.canvas.draw()
     
 def replotCirc(self):
     """ update the ciruclar annotations on the diffraction pattern """

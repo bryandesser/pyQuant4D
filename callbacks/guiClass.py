@@ -132,7 +132,7 @@ class ImageWindow(qtw.QMainWindow):
         self.brightness = 50    # brightness value
         self.contrast = 50      # contrast value
         self.gamma = 1          # gamma value
-        self.cevField = 0       # vector field display logical
+        self.vecField = 0       # vector field display logical
         self.isShown = False    # help with hiding/showing groups of windows
         
         # set defaul vector color for overlays
