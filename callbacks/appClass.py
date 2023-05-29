@@ -105,7 +105,6 @@ class Prev:
 
 class Fig:
     ColorWheel = None
-    ColorWheelMask = None
     Dfrn = None
     DfrnMask = None
     Real  = None
@@ -121,7 +120,6 @@ class Fig:
 
 class Image:
     ColorWheel = None
-    ColorWheelMask = None
     Dfrn = None
     DfrnMask = None
     Real  = None
@@ -167,7 +165,6 @@ class ByteSize:
 
 def appStruct(self):
     setattr(self,'B0',[0,0])
-    setattr(self,'B0',[0,0])
     setattr(self,'RB0',[0,0])
     setattr(self,'DfPxR',1)
     setattr(self,'RsPxR',1)
@@ -175,12 +172,13 @@ def appStruct(self):
     setattr(self,'T',T())
     setattr(self,'D',D())
     setattr(self,'Data',None)
+    setattr(self,'Memfile',None)
     setattr(self,'C',C())
     setattr(self,'P',P())
     setattr(self,'Prev',Prev())
+    setattr(self,'Fig',Fig())
     setattr(self,'Image',Image())
     setattr(self,'A',A())
     setattr(self,'Mask',Mask())
     setattr(self,'G',G())
     setattr(self,'ByteSize',ByteSize())
-    setattr(self,'Fig',Fig())

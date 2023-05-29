@@ -7,7 +7,7 @@ from PyQt5 import QtWidgets as qtw
 from PyQt5 import QtCore as qtc
 from callbacks.utils import on_ImportDataButton_clicked, rangeImportExport, gatherImportOptions#, on_actionShow_Diffraction_Pattern_triggered
 from callbacks.ioUtils import prepEMPAD, prepDM
-from callbacks.imageUtils import moveAnnR
+from callbacks.imageUtils import moveAnnR, maskOpacity
 
 def importCallbacks():
     pass
@@ -566,6 +566,9 @@ def slotsSignals(self):
     self.AnnRi.valueChanged.connect(lambda: moveAnnR(self))
     self.DetrMode.currentIndexChanged.connect(lambda: moveAnnR(self))
     self.UpdateImages.triggered.connect(lambda: moveAnnR(self))
+    
+    # settings opacity slider
+    self.SettingsWindow.DispMaskOpa.valueChanged.connect(lambda: maskOpacity(self))
 
 
     
@@ -631,7 +634,7 @@ def plotColorwheel(self):
     self.Image.ColorWheel[self.Image.ColorWheel<0]+=2*np.pi
 
     # make colorwheel circular by masking at outer radius
-    self.Image.ColorWheelMask = (xgrid**2 + ygrid**2) < r**2
+    colorWheelMask = (xgrid**2 + ygrid**2) < r**2
 
     # add colorwheel image to axis
-    self.Fig.ColorWheel.ax.imshow(self.Image.ColorWheel,alpha=self.Image.ColorWheelMask.astype(float),cmap='hsv',interpolation="None")
+    self.Fig.ColorWheel.ax.imshow(self.Image.ColorWheel,alpha=colorWheelMask.astype(float),cmap='hsv',interpolation="None")

@@ -154,29 +154,16 @@
           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
          </property>
          <property name="decimals">
-          <number>0</number>
+          <number>2</number>
          </property>
          <property name="maximum">
           <double>2.000000000000000</double>
          </property>
+         <property name="singleStep">
+          <double>0.010000000000000</double>
+         </property>
          <property name="value">
           <double>1.000000000000000</double>
-         </property>
-        </widget>
-       </item>
-       <item row="6" column="5" colspan="2">
-        <widget class="QDoubleSpinBox" name="DispContrast_NF">
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-         <property name="suffix">
-          <string> %</string>
-         </property>
-         <property name="decimals">
-          <number>0</number>
-         </property>
-         <property name="value">
-          <double>50.000000000000000</double>
          </property>
         </widget>
        </item>
@@ -209,6 +196,9 @@
        </item>
        <item row="6" column="1" colspan="4">
         <widget class="QSlider" name="DispContrast">
+         <property name="maximum">
+          <number>100</number>
+         </property>
          <property name="value">
           <number>50</number>
          </property>
@@ -238,22 +228,6 @@
          <property name="icon">
           <iconset>
            <normaloff>icons/brightness.png</normaloff>icons/brightness.png</iconset>
-         </property>
-        </widget>
-       </item>
-       <item row="5" column="5" colspan="2">
-        <widget class="QDoubleSpinBox" name="DispBrightness_NF">
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-         <property name="suffix">
-          <string> %</string>
-         </property>
-         <property name="decimals">
-          <number>0</number>
-         </property>
-         <property name="value">
-          <double>50.000000000000000</double>
          </property>
         </widget>
        </item>
@@ -303,19 +277,6 @@
          </property>
         </widget>
        </item>
-       <item row="8" column="5" colspan="2">
-        <widget class="QDoubleSpinBox" name="DispMaskOpa_NF">
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-         <property name="suffix">
-          <string> %</string>
-         </property>
-         <property name="decimals">
-          <number>0</number>
-         </property>
-        </widget>
-       </item>
        <item row="0" column="0">
         <widget class="QToolButton" name="ShowImageWdw">
          <property name="text">
@@ -342,7 +303,7 @@
         </widget>
        </item>
        <item row="7" column="1" colspan="4">
-        <widget class="QSlider" name="DispGamma">
+        <widget class="QDoubleSlider" name="DispGamma">
          <property name="maximum">
           <number>2</number>
          </property>
@@ -387,6 +348,51 @@
        </item>
        <item row="4" column="0" colspan="7" alignment="Qt::AlignHCenter|Qt::AlignVCenter">
         <widget class="QWidget" name="HistAxes" native="true"/>
+       </item>
+       <item row="8" column="5" colspan="2">
+        <widget class="QSpinBox" name="DispMaskOpa_NF">
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+         <property name="suffix">
+          <string> %</string>
+         </property>
+         <property name="maximum">
+          <number>100</number>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="5" colspan="2">
+        <widget class="QSpinBox" name="DispBrightness_NF">
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+         <property name="suffix">
+          <string> %</string>
+         </property>
+         <property name="maximum">
+          <number>100</number>
+         </property>
+         <property name="value">
+          <number>50</number>
+         </property>
+        </widget>
+       </item>
+       <item row="6" column="5" colspan="2">
+        <widget class="QSpinBox" name="DispContrast_NF">
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+         <property name="suffix">
+          <string> %</string>
+         </property>
+         <property name="maximum">
+          <number>100</number>
+         </property>
+         <property name="value">
+          <number>50</number>
+         </property>
+        </widget>
        </item>
       </layout>
      </widget>
@@ -1294,6 +1300,146 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>QDoubleSlider</class>
+   <extends>QSlider</extends>
+   <header>superqt</header>
+   <slots>
+    <signal>valueChanged(double)</signal>
+    <slot>setValue(double)</slot>
+   </slots>
+  </customwidget>
+ </customwidgets>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>DispMaskOpa</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>DispMaskOpa_NF</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>232</x>
+     <y>498</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>323</x>
+     <y>497</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>DispMaskOpa_NF</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>DispMaskOpa</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>323</x>
+     <y>497</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>497</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>DispBrightness</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>DispBrightness_NF</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>258</x>
+     <y>400</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>299</x>
+     <y>404</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>DispBrightness_NF</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>DispBrightness</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>321</x>
+     <y>393</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>120</x>
+     <y>407</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>DispContrast_NF</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>DispContrast</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>319</x>
+     <y>430</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>255</x>
+     <y>433</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>DispContrast</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>DispContrast_NF</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>147</x>
+     <y>435</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>303</x>
+     <y>429</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>DispGamma</sender>
+   <signal>valueChanged(double)</signal>
+   <receiver>DispGamma_NF</receiver>
+   <slot>setValue(double)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>240</x>
+     <y>471</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>320</x>
+     <y>476</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>DispGamma_NF</sender>
+   <signal>valueChanged(double)</signal>
+   <receiver>DispGamma</receiver>
+   <slot>setValue(double)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>296</x>
+     <y>454</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>211</x>
+     <y>462</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>

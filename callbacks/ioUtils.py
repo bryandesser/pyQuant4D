@@ -3,9 +3,10 @@ import re
 from PyQt5 import QtWidgets as qtw
 from PyQt5 import QtCore as qtc
 from callbacks.imageUtils import integrateAnnular, detrCoordCallbacks, Worker
+from callbacks.utils import enableWindows
 from multiprocessing.pool import ThreadPool
 import psutil
-from datetime import datetime
+#from datetime import datetime
 
 class importThread(qtc.QObject):
     result = qtc.pyqtSignal(np.ndarray)
@@ -669,7 +670,6 @@ def finishImport(self):
     reinitializeUI(self)
 
 def reinitializeUI(self):
-    print("threadpool finished: {}".format(datetime.now()))
     # finalize progressBar
     self.progressBar.setMaximum(100)
     self.progressBar.setValue(100)
@@ -678,11 +678,10 @@ def reinitializeUI(self):
     # display the total pacbed and resulting image to start
     self.Image.Dfrn = self.Fig.Dfrn.ax.imshow(self.Data.sum(axis=0).reshape(self.D.NPx))
     self.Image.Real = self.Fig.Real.ax.imshow(self.Data.sum(axis=1).reshape(self.D.NFr))
+    self.Image.Dfrn.figure.set_facecolor('black')
+    self.Image.Real.figure.set_facecolor('black')
     self.Fig.Dfrn.setVisible(True)
     self.Fig.Real.setVisible(True)
-
-    # update annular QRangeSlider to match
-    self.AnnRi.setValue((self.AnnRi.minimum(),self.AnnRi.maximum()))
 
     self.progressBar.setEnabled(False)
 
@@ -702,3 +701,9 @@ def reinitializeUI(self):
             action.setEnabled(True)
     
     detrCoordCallbacks(self)
+
+    # update annular QRangeSlider to match
+    self.AnnRi.setValue((self.AnnRi.minimum(),self.AnnRi.maximum()))
+
+    # re-enable windows
+    enableWindows(True)

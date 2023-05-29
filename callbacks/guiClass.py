@@ -123,11 +123,11 @@ class ImageWindow(qtw.QMainWindow):
 
         self.id = id            # window id
         self.space = sp         # real or diffraction space?
-        self.type = typ         # type of image
+        self.type = typ         # type of image: Primary (Dfrn and Real), Mask, CoM
         self.cmap = cmap        # colormap
         self.invert = 0         # invert colormap?
         self.maskOpa = 0        # mask opacity
-        self.Tag = sp+" "+typ   # 
+        self.Tag = sp+" "+typ   # tag used for finding windows
         self.name = name        # image name
         self.brightness = 50    # brightness value
         self.contrast = 50      # contrast value
@@ -142,11 +142,12 @@ class ImageWindow(qtw.QMainWindow):
             self.vecColor = 'w' # white
         
         # only use self.move() for dummy window test, it triggers a moveEvent which draws the decoration so they can be measured
+        pos = list(map(round,pos)) # make sure position is type int
         if id=="":
             self.move(pos[0],pos[1])
             self.show()
         else:
-            self.setGeometry(qtc.QRect(int(pos[0]),int(pos[1]),int(pos[2]),int(pos[3])))
+            self.setGeometry(qtc.QRect(pos[0],pos[1],pos[2],pos[3]))
         
     # change closeEvent behavior to hide rather than close window
     def closeEvent(self, a0: qtg.QCloseEvent) -> None:

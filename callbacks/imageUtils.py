@@ -44,7 +44,8 @@ def integrateAnnular(self):
     # from transmitted beam as integers to allow for direct use with QRangeSlider[int]
     # and array indexing; self.D.annWidth = 0.5 by default
     xgrid,ygrid = np.ogrid[-self.B0[0]:self.D.NPxX-self.B0[0],-self.B0[1]:self.D.NPxY-self.B0[1]]
-    k = np.int32(np.sqrt(xgrid**2+ygrid**2)/self.D.annWidth).flatten()
+    self.A.k = np.int32(np.sqrt(xgrid**2+ygrid**2)/self.D.annWidth)
+    k = self.A.k.flatten()
 
     # generate a vector of pixel distances from transmitted beam center (divided by annWidth)
     distance = np.arange(0,k.max()+1)
@@ -177,6 +178,14 @@ def moveAnnR(self):
     self.Image.Real.set_data(self.adfImages[:,:,innerRadius:outerRadius+1].sum(axis=2))
     self.Image.Real.autoscale()
     self.Fig.Real.canvas.draw()
+    maskOpacity(self)
 
 def detrCoordCallbacks(self):
     drawAnnDetr(self)
+
+def maskOpacity(self):
+    alpha = self.SettingsWindow.DispMaskOpa.value()/100 # mask opacity slider
+    k = self.A.k.T # distance from optic axis
+    mask = ((k>=self.AnnRi.value()[0])&(k<=self.AnnRi.value()[1]))*(alpha)+1-alpha
+    self.Image.Dfrn.set_alpha(mask)
+    self.Fig.Dfrn.canvas.draw()
