@@ -98,8 +98,35 @@ def startupFcn(self):
         self.Fig.CoMPhMag = ImageWindow("CoMPhMag","CoM Phase (Magnitude-shaded)","Real","CoM","hsv",[self.C.l, 7*(self.C.decorPad + self.C.titleHeight) + self.C.vOffset, self.C.sz + self.C.mplDecor.width(), self.C.sz + self.C.mplDecor.height()])
         self.Fig.RealMask = ImageWindow("RealMask","Real-space Mask","Real","Mask","gray",[self.C.l, 8*(self.C.decorPad + self.C.titleHeight) + self.C.vOffset, self.C.sz + self.C.mplDecor.width(), self.C.sz + self.C.mplDecor.height()])
         self.Fig.Real = ImageWindow("Real","Real-space","Real","Primary","gray",[self.C.l, 9*(self.C.decorPad + self.C.titleHeight) + self.C.vOffset, self.C.sz + self.C.mplDecor.width(), self.C.sz + self.C.mplDecor.height()])
+        self.Fig.Preview = ImageWindow("Preview","Preview","Preview","Preview","gray",[self.C.l, (self.C.ScreenSize[3]-self.C.sz)/2, self.C.sz + self.C.mplDecor.width(), self.C.sz + self.C.mplDecor.height()])
         self.Fig.ColorWheel = ImageWindow(id = "ColorWheel", name = "Color Wheel for Phase Direction", sp = "ColorWheel", typ = "CoM", cmap = "hsv", pos = [self.C.shc-self.C.sz-self.C.mplDecor.width(), self.C.sz+2*(self.C.decorPad+self.C.titleHeight)+self.C.mplDecor.height() + self.C.vOffset, self.C.sz/2 + self.C.mplDecor.width(), self.C.sz/2 + self.C.mplDecor.height()])
         plotColorwheel(self) 
+
+        # Variable names, image names and image types (tag) for all patterns'/images' figures/axes/images
+        self.G.ImgID = [obj for obj in self.Fig.__dict__] # ID/fieldnames under `self.Axes` `self.Fig` `self.Image` `self.ImgD` etc
+        self.G.ImgSp = [getattr(self.Fig,ImgID).space for ImgID in self.G.ImgID] # Spaces ("Real"/"Dfrn")
+        self.G.ImgTyp = [getattr(self.Fig,ImgID).type for ImgID in self.G.ImgID] # Types ("Primary", "CoM" related, "Mask", "Test")
+        self.G.ImgNm = [getattr(self.Fig,ImgID).name for ImgID in self.G.ImgID] # Names/Titles
+
+        # AND their Axes/Figure objects, as well as the gray overlay to disable them
+        self.G.ImgAx = [getattr(self.Fig,ImgID).ax for ImgID in self.G.ImgID]
+        self.G.ImgFig = [getattr(self.Fig,ImgID) for ImgID in self.G.ImgID]
+
+        # Variable names for all diffraction-sized figures/axes/images AND THEN their Axes objects
+        self.G.DfrnID = [ImgID for ImgID,space in zip(self.G.ImgID,self.G.ImgSp) if space == "Dfrn"]
+        self.G.DfrnAx = [getattr(self.Fig,DfrnID).ax for DfrnID in self.G.DfrnID]
+
+        # Variable names for all real-space-sized figures/axes/images AND THEN their Axes objects
+        self.G.RealID = [ImgID for ImgID,space in zip(self.G.ImgID,self.G.ImgSp) if space == "Real"]
+        self.G.RealAx = [getattr(self.Fig,RealID).ax for RealID in self.G.RealID]
+
+        # Group all "Show ... Window" buttons related to CoM/DPC
+        self.G.CoM_btns = [obj for obj in self.SettingsWindow.findChildren(qtw.QPushButton) if "CoM" in obj.objectName()]
+        self.G.CoM_btns.extend([self.ShowColorWheelWdw,self.SettingsWindow.ShowColorWheelWdw_2])
+
+        # Group all window `figure` `uifigure`
+        self.G.AllFig = self.G.ImgFig.copy()
+        self.G.AllFig.extend([self,self.SettingsWindow,self.ImportWindow,self.SaveWindow])
 
     def populateDropdowns(self):
         """ populates GUI dropdowns with itemText and itemData where necessary """

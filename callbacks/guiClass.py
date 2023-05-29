@@ -112,6 +112,7 @@ class ImageWindow(qtw.QMainWindow):
         self.fig.subplots_adjust(bottom=0,right=1,top=1,left=0)
         self.canvas = FigureCanvas(self.fig)
         self.ax.axis('off')
+        self.ax.set_facecolor('black')
 
         layout.addWidget(self.canvas)
 

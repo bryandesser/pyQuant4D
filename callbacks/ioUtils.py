@@ -706,4 +706,4 @@ def reinitializeUI(self):
     self.AnnRi.setValue((self.AnnRi.minimum(),self.AnnRi.maximum()))
 
     # re-enable windows
-    enableWindows(True)
+    enableWindows(self,True)
