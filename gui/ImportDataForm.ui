@@ -305,7 +305,7 @@
              </widget>
             </item>
             <item row="1" column="1">
-             <widget class="QDoubleSpinBox" name="DataOffset">
+             <widget class="QSpinBox" name="DataOffset">
               <property name="minimumSize">
                <size>
                 <width>0</width>
@@ -324,16 +324,13 @@
               <property name="suffix">
                <string> bytes</string>
               </property>
-              <property name="decimals">
-               <number>0</number>
-              </property>
               <property name="maximum">
-               <double>1000000000.000000000000000</double>
+               <number>1000000000</number>
               </property>
              </widget>
             </item>
             <item row="3" column="1">
-             <widget class="QDoubleSpinBox" name="FrFoot">
+             <widget class="QSpinBox" name="FrFoot">
               <property name="minimumSize">
                <size>
                 <width>0</width>
@@ -352,16 +349,13 @@
               <property name="suffix">
                <string> bytes</string>
               </property>
-              <property name="decimals">
-               <number>0</number>
-              </property>
               <property name="maximum">
-               <double>1000000000.000000000000000</double>
+               <number>1000000000</number>
               </property>
              </widget>
             </item>
             <item row="2" column="1">
-             <widget class="QDoubleSpinBox" name="FrHead">
+             <widget class="QSpinBox" name="FrHead">
               <property name="minimumSize">
                <size>
                 <width>0</width>
@@ -380,11 +374,8 @@
               <property name="suffix">
                <string> bytes</string>
               </property>
-              <property name="decimals">
-               <number>0</number>
-              </property>
               <property name="maximum">
-               <double>1000000000.000000000000000</double>
+               <number>1000000000</number>
               </property>
              </widget>
             </item>

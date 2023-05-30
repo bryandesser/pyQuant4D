@@ -1,8 +1,12 @@
 import numpy as np
 from PyQt5 import QtWidgets as qtw
 from PyQt5 import QtCore as qtc
+import callbacks.appClass as appClass
 from callbacks.appClass import *
+from callbacks.annotationsClass import DraggablePoint
 import os
+import importlib
+import matplotlib
 
 def gatherImportOptions(self):
     self.D.filePath = self.ImportWindow.ImpFilePath.text()
@@ -194,6 +198,9 @@ def rangeImportExport(self, src):
 
 # Function to unload data and clean all images
 def unloadData(self, keep_p=False):
+    importlib.reload(appClass)
+    from callbacks.appClass import A,P,Image,Mask,D,Prev,Image
+
     """ Function to unload data and clean all images """
     enableWindows(self,False) # Disable windows for the data unload process
     self.setWindowTitle('Quant4D')
@@ -206,6 +213,11 @@ def unloadData(self, keep_p=False):
                 fig.ax.cla()
                 fig.canvas.draw()
         
+        # clear annotations (lines and draggable points)
+        for ii in dir(self.A):
+            if type(getattr(self.A,ii)) in (DraggablePoint,matplotlib.lines.Line2D):
+                setattr(self.A,ii,None)
+
         #self.HistAxes.ax.cla() # Clear all Axes #TODO
         setattr(self,'P',P)
         setattr(self,'A',A)
@@ -263,7 +275,7 @@ def on_ImportDataButton_clicked(self):
         # Set save/export filenames etc.
         self.setWindowTitle(self.D.fileName)
         self.SaveWindow.SaveDir.setText(self.D.fileDir)
-        self.SaveWindow.SaveImgPrefix.setText(self.D.fileName+"_")
+        self.SaveWindow.SaveImgPrefix.setText(self.D.fileName.replace(self.D.fileExt,"")+"_")
         
         unloadData(self)
         gatherImportOptions(self)

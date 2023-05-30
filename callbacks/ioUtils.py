@@ -520,22 +520,22 @@ def readEMPAD(self):
     self.progressBar.setMaximum(0)
 
     #while not importDialog.wasCanceled():
-    filename = self.ImportWindow.ImpFilePath.text()
+    filename = self.D.filePath
 
     # dataset offset
-    dataOffset = int(self.ImportWindow.DataOffset.value())
+    dataOffset = self.D.Offset
 
     # dataset header/foot sizes (in bytes)
-    header = int(self.ImportWindow.FrHead.value())
-    footer = int(self.ImportWindow.FrFoot.value())
+    header = self.D.FrHead
+    footer = self.D.FrFoot
 
     # detector shape
-    nopix = self.ImportWindow.DNPxX.value()
-    nopiy = self.ImportWindow.DNPxY.value()
+    nopix = self.D.NPxX
+    nopiy = self.D.NPxY
 
     # real space scan shape
-    framesx = self.ImportWindow.DNFrX.value()
-    framesy = self.ImportWindow.DNFrY.value()
+    framesx = self.D.NFrX
+    framesy = self.D.NFrY
     dataType = [("header", "{}uint8".format(header)), ("data", "{}{}".format(nopix*nopiy,self.D.DataType)), ("footer", "{}uint8".format(footer))]
     
     # show progressbar to let user know things are happening
@@ -664,6 +664,9 @@ def finishImport(self):
     #self.threadpool = qtc.QThreadPool()
     #print("threadpool started: {}".format(datetime.now()))
     #self.threadpool.start(worker)
+    
+    # quit the import thread
+    self.workerThread.quit()
 
     prepareData(self)
     integrateAnnular(self)
@@ -677,7 +680,7 @@ def reinitializeUI(self):
 
     # display the total pacbed and resulting image to start
     self.Image.Dfrn = self.Fig.Dfrn.ax.imshow(self.Data.sum(axis=0).reshape(self.D.NPx))
-    self.Image.Real = self.Fig.Real.ax.imshow(self.Data.sum(axis=1).reshape(self.D.NFr))
+    self.Image.Real = self.Fig.Real.ax.imshow(self.Data.sum(axis=1).reshape(self.D.NFrY,self.D.NFrX))
     self.Image.Dfrn.figure.set_facecolor('black')
     self.Image.Real.figure.set_facecolor('black')
     self.Fig.Dfrn.setVisible(True)

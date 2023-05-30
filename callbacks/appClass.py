@@ -136,9 +136,7 @@ class Image:
 class A:
     circX = np.cos(np.arange(0,2.01*np.pi,np.pi/100))
     circY = np.sin(np.arange(0,2.01*np.pi,np.pi/100))
-    adfInnerPt = None
     adfInnerCirc = None
-    adfOuterPt = None
     adfOuterCirc = None
     adfPt = None
     tbPt = None

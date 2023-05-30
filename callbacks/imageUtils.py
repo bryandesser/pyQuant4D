@@ -1,9 +1,7 @@
 import numpy as np
-import matplotlib.patches as patches
 from callbacks.annotationsClass import DraggablePoint
 from PyQt5 import QtCore as qtc
 import traceback, sys
-from datetime import datetime
 
 class WorkerSignals(qtc.QObject):
     finished = qtc.pyqtSignal()
@@ -22,7 +20,6 @@ class Worker(qtc.QRunnable):
         self.signals = WorkerSignals()
 
     def run(self):
-        print("Worker(qtc.QRunnable).run() on thread {}".format(qtc.QThread.currentThreadId()))
         # run the function, return results, and signal finished
         try:
             adfImages = self.fn(self.args)
@@ -34,12 +31,9 @@ class Worker(qtc.QRunnable):
             self.signals.result.emit(adfImages)  # Return the result of the processing
         finally:
             self.signals.finished.emit()  # Done
-            print("finished at {}".format(datetime.now()))
 
 
 def integrateAnnular(self):
-    print("integrateAnnular(self) on thread {}".format(qtc.QThread.currentThreadId()))
-    print("started at {}".format(datetime.now()))
     # generate meshgrid, divide by annulus width and round so distance increments away
     # from transmitted beam as integers to allow for direct use with QRangeSlider[int]
     # and array indexing; self.D.annWidth = 0.5 by default
@@ -85,14 +79,14 @@ def drawAnnDetr(self):
 
     # add circles to pacbed plot, these are not draggable
     if self.A.adfInnerCirc is None:
-        self.A.adfInnerCirc = self.Fig.Dfrn.ax.plot(self.A.circX*r1*np.sqrt(2)+c[0],self.A.circY*r1*np.sqrt(2)+c[1],color='r')
+        self.A.adfInnerCirc = self.Fig.Dfrn.ax.plot(self.A.circX*r1*np.sqrt(2)+c[0],self.A.circY*r1*np.sqrt(2)+c[1],color='r')[0]
     if self.A.adfOuterCirc is None:
-        self.A.adfOuterCirc = self.Fig.Dfrn.ax.plot(self.A.circX*r2*np.sqrt(2)+c[0],self.A.circY*r2*np.sqrt(2)+c[1],color='r')
+        self.A.adfOuterCirc = self.Fig.Dfrn.ax.plot(self.A.circX*r2*np.sqrt(2)+c[0],self.A.circY*r2*np.sqrt(2)+c[1],color='r')[0]
 
 def annDetrVisibility(self,state):
     # show/hide adf annotations
-    self.A.adfInnerCirc[0]._visible = state
-    self.A.adfOuterCirc[0]._visible = state
+    self.A.adfInnerCirc._visible = state
+    self.A.adfOuterCirc._visible = state
     self.A.adfPt.point.set_visible(state)
     self.Fig.Dfrn.canvas.draw()
     
@@ -100,10 +94,10 @@ def replotCirc(self):
     """ update the ciruclar annotations on the diffraction pattern """
     
     r1 = self.AnnRi.value()[0]/2
-    self.A.adfInnerCirc[0].set_data(self.A.circX*r1+self.B0[0],self.A.circY*r1+self.B0[1])
+    self.A.adfInnerCirc.set_data(self.A.circX*r1+self.B0[0],self.A.circY*r1+self.B0[1])
     
     r2 = self.AnnRi.value()[1]/2
-    self.A.adfOuterCirc[0].set_data(self.A.circX*r2+self.B0[0],self.A.circY*r2+self.B0[1])
+    self.A.adfOuterCirc.set_data(self.A.circX*r2+self.B0[0],self.A.circY*r2+self.B0[1])
     
     # update diffraction pattern figure
     self.Fig.Dfrn.canvas.draw()

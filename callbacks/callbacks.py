@@ -133,6 +133,10 @@ def importFileType(self):
     dataTypeText = ['Select Data Type...','8-bit Signed','8-bit Unsigned','16-bit Signed','16-bit Unsigned','32-bit Real', \
                     '32-bit Signed','32-bit Unsigned','64-bit Real','64-bit Signed','64-bit Unsigned']
 
+    # block slots/signals
+    self.ImportWindow.ImpDataType.blockSignals(True)
+    self.ImportWindow.ImpByteOrder.blockSignals(True)
+
     # add to combobox
     self.ImportWindow.ImpDataType.clear()
     for dtt,dt in zip(dataTypeText,dataType):
@@ -140,9 +144,13 @@ def importFileType(self):
     
     # default to "Select Data Type..." prompt
     self.ImportWindow.ImpDataType.setCurrentIndex(0)
-    
+
     # default to "little endian"
     self.ImportWindow.ImpByteOrder.setCurrentIndex(0)
+
+    # unblock slots/signals
+    self.ImportWindow.ImpDataType.blockSignals(False)
+    self.ImportWindow.ImpByteOrder.blockSignals(False)
 
     if os.path.isfile(self.ImportWindow.ImpFilePath.text()):
         if self.ImportWindow.EMPADButton.isChecked():
