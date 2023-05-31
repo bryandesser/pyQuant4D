@@ -685,6 +685,8 @@ def reinitializeUI(self):
     self.Image.Real.figure.set_facecolor('black')
     self.Fig.Dfrn.setVisible(True)
     self.Fig.Real.setVisible(True)
+    self.Fig.Dfrn.ax.axis(self.P.DfrnAxLim)
+    self.Fig.Real.ax.axis(self.P.RealAxLim)
 
     self.progressBar.setEnabled(False)
 
@@ -693,6 +695,8 @@ def reinitializeUI(self):
     self.progressBarPanel.setVisible(True)
     self.DfrnDetrTabGroup.setVisible(True)
     self.DetectorModeGroup.setVisible(True)
+    self.Fig.Dfrn.canvas.draw()
+    self.Fig.Real.canvas.draw()
 
     # start in alignment mode
     self.DetrMode.setCurrentIndex(1)

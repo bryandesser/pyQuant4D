@@ -13,6 +13,10 @@ class DraggablePoint(qtc.QObject):
         self.idx = 0
         self.background = None
         self.radius = 1
+    
+    def remove(self):
+        'allow the points to be removed from plots'
+        self.point.remove()
 
     def connect(self):
         'connect to all the events we need'

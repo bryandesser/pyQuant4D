@@ -440,6 +440,31 @@ def displayCallbacks():
 def realSpaceROICallbacks():
     pass
 
+def clearDetectors(self):
+        
+        detectorList = [
+            self.A.adfPt,
+            self.A.adfInnerCirc,
+            self.A.adfOuterCirc,
+            self.A.tbPt,
+            self.A.tbCirc]
+        
+        # Try removing annotations and then setting to None so that they can be replotted later
+        for ii in detectorList:
+            try:
+                ii.remove() # works for Line2D (i.e. circle annotations)
+            except:
+                pass
+            finally:
+                print(ii)
+                ii = None
+
+        # Custom detectors
+        # Hide Custom ROIs only
+        set(findobj(self.Axes.Dfrn.Children,'-regexp','Tag',"Custom "),'Visible',0)
+        # Scan direction alignment
+        delete(findobj(self.Axes.Dfrn,'Tag','ScanDirAnnot'))
+
 def on_DetrMode_currentIndexChanged(self):
     dmod = self.DetrMode.currentData()
     if dmod=="PrvwMod":

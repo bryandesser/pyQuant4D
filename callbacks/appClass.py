@@ -134,13 +134,45 @@ class Image:
     Preview = None
 
 class A:
+    # generic circle starting point
     circX = np.cos(np.arange(0,2.01*np.pi,np.pi/100))
     circY = np.sin(np.arange(0,2.01*np.pi,np.pi/100))
+    
+    # bf/adf detector
     adfInnerCirc = None
     adfOuterCirc = None
     adfPt = None
+    
+    # transmitted beam
     tbPt = None
     tbCirc = None
+
+    # DPC segments
+    SegDetrCir = None
+    SegDetrL = None
+    SegDetrL0 = None
+    SegDetrP0 = None
+
+    # scan direction for CoM/DPC
+    ScanDirXline = None
+    ScanDirYline = None
+    ScanDirXcirc = None
+    ScanDirYcirc = None
+
+    # virtual apertures
+    VrApMirL = None
+    VrApMirP = None
+    VrAp = None
+
+    # ROIs
+    RealROI = None
+    CoMPhMagROI = None
+    CoMPhROI = None
+    CoMMagROI = None
+    CoMXROI = None
+    CoMYROI = None
+    dCoMROI = None
+    iCoMROI = None
 
 class Mask:
     pass
