@@ -1,5 +1,5 @@
 import numpy as np
-from callbacks.annotationsClass import DraggablePoint
+from callbacks.annotationsClass import InteractiveCircle
 
 self = []
 
@@ -59,7 +59,7 @@ def transBeamCallbacks(self):
         # Update ROI
         set(self.A.tbCirc,'Center',b0,'Radius',r)
         # Update global coordnate properties
-        detrCoordCallbacks(app, event)
+        #detrCoordCallbacks(app, event) #TODO
 
     # Auto-align transmitted beam
     def autoAlign(self):
@@ -190,30 +190,24 @@ def transBeamCallbacks(self):
         self.A.tbCirc[0].set_data(self.A.circX*r+self.B0[0],self.A.circY*r+self.B0[1])
         self.Fig.Dfrn.canvas.draw()
 
-    def drawTb(self):
+    def drawInteractiveCircle(self,axis,color):
         """ initiallize the transmitted beam annotations """
         # define center location and starting radii for transmitted beam
         c = self.B0
         r = self.TBR.value()
 
-        # # generate one point that a user can drag to control the transmitted beam
-        if self.A.tbPt is None:
-            self.A.tbPt = DraggablePoint(self.Fig.Dfrn.ax.scatter(c[0]+r,c[1]-r,s=25,c='b'))
-            self.A.tbPt.connect()
-            self.A.tbPt.redrawCircle.connect(lambda: moveTbR(self))
-            self.pointPickerRadius.connect(lambda: self.A.tbPt.setPointPickerRadius(self.screen().physicalDotsPerInch()))
-        else:
-            self.A.tbPt.point._visible=True
+        circ, = axis.plot(r*self.A.circX+c[0],r*self.A.circY+c[1],color=color)
 
-        # add circles to pacbed plot, these are not draggable
-        if self.A.tbCirc is None:
-            self.A.tbCirc = self.Fig.Dfrn.ax.plot(self.A.circX*r*np.sqrt(2)+c[0],self.A.circY*r*np.sqrt(2)+c[1],color='b')
+        interactiveCircle = InteractiveCircle(circ,color)
+        
+        return interactiveCircle
+        
 
 
     match self.sender():
         case self.DetrMode: # Entering mode
             # Create transmitted beam annotation, allow for disk as large as the entire diffraction pattern
-            self.A.tbCirc = drawTb(self)
+            self.A.tbCirc = drawInteractiveCircle(self,self.Fig.Dfrn.ax,'b')
             self.Fig.Dfrn.activateWindow() # Select `Dfrn` image
             # If this is the initializing alignment, then do swap byte check and auto-align
             if not self.P.TransBeamInit:

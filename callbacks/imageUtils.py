@@ -175,7 +175,15 @@ def moveAnnR(self):
     maskOpacity(self)
 
 def detrCoordCallbacks(self):
-    drawAnnDetr(self)
+    match self.DetrMode.currentData():
+        case 'AlignMod':
+            pass
+        case "AnnMod"|"DPCMod"|"CoMMod":
+            drawAnnDetr(self)
+        case "VrApMod":
+            pass
+        case "CustMod":
+            pass
 
 def maskOpacity(self):
     alpha = self.SettingsWindow.DispMaskOpa.value()/100 # mask opacity slider

@@ -115,21 +115,22 @@ class InteractiveCircle(qtc.QObject):
     
     lock = None #only one can be animated at a time
 
-    def __init__(self, circ):
+    def __init__(self, circ, color):
         super().__init__()
         self.circ = circ
         self.press = None
         self.background = None
         self.center = np.mean(self.circ._xy,axis=0)
         self.radius = np.mean(np.linalg.norm(self.circ._xy-self.center,axis=1))
-        self.point = self.circ.axes.scatter(self.center[0]+self.radius,self.center[1])
+        self.point = self.circ.axes.scatter(self.center[0]+self.radius,self.center[1],c=color)
         self.transform = 'translate'
         self.x = np.cos(2 * np.pi * np.arange(0.0, 1.01, 0.01))
         self.y = np.sin(2 * np.pi * np.arange(0.0, 1.01, 0.01))
     
     def remove(self):
-        'allow the circle to be removed from plots'
+        'allow the circle and dot to be removed from plots'
         self.circ.remove()
+        self.point.remove()
 
     def connect(self):
         'connect to all the events we need'
