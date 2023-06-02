@@ -112,20 +112,31 @@ class DraggablePoint(qtc.QObject):
         self.point.set_sizes(2*[self.radius/2])
 
 class InteractiveCircle(qtc.QObject):
-    
+    updateCircle = qtc.pyqtSignal()
+
     lock = None #only one can be animated at a time
 
-    def __init__(self, circ, color):
+    def __init__(self, center, radius, axis, color):
         super().__init__()
-        self.circ = circ
-        self.press = None
-        self.background = None
-        self.center = np.mean(self.circ._xy,axis=0)
-        self.radius = np.mean(np.linalg.norm(self.circ._xy-self.center,axis=1))
-        self.point = self.circ.axes.scatter(self.center[0]+self.radius,self.center[1],c=color)
-        self.transform = 'translate'
+        # properties
         self.x = np.cos(2 * np.pi * np.arange(0.0, 1.01, 0.01))
         self.y = np.sin(2 * np.pi * np.arange(0.0, 1.01, 0.01))
+        self.center = center
+        self.radius = radius
+        self.press = None
+        self.transform = 'translate'
+
+        # annotations
+        self.circ, = axis.plot(radius*self.x+center[0],radius*self.y+center[1],color=color)
+        self.point = axis.scatter(self.center[0]+self.radius,self.center[1],c=color)
+        
+        # shortcuts
+        self.circCanvas = self.circ.figure.canvas
+        self.circAxes = self.circ.axes
+        self.ptCanvas = self.circ.figure.canvas
+        self.ptAxes = self.circ.axes
+        self.background = self.circ.figure.canvas.copy_from_bbox(axis.bbox)
+        self.point.background = self.point.figure.canvas.copy_from_bbox(self.point.axes.bbox)
     
     def remove(self):
         'allow the circle and dot to be removed from plots'
@@ -171,27 +182,23 @@ class InteractiveCircle(qtc.QObject):
         InteractiveCircle.lock = self
 
         # draw everything but the selected circle and store the pixel buffer
-        circCanvas = self.circ.figure.canvas
-        circAxes = self.circ.axes
-        ptCanvas = self.point.figure.canvas
-        ptAxes = self.point.axes
         self.circ.set_animated(True)
         self.point.set_animated(True)
-        circCanvas.draw()
-        ptCanvas.draw()
-        self.background = circCanvas.copy_from_bbox(circAxes.bbox)
-        self.point.background = ptCanvas.copy_from_bbox(ptAxes.bbox)
+        self.circCanvas.draw()
+        self.ptCanvas.draw()
+        self.background = self.circCanvas.copy_from_bbox(self.circAxes.bbox)
+        self.point.background = self.ptCanvas.copy_from_bbox(self.ptAxes.bbox)
 
         # update cursor
-        circCanvas.set_cursor(Cursors.MOVE)
+        self.circCanvas.set_cursor(Cursors.MOVE)
 
         # now redraw just the circle
-        circAxes.draw_artist(self.circ)
-        ptAxes.draw_artist(self.point)
+        self.circAxes.draw_artist(self.circ)
+        self.ptAxes.draw_artist(self.point)
 
         # and blit just the redrawn area
-        circCanvas.blit(circAxes.bbox)
-        ptCanvas.blit(ptAxes.bbox)
+        self.circCanvas.blit(self.circAxes.bbox)
+        self.ptCanvas.blit(self.ptAxes.bbox)
 
     def on_motion(self, event):
         if event.inaxes != self.circ.axes: return
@@ -237,6 +244,49 @@ class InteractiveCircle(qtc.QObject):
             self.circ.set_ydata(self.radius*self.y + self.center[1])
             self.point.set_offsets(pt0+(dx,dy))
 
+        # restore the background region
+        self.circCanvas.restore_region(self.background)
+        self.ptCanvas.restore_region(self.point.background)
+
+        # redraw just the current rectangle
+        self.circAxes.draw_artist(self.circ)
+        self.ptAxes.draw_artist(self.point)
+
+        # blit just the redrawn area
+        self.circCanvas.blit(self.circAxes.bbox)
+        self.ptCanvas.blit(self.ptAxes.bbox)
+
+        self.updateCircle.emit()
+
+    def on_release(self, event):
+        'on release we reset the press data'
+        if InteractiveCircle.lock is not self:
+            return
+
+        self.press = None
+        InteractiveCircle.lock = None
+
+        # update cursor
+        self.circ.figure.canvas.set_cursor(Cursors.POINTER)
+
+        # turn off the rect animation property and reset the background
+        self.circ.set_animated(False)
+        self.point.set_animated(False)
+        #self.background = None
+        #self.point.background = None
+
+        # redraw the full figure
+        self.circ.figure.canvas.draw()
+        self.point.figure.canvas.draw()
+    
+    def redraw(self):
+        #dxy = self.center - np.mean(self.circ._xy,axis=0)
+        #self.point.set_offsets(self.point.get_offsets()+dxy)
+        vec = self.point.get_offsets()-np.mean(self.circ._xy,axis=0)
+        self.point.set_offsets(self.radius*vec/np.linalg.norm(vec)+self.center)
+        self.circ.set_xdata(self.radius*self.x+self.center[0])
+        self.circ.set_ydata(self.radius*self.y+self.center[1])
+        
         circCanvas = self.circ.figure.canvas
         circAxes = self.circ.axes
         ptCanvas = self.circ.figure.canvas
@@ -253,24 +303,3 @@ class InteractiveCircle(qtc.QObject):
         # blit just the redrawn area
         circCanvas.blit(circAxes.bbox)
         ptCanvas.blit(ptAxes.bbox)
-
-    def on_release(self, event):
-        'on release we reset the press data'
-        if InteractiveCircle.lock is not self:
-            return
-
-        self.press = None
-        InteractiveCircle.lock = None
-
-        # update cursor
-        self.circ.figure.canvas.set_cursor(Cursors.POINTER)
-
-        # turn off the rect animation property and reset the background
-        self.circ.set_animated(False)
-        self.point.set_animated(False)
-        self.background = None
-        self.point.background = None
-
-        # redraw the full figure
-        self.circ.figure.canvas.draw()
-        self.point.figure.canvas.draw()

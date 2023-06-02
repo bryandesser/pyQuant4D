@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>550</width>
+    <width>611</width>
     <height>500</height>
    </rect>
   </property>
@@ -15,18 +15,6 @@
     <horstretch>0</horstretch>
     <verstretch>0</verstretch>
    </sizepolicy>
-  </property>
-  <property name="minimumSize">
-   <size>
-    <width>550</width>
-    <height>500</height>
-   </size>
-  </property>
-  <property name="maximumSize">
-   <size>
-    <width>550</width>
-    <height>500</height>
-   </size>
   </property>
   <property name="font">
    <font>
@@ -58,12 +46,6 @@
        <height>24</height>
       </size>
      </property>
-     <property name="maximumSize">
-      <size>
-       <width>100</width>
-       <height>24</height>
-      </size>
-     </property>
      <property name="font">
       <font>
        <pointsize>11</pointsize>
@@ -79,12 +61,6 @@
    <item row="0" column="0">
     <widget class="QPushButton" name="SaveDirButton">
      <property name="minimumSize">
-      <size>
-       <width>90</width>
-       <height>24</height>
-      </size>
-     </property>
-     <property name="maximumSize">
       <size>
        <width>90</width>
        <height>24</height>
@@ -117,12 +93,6 @@
        <height>24</height>
       </size>
      </property>
-     <property name="maximumSize">
-      <size>
-       <width>100</width>
-       <height>24</height>
-      </size>
-     </property>
      <property name="font">
       <font>
        <pointsize>11</pointsize>
@@ -138,7 +108,7 @@
    <item row="1" column="0" colspan="3">
     <widget class="QTabWidget" name="SaveTabGroup">
      <property name="currentIndex">
-      <number>1</number>
+      <number>0</number>
      </property>
      <widget class="QWidget" name="SaveImgTab">
       <attribute name="title">
@@ -146,7 +116,11 @@
       </attribute>
       <layout class="QGridLayout" name="gridLayout_2">
        <item row="4" column="0" colspan="6">
-        <widget class="QListWidget" name="SaveImgList"/>
+        <widget class="QListWidget" name="SaveImgList">
+         <property name="selectionMode">
+          <enum>QAbstractItemView::MultiSelection</enum>
+         </property>
+        </widget>
        </item>
        <item row="5" column="0" colspan="3">
         <widget class="QCheckBox" name="SaveImgTIF">
@@ -198,7 +172,7 @@
           </font>
          </property>
          <property name="text">
-          <string>Images to Save (Multi-select with Ctrl/Shift)</string>
+          <string>Image(s) to Save (select one or more)</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>
@@ -218,7 +192,7 @@
        <item row="7" column="0">
         <widget class="QCheckBox" name="SaveImgPNG">
          <property name="text">
-          <string>As-displayed, PNG; </string>
+          <string>As-displayed, PNG</string>
          </property>
          <property name="checked">
           <bool>true</bool>
@@ -235,7 +209,7 @@
        <item row="7" column="1" colspan="3">
         <widget class="QCheckBox" name="SaveImgPNGAnnot">
          <property name="text">
-          <string>w/ annotations, e.g. ROIs,</string>
+          <string>w/ annotations, e.g. ROIs</string>
          </property>
          <property name="checked">
           <bool>true</bool>
@@ -279,12 +253,6 @@
        </item>
        <item row="4" column="0" colspan="4">
         <widget class="QLabel" name="ExpNotesLabel">
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>16</height>
-          </size>
-         </property>
          <property name="font">
           <font>
            <pointsize>11</pointsize>
@@ -308,12 +276,6 @@
            <height>0</height>
           </size>
          </property>
-         <property name="maximumSize">
-          <size>
-           <width>250</width>
-           <height>16777215</height>
-          </size>
-         </property>
          <item>
           <property name="text">
            <string>HDF5 (*.h5)</string>
@@ -332,12 +294,6 @@
           <size>
            <width>250</width>
            <height>0</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>250</width>
-           <height>16777215</height>
           </size>
          </property>
          <item>

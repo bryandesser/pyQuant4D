@@ -175,15 +175,37 @@ def moveAnnR(self):
     maskOpacity(self)
 
 def detrCoordCallbacks(self):
+    # "Polar" and "Absolute" are mutually exclusive
+    match self.sender():
+        case self.SettingsWindow.DCSys:
+            if self.SettingsWindow.DCSys.currentText() == "Polar":
+                self.SettingsWindow.DCPos.setCurrentIndex(self.SettingsWindow.DCPos.findText("Relative"))
+        case self.SettingsWindow.DCPos:
+            if self.SettingsWindow.DCPos.currentText() == "Absolute":
+                self.SettingsWindow.DCSys.setCurrentIndex(self.SettingsWindow.DCSys.findText("Cartesian"))
+        case self.SettingsWindow.DCUnit:
+            pass
+    
+    # Update coordinate conversion related convenient global properties
+    self.DfPxR = 1
+    self.RB0 = [0,0]
+
+    if self.SettingsWindow.DCUnit.currentText() == "mrad":
+        self.DfPxR = self.mradPx.value()
+    if self.SettingsWindow.DCPos.currentText() == "Relative":
+        self.RB0 = self.B0
+    
+    # Update UI
     match self.DetrMode.currentData():
-        case 'AlignMod':
+        case "AlignMod":
             pass
         case "AnnMod"|"DPCMod"|"CoMMod":
             drawAnnDetr(self)
+            pass#annularDetectorCallbacks(self,struct("Source",self.DCSys,"EventName","UpdateCoord")) #TODO
         case "VrApMod":
-            pass
+            pass#virtualApertureCallbacks(self,struct("Source",self.DCSys,"EventName","UpdateCoord")) #TODO
         case "CustMod":
-            pass
+            pass#customDetectorCallbacks(self,struct("Source",self.DCSys,"EventName","UpdateCoord")) #TODO
 
 def maskOpacity(self):
     alpha = self.SettingsWindow.DispMaskOpa.value()/100 # mask opacity slider
@@ -191,3 +213,4 @@ def maskOpacity(self):
     mask = ((k>=self.AnnRi.value()[0])&(k<=self.AnnRi.value()[1]))*(alpha)+1-alpha
     self.Image.Dfrn.set_alpha(mask)
     self.Fig.Dfrn.canvas.draw()
+    print(999)

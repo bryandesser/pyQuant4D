@@ -557,13 +557,11 @@ def readEMPAD(self):
 
 def prepareData(self):
     from callbacks.guiClass import ImageWindow
+    from callbacks.callbacks import detectorModeCallbacks
     #self.T.progDLG = progDLG(self, 'Preparing data ...', "Data Preparation"); #TODO
 
     # Detector controls
     self.P.ScanDirInit = 0 # Reset alignments
-    self.DetrMode.blockSignals(True)
-    self.DetrMode.setCurrentIndex(self.DetrMode.findData("AlignMod"))
-    self.DetrMode.blockSignals(False)
     self.NSeg.setValue(4)
     self.NRung.setValue(1)
     self.DetRot.setValue(0)
@@ -636,7 +634,6 @@ def prepareData(self):
 
     #mockUICallbacks(self,self.UpdateImages) # Update all images #TODO
     #delete(self.T.progDLG);  # Close progress bar and Enable panel objects #TODO
-    #mockUICallbacks(self,self.DetrMode)  # Enter intializing alignment #TODO
 
     #initialize SettingsWindow and move next to main UI window
     self.SettingsWindow.SettingsTabGroup.setCurrentIndex(0) # "Display" tab
@@ -645,6 +642,10 @@ def prepareData(self):
     pos.moveLeft(self.geometry().getRect()[0]+self.geometry().getRect()[2]+self.C.decorPad*2)
     pos.moveTop(self.geometry().getRect()[1])
     self.SettingsWindow.setGeometry(pos)
+
+    #mockUICallbacks(self,self.DetrMode)  # Enter intializing alignment #TODO
+    self.DetrMode.setCurrentIndex(self.DetrMode.findData("AlignMod"))
+    detectorModeCallbacks(self)
 
     #flashBackground(self, [self.DfrnCalibGrid self.TransBeamAlignGrid])
 
@@ -710,7 +711,9 @@ def reinitializeUI(self):
     detrCoordCallbacks(self)
 
     # update annular QRangeSlider to match
+    self.AnnRi.blockSignals(True)
     self.AnnRi.setValue((self.AnnRi.minimum(),self.AnnRi.maximum()))
+    self.AnnRi.blockSignals(False)
 
     # re-enable windows
     enableWindows(self,True)

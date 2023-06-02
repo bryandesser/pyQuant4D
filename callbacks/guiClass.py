@@ -39,8 +39,8 @@ class MainWindow(MW_Base, MW_Ui):
         self.show()
 
         # connect screenChange slot/signal
-        self.windowHandle().screenChanged.connect(lambda: self.C.__setattr__("dpi",self.screen().physicalDotsPerInch()))
-        self.windowHandle().screenChanged.connect(lambda: self.pointPickerRadius.emit(self.screen().physicalDotsPerInch()))
+        #self.windowHandle().screenChanged.connect(lambda: self.C.__setattr__("dpi",self.screen().physicalDotsPerInch()))
+        #self.windowHandle().screenChanged.connect(lambda: self.pointPickerRadius.emit(self.screen().physicalDotsPerInch()))
 
     def closeEvent(self, event):
         reply = qtw.QMessageBox.question(self, 'Window Close', 'Are you sure you want to quit?',

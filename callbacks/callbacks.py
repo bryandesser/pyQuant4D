@@ -5,9 +5,10 @@ import gc
 import numpy as np
 from PyQt5 import QtWidgets as qtw
 from PyQt5 import QtCore as qtc
-from callbacks.utils import on_ImportDataButton_clicked, rangeImportExport, gatherImportOptions#, on_actionShow_Diffraction_Pattern_triggered
+from callbacks.utils import on_ImportDataButton_clicked, rangeImportExport, gatherImportOptions,enableWindows#, on_actionShow_Diffraction_Pattern_triggered
 from callbacks.ioUtils import prepEMPAD, prepDM
 from callbacks.imageUtils import moveAnnR, maskOpacity
+from callbacks.annotationsClass import InteractiveCircle
 
 def importCallbacks():
     pass
@@ -451,12 +452,13 @@ def clearDetectors(self):
 
         # Try removing annotations and then setting to None so that they can be replotted later
         for ii in detectorList:
-            try:
-                getattr(self.A,ii).remove()
-            except:
-                pass
-            finally:
-                setattr(self.A,ii,None)
+            if getattr(self.A,ii) is not None:
+                try:
+                    getattr(self.A,ii).remove()
+                except:
+                    pass
+                finally:
+                    setattr(self.A,ii,None)
 
         # Custom detectors
         # Hide Custom ROIs only
@@ -464,52 +466,121 @@ def clearDetectors(self):
         # Scan direction alignment
         #delete(findobj(self.Axes.Dfrn,'Tag','ScanDirAnnot')) #TODO
 
-def on_DetrMode_currentIndexChanged(self):
+def detectorModeCallbacks(self):
     dmod = self.DetrMode.currentData()
-    if dmod=="PrvwMod":
-        self.DfrnDetrTabGroup.setCurrentIndex(0)
-    elif dmod=="AlignMod":
-        self.DfrnDetrTabGroup.setCurrentIndex(1)
-    elif dmod=="AnnMod":
-        self.DfrnDetrTabGroup.setCurrentIndex(2)
-        self.dpcControls.setVisible(False)
-        self.comControls.setVisible(False)
-        # self.DetRot_NF.setEnabled(False)
-        # self.NSeg.setEnabled(False)
-        # self.NRung.setEnabled(False)
-        # self.DetRot.setEnabled(False)
-        # self.ScanDir_NF.setEnabled(False)
-        # self.ScanDirYFlip.setEnabled(False)
-        # self.ScanDirUnlock.setEnabled(False)
-        # self.ScanDir.setEnabled(False)
-    elif dmod=="DPCMod":
-        self.DfrnDetrTabGroup.setCurrentIndex(2)
-        self.dpcControls.setVisible(True)
-        self.comControls.setVisible(True)
-        # self.DetRot_NF.setEnabled(True)
-        # self.NSeg.setEnabled(True)
-        # self.NRung.setEnabled(True)
-        # self.DetRot.setEnabled(True)
-        # self.ScanDir_NF.setEnabled(True)
-        # self.ScanDirYFlip.setEnabled(True)
-        # self.ScanDirUnlock.setEnabled(True)
-        # self.ScanDir.setEnabled(True)
-    elif dmod=="CoMMod":
-        self.DfrnDetrTabGroup.setCurrentIndex(2)
-        self.dpcControls.setVisible(False)
-        self.comControls.setVisible(True)
-        # self.DetRot_NF.setEnabled(False)
-        # self.NSeg.setEnabled(False)
-        # self.NRung.setEnabled(False)
-        # self.DetRot.setEnabled(True)
-        # self.ScanDir_NF.setEnabled(True)
-        # self.ScanDirYFlip.setEnabled(True)
-        # self.ScanDirUnlock.setEnabled(True)
-        # self.ScanDir.setEnabled(True)
-    elif dmod=="VrApMod":
-        self.DfrnDetrTabGroup.setCurrentIndex(3)
-    elif dmod=="CustMod":
-        self.DfrnDetrTabGroup.setCurrentIndex(4)
+    enableWindows(self,False) # Enable windows
+    #clearDetectors(self) # Clear ROIs on Diffraction #TODO deletes tbCirc on initial alignment?
+
+    # Clear Real-space images if not switching to alignment or preview
+    if dmod not in ["AlignMod","PrvwMod"]:
+        for ii in self.G.RealID:
+            if not "Mask" in ii:
+                getattr(self.Fig,ii).ax.cla()
+                getattr(self.Fig,ii).canvas.draw()
+
+    # Enable/Disable CoM/DPC related buttons/images
+    for btn in self.G.CoM_btns:
+        btn.setEnabled(dmod in ["CoMMod","DPCMod"]) 
+
+    if dmod in ["CoMMod","DPCMod"]:
+        # add all images to dropdown list in the Settings Window and
+        # Subsitute "CoM"/"DPC" in image names and window titles
+        imageNames = [re.sub('DPC|CoM',dmod[:3],ii) for ii in self.G.ImgNm]
+
+        self.SettingsWindow.DispImage.clear()
+        for itemText,itemID in zip(imageNames,self.G.ImgID,self.G.ImgFig):
+            self.SettingsWindow.DispImage.addItem(itemText,itemID) # drop down items
+            getattr(self.Fig,itemID).setWindowTitle(itemText) # window title
+        
+        # Subsitute "CoM"/"DPC" in button text
+        for btn in self.G.CoM_btns:
+            re.sub('DPC|CoM',dmod[:3],btn.text())
+        
+    else:
+        self.SettingsWindow.DispImage.clear()
+        for itemText,itemID in zip(self.G.ImgNm,self.G.ImgID):
+            if "CoM" not in itemText:
+                self.SettingsWindow.DispImage.addItem(itemText,itemID) # drop down items
+            else:
+                getattr(self.Fig,itemID).setVisible(False) # Image windows
+
+
+    # Show primary diffraction/real-space image when mode changes unless in Preview mode
+    self.Fig.Dfrn.setVisible(dmod != "PrvwMod")
+    self.Fig.Real.setVisible(dmod != "PrvwMod")
+
+    # Special case for Import Preview Mode
+    if dmod == "PrvwMod":
+        # Keep only "Preview" image
+        self.SettingsWindow.DispImage.clear()
+        self.SettingsWindow.DispImage.addItem("Preview","Preview")
+
+        # Hide other UIs
+        self.SettingsWindow.SettingsTabGroup.setTabVisible(self.SettingsWindow.SettingsTabGroup.indexOf(self.SettingsWindow.MiscTab),False)
+        self.SettingsWindow.SettingsTabGroup.setTabVisible(self.SettingsWindow.SettingsTabGroup.indexOf(self.SettingsWindow.InfoTab),False)
+        self.SaveWindow.SaveTabGroup.setTabVisible(self.SaveWindow.SaveTabGroup.indexOf(self.SaveWindow.ExportTab),False)
+        
+        self.Fig.Preview.setVisible(True)
+        self.ImportWindow.setVisible(True)
+        self.SettingsWindow.setVisible(True)
+    else:
+        self.P.DetrMode = self.DetrMode.currentData() # Note current mode
+        # Remove "Preview" image from drop down
+        self.SettingsWindow.DispImage.removeItem(self.SettingsWindow.DispImage.findData("Preview"))
+        self.Fig.Preview.setVisible(False)
+
+        # Show all UIs
+        self.SettingsWindow.SettingsTabGroup.setTabVisible(self.SettingsWindow.SettingsTabGroup.indexOf(self.SettingsWindow.MiscTab),True)
+        self.SettingsWindow.SettingsTabGroup.setTabVisible(self.SettingsWindow.SettingsTabGroup.indexOf(self.SettingsWindow.InfoTab),True)
+        self.SaveWindow.SaveTabGroup.setTabVisible(self.SaveWindow.SaveTabGroup.indexOf(self.SaveWindow.ExportTab),True)
+
+    # Define images in the saving list
+    self.SaveWindow.SaveImgList.clear()
+    self.SaveWindow.SaveImgList.addItems([self.SettingsWindow.DispImage.itemData(ii) for ii in range(self.SettingsWindow.DispImage.count())])
+    #mockUICallbacks(self,self.SaveImgPrefix)  # Update Image saving prefix #TODO
+    #mockUICallbacks(self,self.ShowDfrnAxes) # Update diffraction axis annotations #TODO
+
+    # Set detector size when transmitted beam is aligned the first time
+    if not(self.P.TransBeamInit) and (dmod != "AlignMod"):
+        self.AnnRi.setValue((self.TBR.value(),(self.TBR.value() + self.P.RMax)/3))
+        self.VrApR.setValue(self.TBR.value())
+        self.P.VrApXY = self.B0
+        self.P.TransBeamInit = 1
+
+    #set(self.G.DetrUI,'Visible','off')  # Diffraction detector UI
+    # hide custom mask maths tab
+    self.SettingsWindow.SettingsTabGroup.setTabVisible(self.SettingsWindow.SettingsTabGroup.indexOf(self.SettingsWindow.MathTab),False)
+
+    match dmod:
+        case "PrvwMod":
+            self.DfrnDetrTabGroup.setCurrentIndex(0)
+            #previewCallbacks(self) #TODO
+        case "AlignMod":
+            self.DfrnDetrTabGroup.setCurrentIndex(1)
+            transBeamCallbacks(self)
+        case "AnnMod":
+            self.DfrnDetrTabGroup.setCurrentIndex(2)
+            self.dpcControls.setVisible(False)
+            self.comControls.setVisible(False)
+            #annularDetectorCallbacks(self) #TODO
+        case "CoMMod"|"DPCMod":
+            self.DfrnDetrTabGroup.setCurrentIndex(2)
+            self.dpcControls.setVisible("DPC" in dmod)
+            self.comControls.setVisible(True)
+            #annularDetectorCallbacks(self) #TODO
+            #plotImage(self, 'ColorWheel') # Plot ColorWheel #TODO
+            self.Fig.CoMPhMag.activateWindow()
+            self.Fig.ColorWheel.activateWindow()
+            if not self.P.ScanDirInit:
+                pass#flashBackground(self, self.ScanDirGrid) # Flashing to align scan direction #TODO
+        case "VrApMod": # 'Virtual Aperture'
+            self.DfrnDetrTabGroup.setCurrentIndex(3)
+            #virtualApertureCallbacks(self) #TODO
+        case "CustMod":
+            self.DfrnDetrTabGroup.setCurrentIndex(4)
+            self.SettingsWindow.SettingsTabGroup.setTabVisible(self.SettingsWindow.SettingsTabGroup.indexOf(self.SettingsWindow.MathTab),True)
+            #customDetectorCallbacks(self) #TODO
+            self.Fig.DfrnMask.activateWindow()
 
 def datasetOptCallbacks():
     pass
@@ -517,8 +588,115 @@ def datasetOptCallbacks():
 def previewCallbacks():
     pass
 
-def transBeamCallbacks():
-    pass
+def transBeamCallbacks(self):
+    match self.sender():
+        case self.DetrMode: # Entering mode
+            # Create transmitted beam annotation, allow for disk as large as the entire diffraction pattern
+            self.A.tbCirc = InteractiveCircle(center = self.B0, radius = self.TBR.value(), axis=self.Fig.Dfrn.ax, color='b')
+            self.A.tbCirc.connect()
+            self.A.tbCirc.updateCircle.connect(lambda: moveTransBeam(self))
+            self.Fig.Dfrn.canvas.draw()
+            self.Fig.Dfrn.activateWindow() # Select `Dfrn` image
+            # If this is the initializing alignment, then do swap byte check and auto-align
+            if not self.P.TransBeamInit:
+                pass#datasetOptCallbacks(app, event) #TODO # checks for nans and asks if user wants to swap byteorder
+                #autoAlign() #TODO
+            #enableWindows(app,true) # Enable windows #TODO
+
+        case self.UpdateImages: # Update images
+            # Create a summed image of all diffraction patterns simply for alignment and calibration
+            self.Image.DfrnMask = self.Fig.DfrnMask.ax.imshow(np.ones(self.D.NPx,self.D.DataType))
+            self.Fig.DfrnMask.canvas.draw()
+            self.Image.Real.set_data(np.reshape(self.Data.sum(axis=1), self.D.NFr))
+            self.Image.Real.autoscale(True)
+            self.Fig.Real.canvas.draw()
+
+        case self.TBAutoAlign: # Auto-align
+            pass#autoAlign() #TODO
+
+        case self.TBCrossAlign: # Align transmitted beam via two crossed lines
+            pass#crossAlign() #TODO
+        
+    # Update dependent variables
+    moveTransBeam(self)
+
+def moveTransBeam(self):
+    """ Function to sync UIs/ROIs depending on the central beam location """
+    b0 = np.array([self.TBX.value(),self.TBY.value()])
+    r = max(self.TBR.value(),np.finfo(np.single).eps)
+    a = self.Alpha.value()
+    mrad_per_px = a/r
+    nPix = self.D.NPx
+
+    match self.sender():
+        case self.TBX|self.TBX_NF:
+            b0[0] = max(1, self.sender().value()); # Force X >= 1
+        case self.TBY|self.TBY_NF:
+            b0[1] = max(1, self.sender().value()); # Force Y >= 1
+        case self.TBR|self.TBR_NF:
+            r = self.sender().value(); # Radius
+        case self.Alpha:
+            a = self.sender().value()
+            mrad_per_px = a/r # Calculate the diffraction scale
+        case self.mradPx:
+            mrad_per_px = self.sender().value()
+            a = mrad_per_px*r # Manually set the diffraction scale
+        case self.A.tbCirc:
+            b0 = self.sender().center
+            r = self.sender().radius
+
+    # Restrict transmitted beam location/size
+    b0 = b0.clip([1,1],nPix)
+    self.B0 = b0
+    self.P.RMax = np.ceil(np.linalg.norm(abs(self.P.DfCtr-b0)+self.P.DfCtr)) # Find the max allowed radius
+    r = np.clip(r,np.finfo(np.single).eps,self.P.RMax) # 0 < r <= RMax
+
+    # avoid triggering a valueChanged loop by blocking signals
+    self.TBX.blockSignals(True)
+    self.TBY.blockSignals(True)
+    self.TBR.blockSignals(True)
+    self.TBX_NF.blockSignals(True)
+    self.TBY_NF.blockSignals(True)
+    self.TBR_NF.blockSignals(True)
+    self.AnnRi.blockSignals(True)
+    self.Alpha.blockSignals(True)
+    self.mradPx.blockSignals(True)
+    self.VrApR.blockSignals(True)
+
+    # Update UI limits
+    self.TBR.setRange(0,self.P.RMax)
+    self.TBR_NF.setRange(0,self.P.RMax)
+    self.AnnRi.setRange(0,self.P.RMax)
+    self.VrApR.setRange(0,self.P.RMax)
+
+    # Update UI values
+    self.TBR.setValue(r)
+    self.TBX.setValue(b0[0])
+    self.TBY.setValue(b0[1])
+    self.TBR_NF.setValue(r)
+    self.TBX_NF.setValue(b0[0])
+    self.TBY_NF.setValue(b0[1])
+    self.Alpha.setValue(a)
+    self.mradPx.setValue(mrad_per_px)
+    
+    # Update transmitted beam annotation
+    if (self.sender() is not self.A.tbCirc) and (self.A.tbCirc is not None):
+        print("moveTransBeam>self.A.tbCirc")
+        self.A.tbCirc.center = b0
+        self.A.tbCirc.radius = r
+        self.A.tbCirc.redraw()
+
+    # unblock trigger signals
+    self.TBX.blockSignals(False)
+    self.TBY.blockSignals(False)
+    self.TBR.blockSignals(False)
+    self.TBX_NF.blockSignals(False)
+    self.TBY_NF.blockSignals(False)
+    self.TBR_NF.blockSignals(False)
+    self.AnnRi.blockSignals(False)
+    self.Alpha.blockSignals(False)
+    self.mradPx.blockSignals(False)
+    self.VrApR.blockSignals(False)
 
 def virtualApertureCallbacks():
     pass
@@ -590,14 +768,24 @@ def slotsSignals(self):
     self.actionShow_All_Windows.triggered.connect(lambda: showAllWindows(self))
     self.actionHide_All_Windows.triggered.connect(lambda: hideAllWindows(self))
 
-    self.DetrMode.currentIndexChanged.connect(lambda: on_DetrMode_currentIndexChanged(self))
+    self.DetrMode.currentIndexChanged.connect(lambda: detectorModeCallbacks(self))
 
     # detector slider/numerical field connections
     self.AnnRi_NF.valueChanged.connect(lambda: moveAnnR(self))
     self.AnnRo_NF.valueChanged.connect(lambda: moveAnnR(self))
     self.AnnRi.valueChanged.connect(lambda: moveAnnR(self))
-    self.DetrMode.currentIndexChanged.connect(lambda: moveAnnR(self))
     self.UpdateImages.triggered.connect(lambda: moveAnnR(self))
+
+    # transmitted beam controls
+    self.TBX.valueChanged.connect(lambda: moveTransBeam(self))
+    self.TBY.valueChanged.connect(lambda: moveTransBeam(self))
+    self.TBR.valueChanged.connect(lambda: moveTransBeam(self))
+    self.Alpha.valueChanged.connect(lambda: moveTransBeam(self))
+    self.mradPx.valueChanged.connect(lambda: moveTransBeam(self))
+
+    #self.TBX_NF.valueChanged.connect(lambda: moveTransBeam(self))
+    #self.TBY_NF.valueChanged.connect(lambda: moveTransBeam(self))
+    #self.TBR_NF.valueChanged.connect(lambda: moveTransBeam(self))
     
     # settings opacity slider
     self.SettingsWindow.DispMaskOpa.valueChanged.connect(lambda: maskOpacity(self))

@@ -91,7 +91,7 @@ class P:
     VrApXY = []
     DfrnAxLim = []
     RealAxLim = []
-    TransBeamInit = 1
+    TransBeamInit = 0
     RMax = 0
     DetrMode = 'AlignMod'
     detWidth = 0
