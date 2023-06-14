@@ -131,12 +131,12 @@ class InteractiveCircle(qtc.QObject):
         self.point = axis.scatter(self.center[0]+self.radius,self.center[1],c=color)
         
         # shortcuts
-        self.circCanvas = self.circ.figure.canvas
-        self.circAxes = self.circ.axes
-        self.ptCanvas = self.circ.figure.canvas
-        self.ptAxes = self.circ.axes
+        self.canvas = self.circ.figure.canvas
+        self.axis = self.circ.axes
+        self.circ.set_animated(True)
+        self.point.set_animated(True)
+        self.canvas.draw()
         self.background = self.circ.figure.canvas.copy_from_bbox(axis.bbox)
-        self.point.background = self.point.figure.canvas.copy_from_bbox(self.point.axes.bbox)
     
     def remove(self):
         'allow the circle and dot to be removed from plots'
@@ -184,21 +184,17 @@ class InteractiveCircle(qtc.QObject):
         # draw everything but the selected circle and store the pixel buffer
         self.circ.set_animated(True)
         self.point.set_animated(True)
-        self.circCanvas.draw()
-        self.ptCanvas.draw()
-        self.background = self.circCanvas.copy_from_bbox(self.circAxes.bbox)
-        self.point.background = self.ptCanvas.copy_from_bbox(self.ptAxes.bbox)
+        self.canvas.draw()
+        self.background = self.canvas.copy_from_bbox(self.axis.bbox)
 
         # update cursor
-        self.circCanvas.set_cursor(Cursors.MOVE)
+        self.canvas.set_cursor(Cursors.MOVE)
 
         # now redraw just the circle
-        self.circAxes.draw_artist(self.circ)
-        self.ptAxes.draw_artist(self.point)
+        self.axis.draw_artist(self.circ)
 
         # and blit just the redrawn area
-        self.circCanvas.blit(self.circAxes.bbox)
-        self.ptCanvas.blit(self.ptAxes.bbox)
+        self.canvas.blit(self.axis.bbox)
 
     def on_motion(self, event):
         if event.inaxes != self.circ.axes: return
@@ -244,17 +240,7 @@ class InteractiveCircle(qtc.QObject):
             self.circ.set_ydata(self.radius*self.y + self.center[1])
             self.point.set_offsets(pt0+(dx,dy))
 
-        # restore the background region
-        self.circCanvas.restore_region(self.background)
-        self.ptCanvas.restore_region(self.point.background)
-
-        # redraw just the current rectangle
-        self.circAxes.draw_artist(self.circ)
-        self.ptAxes.draw_artist(self.point)
-
-        # blit just the redrawn area
-        self.circCanvas.blit(self.circAxes.bbox)
-        self.ptCanvas.blit(self.ptAxes.bbox)
+        self.restoreBackground()
 
         self.updateCircle.emit()
 
@@ -272,34 +258,40 @@ class InteractiveCircle(qtc.QObject):
         # turn off the rect animation property and reset the background
         self.circ.set_animated(False)
         self.point.set_animated(False)
-        #self.background = None
-        #self.point.background = None
 
         # redraw the full figure
         self.circ.figure.canvas.draw()
-        self.point.figure.canvas.draw()
     
     def redraw(self):
-        #dxy = self.center - np.mean(self.circ._xy,axis=0)
-        #self.point.set_offsets(self.point.get_offsets()+dxy)
+        # update point and circle locations based on center/radius set externally
         vec = self.point.get_offsets()-np.mean(self.circ._xy,axis=0)
         self.point.set_offsets(self.radius*vec/np.linalg.norm(vec)+self.center)
         self.circ.set_xdata(self.radius*self.x+self.center[0])
         self.circ.set_ydata(self.radius*self.y+self.center[1])
         
-        circCanvas = self.circ.figure.canvas
-        circAxes = self.circ.axes
-        ptCanvas = self.circ.figure.canvas
-        ptAxes = self.circ.axes
+        self.restoreBackground()
 
+    def restoreBackground(self):
         # restore the background region
-        circCanvas.restore_region(self.background)
-        ptCanvas.restore_region(self.point.background)
+        self.canvas.restore_region(self.background)
 
         # redraw just the current rectangle
-        circAxes.draw_artist(self.circ)
-        ptAxes.draw_artist(self.point)
+        self.axis.draw_artist(self.circ)
+        self.axis.draw_artist(self.point)
 
         # blit just the redrawn area
-        circCanvas.blit(circAxes.bbox)
-        ptCanvas.blit(ptAxes.bbox)
+        self.canvas.blit(self.axis.bbox)
+
+    def updateBackground(self):
+        # draw everything but the selected circle and store the pixel buffer
+        self.circ.set_animated(True)
+        self.point.set_animated(True)
+        self.canvas.draw()
+        self.background = self.canvas.copy_from_bbox(self.axis.bbox)
+
+        # now redraw just the circle
+        self.axis.draw_artist(self.circ)
+        self.axis.draw_artist(self.point)
+
+        # and blit just the redrawn area
+        self.canvas.blit(self.axis.bbox)

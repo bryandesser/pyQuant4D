@@ -3,6 +3,10 @@ from PyQt5 import QtWidgets as qtw
 from PyQt5 import uic
 import numpy as np
 
+diffImages = ['Dfrn', 'DfrnMask']
+realImages = ['iCoM', 'dCoM', 'CoMY', 'CoMX', 'CoMMag', 'CoMPh', 'CoMPhMag', 'RealMask', 'Real', 'Preview', 'ColorWheel']
+allImages = diffImages + realImages
+
 class T:
     FileSize = 0
     dm = []
@@ -165,14 +169,30 @@ class A:
     VrAp = None
 
     # ROIs
-    RealROI = None
-    CoMPhMagROI = None
-    CoMPhROI = None
-    CoMMagROI = None
-    CoMXROI = None
-    CoMYROI = None
-    dCoMROI = None
-    iCoMROI = None
+    ROIs = dict()
+    ROIs["RealROI"] = None
+    ROIs["CoMPhMagROI"] = None
+    ROIs["CoMPhROI"] = None
+    ROIs["CoMMagROI"] = None
+    ROIs["CoMXROI"] = None
+    ROIs["CoMYROI"] = None
+    ROIs["dCoMROI"] = None
+    ROIs["iCoMROI"] = None
+
+    # vectorField quivers
+    vectField = dict()
+    vectField["CoMPhMag"] = None
+    vectField["Real"] = None
+    vectField["CoMX"] = None
+    vectField["CoMY"] = None
+    vectField["CoMPh"] = None
+    vectField["dCoM"] = None
+    vectField["CoMMag"] = None
+    vectField["iCoM"] = None
+
+    # histogram annotations
+    histBox = None
+    histGamma = None
 
 class Mask:
     pass

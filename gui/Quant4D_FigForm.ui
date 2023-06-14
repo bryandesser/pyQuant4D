@@ -1413,7 +1413,7 @@
                </property>
                <property name="icon">
                 <iconset>
-                 <normaloff>icons/unlock.png</normaloff>icons/unlock.png</iconset>
+                 <normaloff>icons/lock.png</normaloff>icons/lock.png</iconset>
                </property>
                <property name="checkable">
                 <bool>true</bool>
@@ -2775,10 +2775,19 @@
     <addaction name="separator"/>
     <addaction name="actionAbout_Quant4D"/>
    </widget>
+   <widget class="QMenu" name="menuDebug">
+    <property name="title">
+     <string>Debug</string>
+    </property>
+    <addaction name="debugImport"/>
+    <addaction name="enableAllUIs"/>
+    <addaction name="breakpoint"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuSettings"/>
    <addaction name="menuWindow"/>
    <addaction name="menuHelp"/>
+   <addaction name="menuDebug"/>
   </widget>
   <widget class="QToolBar" name="toolBar">
    <property name="windowTitle">
@@ -3113,6 +3122,30 @@
    </property>
    <property name="toolTip">
     <string>Brightness/Contrast controls</string>
+   </property>
+  </action>
+  <action name="enableAllUIs">
+   <property name="text">
+    <string>debug: Enable All UIs</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+E</string>
+   </property>
+  </action>
+  <action name="debugImport">
+   <property name="text">
+    <string>debug: Import file</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Return</string>
+   </property>
+  </action>
+  <action name="breakpoint">
+   <property name="text">
+    <string>debug: breakpoint</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+.</string>
    </property>
   </action>
  </widget>
@@ -3483,6 +3516,22 @@
     <hint type="destinationlabel">
      <x>224</x>
      <y>280</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>ScanDir</sender>
+   <signal>valueChanged(double)</signal>
+   <receiver>ScanDir_NF</receiver>
+   <slot>setValue(double)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>271</x>
+     <y>318</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>387</x>
+     <y>283</y>
     </hint>
    </hints>
   </connection>

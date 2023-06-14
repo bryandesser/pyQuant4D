@@ -3,7 +3,7 @@ from PyQt5 import QtWidgets as qtw
 from PyQt5 import QtGui as qtg
 from PyQt5 import QtCore as qtc
 from PyQt5 import uic
-from callbacks.setupUtils import startupFcn
+
 
 import matplotlib
 matplotlib.use('Qt5Agg')
@@ -11,6 +11,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt 
+from callbacks.allFunctions import startupFcn
 
 # Convert .ui Files from QT Designer to python
 # Main window

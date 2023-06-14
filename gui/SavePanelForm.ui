@@ -40,12 +40,6 @@
    </item>
    <item row="2" column="0">
     <widget class="QPushButton" name="SaveExport">
-     <property name="minimumSize">
-      <size>
-       <width>100</width>
-       <height>24</height>
-      </size>
-     </property>
      <property name="font">
       <font>
        <pointsize>11</pointsize>
@@ -60,12 +54,6 @@
    </item>
    <item row="0" column="0">
     <widget class="QPushButton" name="SaveDirButton">
-     <property name="minimumSize">
-      <size>
-       <width>90</width>
-       <height>24</height>
-      </size>
-     </property>
      <property name="font">
       <font>
        <pointsize>11</pointsize>
@@ -87,12 +75,6 @@
    </item>
    <item row="2" column="2">
     <widget class="QPushButton" name="SaveCloseButton">
-     <property name="minimumSize">
-      <size>
-       <width>100</width>
-       <height>24</height>
-      </size>
-     </property>
      <property name="font">
       <font>
        <pointsize>11</pointsize>
@@ -172,7 +154,7 @@
           </font>
          </property>
          <property name="text">
-          <string>Image(s) to Save (select one or more)</string>
+          <string>Image(s) to be Saved</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>
@@ -595,5 +577,54 @@
   </layout>
  </widget>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>SaveCloseButton</sender>
+   <signal>clicked()</signal>
+   <receiver>SavePanelForm</receiver>
+   <slot>hide()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>549</x>
+     <y>476</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>305</x>
+     <y>249</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>SaveImgSelectAll</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>SaveImgList</receiver>
+   <slot>selectAll()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>463</x>
+     <y>170</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>449</x>
+     <y>207</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>SaveImgSelectAll</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>SaveImgList</receiver>
+   <slot>clearSelection()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>550</x>
+     <y>177</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>540</x>
+     <y>212</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>

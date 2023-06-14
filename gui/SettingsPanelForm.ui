@@ -263,14 +263,19 @@
          <property name="minimumSize">
           <size>
            <width>0</width>
-           <height>46</height>
+           <height>59</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
            <width>16777215</width>
-           <height>46</height>
+           <height>59</height>
           </size>
+         </property>
+         <property name="font">
+          <font>
+           <family>Courier</family>
+          </font>
          </property>
          <property name="readOnly">
           <bool>true</bool>
@@ -346,9 +351,6 @@
        <item row="0" column="3" colspan="3">
         <widget class="QComboBox" name="DispImage"/>
        </item>
-       <item row="4" column="0" colspan="7" alignment="Qt::AlignHCenter|Qt::AlignVCenter">
-        <widget class="QWidget" name="HistAxes" native="true"/>
-       </item>
        <item row="8" column="5" colspan="2">
         <widget class="QSpinBox" name="DispMaskOpa_NF">
          <property name="alignment">
@@ -392,6 +394,29 @@
          <property name="value">
           <number>50</number>
          </property>
+        </widget>
+       </item>
+       <item row="4" column="0" colspan="7">
+        <widget class="MplCanvas" name="HistAxes" native="true">
+         <widget class="QPushButton" name="HistLog">
+          <property name="geometry">
+           <rect>
+            <x>312</x>
+            <y>10</y>
+            <width>31</width>
+            <height>28</height>
+           </rect>
+          </property>
+          <property name="text">
+           <string>log</string>
+          </property>
+          <property name="checkable">
+           <bool>true</bool>
+          </property>
+          <property name="flat">
+           <bool>false</bool>
+          </property>
+         </widget>
         </widget>
        </item>
       </layout>
@@ -905,12 +930,6 @@
        </item>
        <item row="5" column="5">
         <widget class="QToolButton" name="WdwSetDfrn">
-         <property name="minimumSize">
-          <size>
-           <width>23</width>
-           <height>0</height>
-          </size>
-         </property>
          <property name="font">
           <font>
            <pointsize>12</pointsize>
@@ -1006,6 +1025,11 @@
        </item>
        <item row="5" column="6" colspan="2">
         <widget class="QToolButton" name="WdwSetAllDfrn">
+         <property name="font">
+          <font>
+           <pointsize>12</pointsize>
+          </font>
+         </property>
          <property name="text">
           <string>Set All</string>
          </property>
@@ -1168,6 +1192,11 @@
        </item>
        <item row="9" column="6" colspan="2">
         <widget class="QToolButton" name="WdwSetAllReal">
+         <property name="font">
+          <font>
+           <pointsize>12</pointsize>
+          </font>
+         </property>
          <property name="text">
           <string>Set All</string>
          </property>
@@ -1307,76 +1336,18 @@
    <header>superqt</header>
    <slots>
     <signal>valueChanged(double)</signal>
-    <slot>setValue(double)</slot>
+    <slot>setValue(50)</slot>
    </slots>
+  </customwidget>
+  <customwidget>
+   <class>MplCanvas</class>
+   <extends>QWidget</extends>
+   <header>callbacks.mplWidget</header>
+   <container>1</container>
   </customwidget>
  </customwidgets>
  <resources/>
  <connections>
-  <connection>
-   <sender>DispMaskOpa</sender>
-   <signal>valueChanged(int)</signal>
-   <receiver>DispMaskOpa_NF</receiver>
-   <slot>setValue(int)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>232</x>
-     <y>498</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>323</x>
-     <y>497</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>DispMaskOpa_NF</sender>
-   <signal>valueChanged(int)</signal>
-   <receiver>DispMaskOpa</receiver>
-   <slot>setValue(int)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>323</x>
-     <y>497</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>157</x>
-     <y>497</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>DispBrightness</sender>
-   <signal>valueChanged(int)</signal>
-   <receiver>DispBrightness_NF</receiver>
-   <slot>setValue(int)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>258</x>
-     <y>400</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>299</x>
-     <y>404</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>DispBrightness_NF</sender>
-   <signal>valueChanged(int)</signal>
-   <receiver>DispBrightness</receiver>
-   <slot>setValue(int)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>321</x>
-     <y>393</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>120</x>
-     <y>407</y>
-    </hint>
-   </hints>
-  </connection>
   <connection>
    <sender>DispContrast_NF</sender>
    <signal>valueChanged(int)</signal>
@@ -1390,6 +1361,22 @@
     <hint type="destinationlabel">
      <x>255</x>
      <y>433</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>DispBrightness_NF</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>DispBrightness</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>363</x>
+     <y>418</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>120</x>
+     <y>407</y>
     </hint>
    </hints>
   </connection>
@@ -1432,12 +1419,60 @@
    <slot>setValue(double)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>296</x>
-     <y>454</y>
+     <x>363</x>
+     <y>478</y>
     </hint>
     <hint type="destinationlabel">
      <x>211</x>
      <y>462</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>DispMaskOpa</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>DispMaskOpa_NF</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>232</x>
+     <y>498</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>323</x>
+     <y>497</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>DispBrightness</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>DispBrightness_NF</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>258</x>
+     <y>400</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>299</x>
+     <y>404</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>DispMaskOpa_NF</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>DispMaskOpa</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>323</x>
+     <y>497</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>497</y>
     </hint>
    </hints>
   </connection>
