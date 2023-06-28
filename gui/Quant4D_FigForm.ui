@@ -97,55 +97,6 @@
            </property>
           </widget>
          </item>
-         <item row="0" column="0" colspan="7">
-          <widget class="QLabel" name="RealSpacePanelLabel">
-           <property name="font">
-            <font>
-             <weight>75</weight>
-             <bold>true</bold>
-            </font>
-           </property>
-           <property name="text">
-            <string>Real Space Controls</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="0">
-          <widget class="QLabel" name="DispVecFieldLabel">
-           <property name="text">
-            <string>Vector Field</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="5">
-          <widget class="QToolButton" name="DispVecColor">
-           <property name="minimumSize">
-            <size>
-             <width>24</width>
-             <height>24</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>24</width>
-             <height>24</height>
-            </size>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="icon">
-            <iconset>
-             <normaloff>icons/colorPicker.png</normaloff>icons/colorPicker.png</iconset>
-           </property>
-          </widget>
-         </item>
          <item row="1" column="5">
           <widget class="QPushButton" name="RealROIInvert">
            <property name="minimumSize">
@@ -166,6 +117,83 @@
            <property name="icon">
             <iconset>
              <normaloff>icons/invertColors.png</normaloff>icons/invertColors.png</iconset>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QLabel" name="FrameXLabel">
+           <property name="minimumSize">
+            <size>
+             <width>24</width>
+             <height>24</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>24</width>
+             <height>24</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>X</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="FrameLabel">
+           <property name="text">
+            <string>Frame</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="4" colspan="3">
+          <widget class="QSpinBox" name="FrameY">
+           <property name="minimumSize">
+            <size>
+             <width>76</width>
+             <height>24</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>24</height>
+            </size>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="DispVecFieldLabel">
+           <property name="text">
+            <string>Vector Field</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="0" colspan="7">
+          <widget class="QLabel" name="RealSpacePanelLabel">
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="text">
+            <string>Real Space Controls</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
            </property>
           </widget>
          </item>
@@ -215,6 +243,29 @@
            </item>
           </widget>
          </item>
+         <item row="3" column="5">
+          <widget class="QToolButton" name="DispVecColor">
+           <property name="minimumSize">
+            <size>
+             <width>24</width>
+             <height>24</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>24</width>
+             <height>24</height>
+            </size>
+           </property>
+           <property name="text">
+            <string/>
+           </property>
+           <property name="icon">
+            <iconset>
+             <normaloff>icons/colorPicker.png</normaloff>icons/colorPicker.png</iconset>
+           </property>
+          </widget>
+         </item>
          <item row="3" column="6">
           <widget class="QPushButton" name="ShowColorWheelWdw">
            <property name="minimumSize">
@@ -235,38 +286,6 @@
            <property name="icon">
             <iconset>
              <normaloff>icons/colorwheel.png</normaloff>icons/colorwheel.png</iconset>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="1">
-          <widget class="QLabel" name="FrameXLabel">
-           <property name="minimumSize">
-            <size>
-             <width>24</width>
-             <height>24</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>24</width>
-             <height>24</height>
-            </size>
-           </property>
-           <property name="text">
-            <string>X</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="0">
-          <widget class="QLabel" name="FrameLabel">
-           <property name="text">
-            <string>Frame</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
            </property>
           </widget>
          </item>
@@ -316,24 +335,86 @@
            </item>
           </widget>
          </item>
-         <item row="2" column="4" colspan="3">
-          <widget class="QSpinBox" name="FrameY">
-           <property name="minimumSize">
+        </layout>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QGroupBox" name="DetectorModeGroup">
+        <layout class="QHBoxLayout" name="DetectorModeGrid" stretch="1,2,1">
+         <item>
+          <spacer name="DetectorModeHSpaceLeft">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
             <size>
-             <width>76</width>
-             <height>24</height>
+             <width>40</width>
+             <height>20</height>
             </size>
            </property>
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>24</height>
-            </size>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QComboBox" name="DetrMode">
+           <property name="font">
+            <font>
+             <pointsize>13</pointsize>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
            </property>
-           <property name="alignment">
-            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           <property name="currentIndex">
+            <number>0</number>
            </property>
+           <item>
+            <property name="text">
+             <string>Import Preview</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Alignment</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Annular Round</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Segmented (DPC)</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Center of Mass</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Virtual Aperture</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Custom Detectors</string>
+            </property>
+           </item>
           </widget>
+         </item>
+         <item>
+          <spacer name="DetectorModeHSpaceRight">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
          </item>
         </layout>
        </widget>
@@ -344,7 +425,7 @@
          <enum>Qt::DefaultContextMenu</enum>
         </property>
         <property name="currentIndex">
-         <number>2</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="PreviewTab">
          <property name="contextMenuPolicy">
@@ -357,121 +438,7 @@
           <property name="bottomMargin">
            <number>0</number>
           </property>
-          <item row="0" column="1">
-           <widget class="QPushButton" name="PvTC">
-            <property name="minimumSize">
-             <size>
-              <width>82</width>
-              <height>24</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>82</width>
-              <height>24</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>[ X/2 , 1 ]</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QPushButton" name="PvBC">
-            <property name="minimumSize">
-             <size>
-              <width>82</width>
-              <height>24</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>82</width>
-              <height>24</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>[ X/2 , Y ]</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="2">
-           <widget class="QPushButton" name="PvCR">
-            <property name="minimumSize">
-             <size>
-              <width>82</width>
-              <height>24</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>82</width>
-              <height>24</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>[ X , Y/2]</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="0">
-           <widget class="QPushButton" name="PvTL">
-            <property name="minimumSize">
-             <size>
-              <width>82</width>
-              <height>24</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>82</width>
-              <height>24</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>[ 1 , 1 ]</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="2">
-           <widget class="QPushButton" name="PvTR">
-            <property name="minimumSize">
-             <size>
-              <width>82</width>
-              <height>24</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>82</width>
-              <height>24</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>[ X , 1 ]</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0">
-           <widget class="QPushButton" name="PvBL">
-            <property name="minimumSize">
-             <size>
-              <width>82</width>
-              <height>24</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>82</width>
-              <height>24</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>[ 1 , Y ]</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
+          <item row="3" column="2">
            <widget class="QPushButton" name="PvCC">
             <property name="minimumSize">
              <size>
@@ -490,10 +457,267 @@
             </property>
            </widget>
           </item>
+          <item row="9" column="1" colspan="3">
+           <spacer name="PreviewTabVSpace">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>20</width>
+              <height>40</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item row="0" column="1" colspan="3" alignment="Qt::AlignHCenter">
+           <widget class="QLabel" name="label">
+            <property name="font">
+             <font>
+              <pointsize>13</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="text">
+             <string>Import Preview</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="3">
+           <widget class="QPushButton" name="PvCR">
+            <property name="minimumSize">
+             <size>
+              <width>82</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>82</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>[ X , Y/2]</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QPushButton" name="PvTL">
+            <property name="minimumSize">
+             <size>
+              <width>82</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>82</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>[ 1 , 1 ]</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="1">
+           <widget class="QPushButton" name="PvBL">
+            <property name="minimumSize">
+             <size>
+              <width>82</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>82</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>[ 1 , Y ]</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="3">
+           <widget class="QPushButton" name="PvBR">
+            <property name="minimumSize">
+             <size>
+              <width>82</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>82</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>[ X , Y]</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="4">
+           <spacer name="horizontalSpacer_8">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item row="2" column="3">
+           <widget class="QPushButton" name="PvTR">
+            <property name="minimumSize">
+             <size>
+              <width>82</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>82</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>[ X , 1 ]</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="2">
+           <widget class="QPushButton" name="PvBC">
+            <property name="minimumSize">
+             <size>
+              <width>82</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>82</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>[ X/2 , Y ]</string>
+            </property>
+           </widget>
+          </item>
           <item row="3" column="1">
+           <widget class="QPushButton" name="PvCL">
+            <property name="minimumSize">
+             <size>
+              <width>82</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>82</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>[ 1 , Y/2]</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <spacer name="horizontalSpacer_7">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item row="2" column="2">
+           <widget class="QPushButton" name="PvTC">
+            <property name="minimumSize">
+             <size>
+              <width>82</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>82</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>[ X/2 , 1 ]</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1" colspan="3">
+           <widget class="QLabel" name="label_2">
+            <property name="font">
+             <font>
+              <italic>true</italic>
+             </font>
+            </property>
+            <property name="text">
+             <string>Preview individual diffraction patterns to ensure import parameters are correct</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="6" column="1">
+           <widget class="QToolButton" name="PreviewButton">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>82</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>82</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="font">
+             <font>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="text">
+             <string>Preview</string>
+            </property>
+           </widget>
+          </item>
+          <item row="6" column="2">
            <layout class="QHBoxLayout" name="PvFrXHGrid">
             <property name="spacing">
-             <number>0</number>
+             <number>5</number>
+            </property>
+            <property name="topMargin">
+             <number>15</number>
+            </property>
+            <property name="bottomMargin">
+             <number>15</number>
             </property>
             <item>
              <widget class="QLabel" name="PvFrXLabel">
@@ -522,6 +746,12 @@
               <property name="prefix">
                <string/>
               </property>
+              <property name="minimum">
+               <number>1</number>
+              </property>
+              <property name="maximum">
+               <number>1000</number>
+              </property>
               <property name="value">
                <number>1</number>
               </property>
@@ -529,30 +759,8 @@
             </item>
            </layout>
           </item>
-          <item row="2" column="2">
-           <widget class="QPushButton" name="PvBR">
-            <property name="minimumSize">
-             <size>
-              <width>82</width>
-              <height>24</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>82</width>
-              <height>24</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>[ X , Y]</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="2">
-           <layout class="QHBoxLayout" name="PvFrYHGrid">
-            <property name="spacing">
-             <number>0</number>
-            </property>
+          <item row="6" column="3">
+           <layout class="QHBoxLayout" name="horizontalLayout_2">
             <item>
              <widget class="QLabel" name="PvFrYLabel">
               <property name="maximumSize">
@@ -577,69 +785,18 @@
               <property name="alignment">
                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
               </property>
+              <property name="minimum">
+               <number>1</number>
+              </property>
+              <property name="maximum">
+               <number>1000</number>
+              </property>
               <property name="value">
                <number>1</number>
               </property>
              </widget>
             </item>
            </layout>
-          </item>
-          <item row="1" column="0">
-           <widget class="QPushButton" name="PvCL">
-            <property name="minimumSize">
-             <size>
-              <width>82</width>
-              <height>24</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>82</width>
-              <height>24</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>[ 1 , Y/2]</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="0">
-           <widget class="QPushButton" name="PreviewButton">
-            <property name="minimumSize">
-             <size>
-              <width>82</width>
-              <height>24</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>82</width>
-              <height>24</height>
-             </size>
-            </property>
-            <property name="font">
-             <font>
-              <weight>75</weight>
-              <bold>true</bold>
-             </font>
-            </property>
-            <property name="text">
-             <string>Preview</string>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="0" colspan="3">
-           <spacer name="PreviewTabVSpace">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>20</width>
-              <height>40</height>
-             </size>
-            </property>
-           </spacer>
           </item>
          </layout>
         </widget>
@@ -2577,87 +2734,6 @@
         </widget>
        </widget>
       </item>
-      <item row="0" column="1">
-       <widget class="QGroupBox" name="DetectorModeGroup">
-        <layout class="QHBoxLayout" name="DetectorModeGrid" stretch="1,2,1">
-         <item>
-          <spacer name="DetectorModeHSpaceLeft">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item>
-          <widget class="QComboBox" name="DetrMode">
-           <property name="font">
-            <font>
-             <pointsize>13</pointsize>
-             <weight>75</weight>
-             <bold>true</bold>
-            </font>
-           </property>
-           <property name="currentIndex">
-            <number>1</number>
-           </property>
-           <item>
-            <property name="text">
-             <string>Import Preview</string>
-            </property>
-           </item>
-           <item>
-            <property name="text">
-             <string>Alignment</string>
-            </property>
-           </item>
-           <item>
-            <property name="text">
-             <string>Annular Round</string>
-            </property>
-           </item>
-           <item>
-            <property name="text">
-             <string>Segmented (DPC)</string>
-            </property>
-           </item>
-           <item>
-            <property name="text">
-             <string>Center of Mass</string>
-            </property>
-           </item>
-           <item>
-            <property name="text">
-             <string>Virtual Aperture</string>
-            </property>
-           </item>
-           <item>
-            <property name="text">
-             <string>Custom Detectors</string>
-            </property>
-           </item>
-          </widget>
-         </item>
-         <item>
-          <spacer name="DetectorModeHSpaceRight">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-        </layout>
-       </widget>
-      </item>
      </layout>
     </item>
     <item>
@@ -2824,6 +2900,7 @@
    <addaction name="actionBrightness_and_Contrast"/>
    <addaction name="ShowSettingsWdw"/>
   </widget>
+  <widget class="QStatusBar" name="statusBar"/>
   <action name="ShowImportWdw">
    <property name="checkable">
     <bool>true</bool>
@@ -3157,6 +3234,7 @@
    <slots>
     <signal>valueChanged(double)</signal>
     <slot>setValue(double)</slot>
+    <slot>setValue(50)</slot>
    </slots>
   </customwidget>
   <customwidget>

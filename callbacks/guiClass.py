@@ -1,5 +1,5 @@
 import sys
-from PyQt5 import QtWidgets as qtw
+from PyQt5 import QtCore, QtGui, QtWidgets as qtw
 from PyQt5 import QtGui as qtg
 from PyQt5 import QtCore as qtc
 from PyQt5 import uic
@@ -11,6 +11,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt 
+import numpy as np
 from callbacks.allFunctions import startupFcn
 
 # Convert .ui Files from QT Designer to python
@@ -96,10 +97,12 @@ class SaveWindow(EW_Base, EW_Ui):
         return super().closeEvent(a0)
 
 class ImageWindow(qtw.QMainWindow):
-    def __init__(self, id, name, sp, typ, cmap, pos):
+    imageResize = qtc.pyqtSignal((qtc.QSize,str))
+    activateFigure = qtc.pyqtSignal(str)
+
+    def __init__(self, id, name, space, typ, cmap, pos):
         super().__init__
         qtw.QMainWindow.__init__(self)
-        self.setWindowTitle(name)
 
         self.setObjectName(id)
 
@@ -123,33 +126,35 @@ class ImageWindow(qtw.QMainWindow):
         # Set defaults for the given window
         self.setWindowTitle(name)
 
-        self.id = id            # window id
-        self.space = sp         # real or diffraction space?
-        self.type = typ         # type of image: Primary (Dfrn and Real), Mask, CoM
-        self.cmap = cmap        # colormap
-        self.invert = 0         # invert colormap?
-        self.maskOpa = 0        # mask opacity
-        self.Tag = sp+" "+typ   # tag used for finding windows
-        self.name = name        # image name
-        self.brightness = 50    # brightness value
-        self.contrast = 50      # contrast value
-        self.gamma = 1          # gamma value
-        self.vecField = 0       # vector field display logical
-        self.isShown = False    # help with hiding/showing groups of windows
+        self.id = id             # window id
+        self.space = space       # real or diffraction space?
+        self.type = typ          # type of image: Primary (Dfrn and Real), Mask, CoM
+        self.cmap = cmap         # colormap
+        self.invert = 0          # invert colormap?
+        self.maskOpa = 0         # mask opacity
+        self.Tag = space+" "+typ # tag used for finding windows
+        self.name = name         # image name
+        self.brightness = 50     # brightness value
+        self.contrast = 50       # contrast value
+        self.gamma = 1           # gamma value
+        self.vecField = 0        # vector field display logical
+        self.isShown = False     # help with hiding/showing groups of windows
         
         # set defaul vector color for overlays
         if cmap=="gray":
-            self.vecColor = 'r' # red
+            self.vecColor = qtg.QColor('red') # red
         else:
-            self.vecColor = 'w' # white
+            self.vecColor = qtg.QColor('white') # white
         
         # only use self.move() for dummy window test, it triggers a moveEvent which draws the decoration so they can be measured
-        pos = list(map(round,pos)) # make sure position is type int
+        pos = np.rint(pos).astype(int) # make sure position is type int
         if id=="":
             self.move(pos[0],pos[1])
             self.show()
         else:
             self.setGeometry(qtc.QRect(pos[0],pos[1],pos[2],pos[3]))
+        
+        self.fig.canvas.mpl_connect('button_press_event', lambda id: self.activateFigure.emit(self.id))
         
     # change closeEvent behavior to hide rather than close window
     def closeEvent(self, a0: qtg.QCloseEvent) -> None:
@@ -157,3 +162,31 @@ class ImageWindow(qtw.QMainWindow):
         self.isShown = False
         a0.ignore()
         return super().closeEvent(a0)
+    
+    def resizeEvent(self, a0: qtg.QResizeEvent) -> None:
+        sizeChange = a0.size() - a0.oldSize()
+        self.imageResize.emit(sizeChange,self.space)
+        return super().resizeEvent(a0)
+    
+    def mousePressEvent(self, a0: qtg.QMouseEvent) -> None:
+        self.activateFigure.emit(self.id)
+        return super().mousePressEvent(a0)
+    
+    #TODO: clicking title bar activates window, but does not trigger a mousePressEvent; 
+    #      using qtc.QEvent.ActivationChange falls into a recursive spiral as when one window activates
+    #      another deactivates, sending two competing signals
+    #
+    # def changeEvent(self, a0: qtc.QEvent) -> None:
+    #     if hasattr(self,'id'):
+    #         print(self.id,dict([(getattr(a0,ii),ii) for ii in dir(a0) if ((not ii.startswith("_")) and not (callable(getattr(a0,ii))))])[a0.type()],self.hasFocus())
+    #     else:
+    #         print(dict([(getattr(a0,ii),ii) for ii in dir(a0) if ((not ii.startswith("_")) and not (callable(getattr(a0,ii))))])[a0.type()],self.hasFocus())
+
+    #     if (a0.type() == qtc.QEvent.ActivationChange) and (not self.isActiveWindow()):
+    #         print(self.id,self.isActiveWindow())
+    #         self.activateFigure.emit(self.id)
+    #     return super().changeEvent(a0)
+    
+    # def focusInEvent(self, a0: qtg.QFocusEvent) -> None:
+    #     print(999)
+    #     return super().focusInEvent(a0)

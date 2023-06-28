@@ -1,5 +1,6 @@
 import sys
 from PyQt5 import QtWidgets as qtw
+from PyQt5 import QtGui as qtg
 from PyQt5 import uic
 import numpy as np
 
@@ -7,18 +8,30 @@ diffImages = ['Dfrn', 'DfrnMask']
 realImages = ['iCoM', 'dCoM', 'CoMY', 'CoMX', 'CoMMag', 'CoMPh', 'CoMPhMag', 'RealMask', 'Real', 'Preview', 'ColorWheel']
 allImages = diffImages + realImages
 
-class T:
-    FileSize = 0
-    dm = []
-    h5 = []
-    fileTail = 0
-    EstSize = 0
-    EstMem = 0
-    Preview = []
-    prev_D = 0
-    frameJ = 0
+class propDict(dict):
+    """allows for dot indexing"""
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
 
 class D:
+    """ Parameters of the current imported dataset; should be constants (except for data type conversion) """
+    @staticmethod
+    def swapDiff():
+        # Swap diffraction X/Y dimensions
+        D.DNPxX,D.DNPxY = D.DNPxY,D.DNPxX
+        D.NPxX,D.NPxY = D.NPxY,D.NPxX
+        D.PxX1,D.PxY1 = D.PxY1,D.PxX1
+        D.NPx = np.flip(D.NPx)
+    
+    @staticmethod
+    def swapReal():
+        # Swap real X/Y dimensions
+        D.DNFrX,D.DNFrY = D.DNFrY,D.DNFrX
+        D.NFrX,D.NFrY = D.NFrY,D.NFrX
+        D.FrX1,D.FrY1 = D.FrY1,D.FrX1
+        D.NFr = np.flip(D.NFr)
+
     filePath = ''
     fileDir = ''
     fileName = ''
@@ -46,9 +59,9 @@ class D:
     FrY1 = 1
     NFrX = 1
     NFrY = 1
-    NPx = [1,1]
+    NPx = np.array([1,1])
     NPxS = 1
-    NFr = [1,1]
+    NFr = np.array([1,1])
     NFrS = 1
     EstMem = 0
     KeepP = 0
@@ -57,7 +70,20 @@ class D:
     h5ds = []
     annWidth = 0.5 # annuli width for BF/ADF integration
 
+class T:
+    """ Temporary global variables, e.g. for progress bar and import etc., should never be cleared """
+    FileSize = 0
+    dm = []
+    h5 = []
+    fileTail = 0
+    EstSize = 0
+    EstMem = 0
+    Preview = D()
+    prev_D = D()
+    frameJ = 0
+
 class C:
+    """ Constants for system info that set at app startup """
     ScreenSize = []
     MonitorPositions = []
     ScreenPxScale = 1
@@ -77,8 +103,8 @@ class C:
     shc = []
     l = []
     wb0 = []
-    BgC = [0.94,0.94,0.94]
-    WarnC = [1.00,0.65,0.00]
+    BgC = qtg.QColor.fromRgbF(0.94,0.94,0.94,1)
+    WarnC = qtg.QColor.fromRgbF(1,0.65,0,1)
     SysEndian = 'l'
     EndianTxt = {"l": "Little Endian","b": "Big Endian"}
     MemTot = 0
@@ -89,6 +115,7 @@ class C:
     
 
 class P:
+    """ Common parameters, should be cleared when a dataset is unloaded """
     ScanDirInit = 0
     DfCtr = []
     RsCtr = []
@@ -99,45 +126,48 @@ class P:
     RMax = 0
     DetrMode = 'AlignMod'
     detWidth = 0
+    PreviewAxLim = [0,1,0,1]
 
 class Prev:
+    """ Previous values, should be cleared when a dataset is unloaded """
     ims = []
     hist = []
     B0 = []
     AnnR = []
     CoM_P = []
 
-class Fig:
-    ColorWheel = None
-    Dfrn = None
-    DfrnMask = None
-    Real  = None
-    CoMPhMag = None
-    CoMPh = None
-    CoMMag = None
-    CoMX = None
-    CoMY = None
-    dCoM = None
-    iCoM = None
-    RealMask = None
-    Preview = None
+# class Fig:
+#     ColorWheel = None
+#     Dfrn = None
+#     DfrnMask = None
+#     Real  = None
+#     CoMPhMag = None
+#     CoMPh = None
+#     CoMMag = None
+#     CoMX = None
+#     CoMY = None
+#     dCoM = None
+#     iCoM = None
+#     RealMask = None
+#     Preview = None
 
-class Image:
-    ColorWheel = None
-    Dfrn = None
-    DfrnMask = None
-    Real  = None
-    CoMPhMag = None
-    CoMPh = None
-    CoMMag = None
-    CoMX = None
-    CoMY = None
-    dCoM = None
-    iCoM = None
-    RealMask = None
-    Preview = None
+# class Image:
+#     ColorWheel = None
+#     Dfrn = None
+#     DfrnMask = None
+#     Real  = None
+#     CoMPhMag = None
+#     CoMPh = None
+#     CoMMag = None
+#     CoMX = None
+#     CoMY = None
+#     dCoM = None
+#     iCoM = None
+#     RealMask = None
+#     Preview = None
 
 class A:
+    """ Image annotations on `axes` `uiaxes`, excluding annotations on `figure` `uifigure` """
     # generic circle starting point
     circX = np.cos(np.arange(0,2.01*np.pi,np.pi/100))
     circY = np.sin(np.arange(0,2.01*np.pi,np.pi/100))
@@ -201,6 +231,7 @@ class G:
     pass
 
 class ByteSize:
+    """ data size in bytes for the allowed data types"""
     u1 = 1
     i1 = 1
     u2 = 2
@@ -226,9 +257,20 @@ def appStruct(self):
     setattr(self,'C',C())
     setattr(self,'P',P())
     setattr(self,'Prev',Prev())
-    setattr(self,'Fig',Fig())
-    setattr(self,'Image',Image())
     setattr(self,'A',A())
     setattr(self,'Mask',Mask())
     setattr(self,'G',G())
     setattr(self,'ByteSize',ByteSize())
+
+    Fig = propDict({})
+    Image = propDict({})
+    ImageAx = propDict({})
+
+    for ii in allImages:
+        Fig[ii] = None
+        Image[ii] = None
+        ImageAx[ii] = None
+    
+    setattr(self,'Fig',Fig)
+    setattr(self,'Image',Image)
+    setattr(self,'ImageAx',ImageAx)
