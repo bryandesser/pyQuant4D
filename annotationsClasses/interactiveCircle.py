@@ -189,8 +189,12 @@ class InteractiveCircle(qtc.QObject):
         self.canvas.draw()
     
     def redraw(self):
-        # update point and circle locations based on center/radius set externally
-        vec = self.point.get_offsets()-np.mean(self.circ._xy,axis=0)-self.center
+        """ update point and circle locations based on center/radius set externally """
+        
+        # both are currently in the wrong position, but using their locations BEFORE updating
+        # gives the correct vector from the center of the circle to the dot, which allows it to
+        # travel purely radially when being controlled externally
+        vec = self.point.get_offsets()-np.mean(self.circ._xy[:-1],axis=0)
         self.point.set_offsets(self.radius*vec/np.linalg.norm(vec)+self.center)
         self.circ.set_xdata(self.radius*self.x+self.center[0])
         self.circ.set_ydata(self.radius*self.y+self.center[1])

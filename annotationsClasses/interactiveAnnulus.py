@@ -241,13 +241,18 @@ class InteractiveAnnulus(qtc.QObject):
             self.radius.sort()
     
     def redraw(self):
-        # update point and circle locations based on center/radius set externally
-        vec = self.innerPoint.get_offsets()-np.mean(self.innerCirc._xy,axis=0)
+        """ update point and circle locations based on center/radius set externally """
+
+        # both are currently in the wrong position, but using their locations BEFORE updating
+        # gives the correct vector from the center of the circle to the dot, which allows it to
+        # travel purely radially when being controlled externally
+        
+        vec = self.innerPoint.get_offsets()-np.mean(self.innerCirc._xy[:-1],axis=0)
         self.innerPoint.set_offsets(self.radius[0]*vec/np.linalg.norm(vec)+self.center)
         self.innerCirc.set_xdata(self.radius[0]*self.x+self.center[0])
         self.innerCirc.set_ydata(self.radius[0]*self.y+self.center[1])
 
-        vec = self.outerPoint.get_offsets()-np.mean(self.outerCirc._xy,axis=0)
+        vec = self.outerPoint.get_offsets()-np.mean(self.outerCirc._xy[:,-1],axis=0)
         self.outerPoint.set_offsets(self.radius[1]*vec/np.linalg.norm(vec)+self.center)
         self.outerCirc.set_xdata(self.radius[1]*self.x+self.center[0])
         self.outerCirc.set_ydata(self.radius[1]*self.y+self.center[1])
