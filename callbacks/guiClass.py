@@ -8,12 +8,16 @@ from PyQt5 import uic
 import matplotlib
 matplotlib.use('Qt5Agg')
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt 
 import numpy as np
 from callbacks.allFunctions import startupFcn
+
+
+
+from matplotlib import cbook
 
 # Convert .ui Files from QT Designer to python
 # Main window
@@ -122,9 +126,6 @@ class ImageWindow(qtw.QMainWindow):
 
         layout.addWidget(self.canvas)
 
-        self.toolbar = NavigationToolbar(self.canvas, self)
-        layout.addWidget(self.toolbar)
-
         # Set defaults for the given window
         self.setWindowTitle(name)
 
@@ -141,6 +142,7 @@ class ImageWindow(qtw.QMainWindow):
         self.gamma = 1           # gamma value
         self.vecField = 0        # vector field display logical
         self.isShown = False     # help with hiding/showing groups of windows
+        self.Image = None        # actual image data will be stored here; displayed data is modified by brightness/contrast/gamma
         
         # set defaul vector color for overlays
         if cmap=="gray":
@@ -148,6 +150,9 @@ class ImageWindow(qtw.QMainWindow):
         else:
             self.vecColor = qtg.QColor('white') # white
         
+        self.toolbar = NavigationToolbar(self.canvas, self)
+        layout.addWidget(self.toolbar)
+
         # only use self.move() for dummy window test, it triggers a moveEvent which draws the decoration so they can be measured
         pos = np.rint(pos).astype(int) # make sure position is type int
         if id=="":
@@ -164,8 +169,7 @@ class ImageWindow(qtw.QMainWindow):
 
         # activate native keyboard shortcuts
         self.canvas.mpl_connect('key_press_event', self.on_key_press)
-
-        
+          
     # change closeEvent behavior to hide rather than close window
     def closeEvent(self, a0: qtg.QCloseEvent) -> None:
         self.hide()
@@ -203,3 +207,44 @@ class ImageWindow(qtw.QMainWindow):
     # def focusInEvent(self, a0: qtg.QFocusEvent) -> None:
     #     print(999)
     #     return super().focusInEvent(a0)
+
+
+# subclass NavigationToolbar2QT such that the image intensity displayed
+# is NOT effected by brightness/contrast/gamma scaling. Only the 
+# event-based data picking has been modified:
+# data = a.get_cursor_data(event)
+class NavigationToolbar(NavigationToolbar2QT):
+    def __init__(self, canvas, frame, name=None):
+        NavigationToolbar2QT.__init__(self, canvas, frame)
+    
+    @staticmethod
+    def _mouse_event_to_message(event):
+        if event.inaxes and event.inaxes.get_navigate():
+            try:
+                s = event.inaxes.format_coord(event.xdata, event.ydata)
+            except (ValueError, OverflowError):
+                pass
+            else:
+                s = s.rstrip()
+                artists = [a for a in event.inaxes._mouseover_set
+                            if a.contains(event)[0] and a.get_visible()]
+                if artists:
+                    a = cbook._topmost_artist(artists)
+                    if a is not event.inaxes.patch:
+                        # data = a.get_cursor_data(event) # deleted
+                        # get data from the self.Fig[id].Image array rather than
+                        # the plotted image, which is scaled. Ensure x,y indices
+                        # do not go beyond the length/width of the image array
+                        im = event.canvas.parent().parent().Image
+                        xmax,ymax = im.shape
+                        x = np.clip(round(event.xdata),0,xmax-1)
+                        y = np.clip(round(event.ydata),0,ymax-1)
+                        data = im[y,x]
+
+                        # keep data format the matplotlib default
+                        if data is not None:
+                            data_str = a.format_cursor_data(data).rstrip()
+                            if data_str:
+                                s = s + '\n' + data_str
+                return s
+        return ""

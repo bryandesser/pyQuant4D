@@ -49,7 +49,7 @@ class InteractiveAnnulus(qtc.QObject):
         self.outerCirc.set_animated(True)
         self.innerPoint.set_animated(True)
         self.outerPoint.set_animated(True)
-        self.canvas.draw()
+        #self.canvas.draw()
         self.background = self.canvas.copy_from_bbox(axis.bbox)
     
     def remove(self):

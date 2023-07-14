@@ -282,15 +282,15 @@ def appStruct(self):
     setattr(self,'ByteSize',ByteSize())
 
     Fig = propDict({})
-    Image = propDict({})
+    #Image = propDict({})
     ImageAx = propDict({})
 
     for ii in allImages:
         Fig[ii] = None
-        Image[ii] = None
+        #Image[ii] = None
         ImageAx[ii] = None
     
     setattr(self,'Fig',Fig)
-    setattr(self,'Image',Image)
+    #setattr(self,'Image',Image)
     setattr(self,'ImageAx',ImageAx)
     setattr(self,'blockAllSignals',False)

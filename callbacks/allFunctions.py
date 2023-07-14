@@ -1,4 +1,4 @@
-import os, sys, traceback, re, gc, psutil, importlib, matplotlib, h5py
+import os, sys, traceback, re, gc, psutil, importlib, h5py, matplotlib
 import numpy as np
 import torch
 from multiprocessing.pool import ThreadPool
@@ -7,9 +7,9 @@ from PyQt5 import QtCore as qtc
 from PyQt5 import QtGui as qtg
 import callbacks.appClass as appClass
 from callbacks.appClass import *
-from callbacks.annotationsClass import DraggablePoint
 from annotationsClasses.interactiveAnnulus import InteractiveAnnulus
 from annotationsClasses.interactiveCircle import InteractiveCircle
+from annotationsClasses.draggablePoint import DraggablePoint
 
 
 def importCallbacks(self):
@@ -408,9 +408,9 @@ def importFileType(self):
     rangeImportExport(self, self.ImportWindow.DNFrX)
 
     # generate placeholder images
-    self.Image.Preview = np.zeros(self.D.NPx)
-    self.Image.Dfrn = np.zeros(self.D.NPx)
-    self.Image.Real = np.zeros(self.D.NFr)
+    self.Fig.Preview.Image = np.zeros(self.D.NPx)
+    self.Fig.Dfrn.Image = np.zeros(self.D.NPx)
+    self.Fig.Dfrn.Real = np.zeros(self.D.NFr)
 
     importBoxInput(self)
 
@@ -432,7 +432,7 @@ def importBoxInput(self):
         # Estimate of the distance to the far corner of the diffraciton pattern
         # est_mem = np.prod([nPx,nFr]) /                                # self.Data
         # + np.prod(nFr)*(2*np.floor(np.sqrt(np.sum((nPx/2)**2)))+1) /  # self.ImageAx.IntgAnn
-        # + np.prod(nFr)*10 + np.prod(nPx)*2  /                         # self.Image
+        # + np.prod(nFr)*10 + np.prod(nPx)*2  /                         # self.Fig[id].Image
         # + np.prod(nPx)*10                                             # self.Mask
         est_mem = np.prod([nPx,nFr]) \
         + np.prod(nFr)*(2*np.floor(np.sqrt(np.sum((nPx/2)**2)))+1) \
@@ -700,31 +700,31 @@ def detectorModeCallbacks(self):
             previewCallbacks(self) #TODO
         case "AlignMod":
             # display the full dataset pacbed
-            self.Image.Dfrn = self.Data.sum(axis=0).reshape(self.D.NPx)
-            self.ImageAx.Dfrn = self.Fig.Dfrn.ax.imshow(self.Image.Dfrn,cmap=self.Fig.Dfrn.cmap)
+            self.Fig.Dfrn.Image = self.Data.sum(axis=0).reshape(self.D.NPx)
+            self.ImageAx.Dfrn = self.Fig.Dfrn.ax.imshow(self.Fig.Dfrn.Image,cmap=self.Fig.Dfrn.cmap)
             self.ImageAx.Dfrn.figure.set_facecolor('black')
             self.Fig.Dfrn.setVisible(True)
             self.Fig.Dfrn.ax.axis(self.P.DfrnAxLim)
             self.Fig.Dfrn.canvas.draw()
 
             # initialize real space image with sum over all diffraction space
-            self.Image.Real = self.Data.sum(axis=1).reshape(self.D.NFrY,self.D.NFrX)
-            self.ImageAx.Real = self.Fig.Real.ax.imshow(self.Image.Real,cmap=self.Fig.Real.cmap)
+            self.Fig.Real.Image = self.Data.sum(axis=1).reshape(self.D.NFrY,self.D.NFrX)
+            self.ImageAx.Real = self.Fig.Real.ax.imshow(self.Fig.Real.Image,cmap=self.Fig.Real.cmap)
             self.ImageAx.Real.figure.set_facecolor('black')
             self.Fig.Real.setVisible(True)
             self.Fig.Real.ax.axis(self.P.RealAxLim)
             self.Fig.Real.canvas.draw()
 
             # initial masking for diffraction space should be all ones
-            self.Image.DfrnMask = np.ones(self.D.NPx)
-            self.ImageAx.DfrnMask = self.Fig.DfrnMask.ax.imshow(self.Image.DfrnMask,cmap=self.Fig.DfrnMask.cmap)
+            self.Fig.DfrnMask.Image = np.ones(self.D.NPx)
+            self.ImageAx.DfrnMask = self.Fig.DfrnMask.ax.imshow(self.Fig.DfrnMask.Image,cmap=self.Fig.DfrnMask.cmap)
             self.ImageAx.DfrnMask.figure.set_facecolor('black')
             self.Fig.DfrnMask.ax.axis(self.P.DfrnAxLim)
             self.Fig.DfrnMask.canvas.draw()
             
             # initial masking for real space should be all ones
-            self.Image.RealMask = np.ones(self.D.NFr)
-            self.ImageAx.RealMask = self.Fig.RealMask.ax.imshow(self.Image.RealMask,cmap=self.Fig.RealMask.cmap)
+            self.Fig.RealMask.Image = np.ones(self.D.NFr)
+            self.ImageAx.RealMask = self.Fig.RealMask.ax.imshow(self.Fig.RealMask.Image,cmap=self.Fig.RealMask.cmap)
             self.ImageAx.RealMask.figure.set_facecolor('black')
             self.Fig.RealMask.ax.axis(self.P.RealAxLim)
             self.Fig.RealMask.canvas.draw()
@@ -746,7 +746,6 @@ def detectorModeCallbacks(self):
             self.DfrnDetrTabGroup.setCurrentIndex(2)
             self.dpcControls.setVisible(False)
             self.comControls.setVisible(False)
-            drawAnnDetr(self)
             annularDetectorCallbacks(self) #TODO
         case "CoMMod"|"DPCMod":
             self.DfrnDetrTabGroup.setCurrentIndex(2)
@@ -825,14 +824,14 @@ def datasetOptCallbacks(self):
             self.SettingsWindow.DataInfo.setPlainText(getImportInfo(self))
           
         case self.PreviewButton:
-            sel = checkNaN(self, image=self.Image.Preview, preview=True) # Check data NaN/Inf, without asking to sway byte-order
+            sel = checkNaN(self, image=self.Fig.Preview.Image, preview=True) # Check data NaN/Inf, without asking to sway byte-order
             if sel == 'Set NaNs to 0':
                 self.Data[np.ma.masked_invalid(self.Data).mask]=0
 
         case other:
             self.SettingsWindow.DataInfo.setPlainText(getImportInfo(self))
             # Check data NaN/Inf, ask whether to sway byte-order
-            sel = checkNaN(self, image=self.Image.Dfrn, preview=False)
+            sel = checkNaN(self, image=self.Fig.Dfrn.Image, preview=False)
             if sel == 'Set NaNs to 0':
                 self.Data[np.ma.masked_invalid(self.Data).mask]=0
 
@@ -866,7 +865,7 @@ def previewCallbacks(self):
     match self.sender():
         case self.DetrMode: # Entering mode
             self.Fig.Preview.ax.cla()
-            self.Image.Preview = None # Clear previous preview
+            self.Fig.Preview.Image = None # Clear previous preview
             enableWindows(self,True) # Enable windows
           
         case self.PvBC|self.PvBL|self.PvBR|self.PvCC|self.PvCL|self.PvCR|self.PvTC|self.PvTL|self.PvTR: # Location buttons
@@ -920,8 +919,8 @@ def previewCallbacks(self):
                         skipBytes = d.Offset + (d.FrHead + dnpx*dnpy*d.ByteSize + d.FrFoot)*(dnfx*ify + ifx) + d.FrHead
                         frame = np.fromfile(file=d.filePath,offset=skipBytes,count=1,dtype=str(dnpx*dnpy)+d.DataType).reshape(dnpx,dnpy)
 
-                    self.Image.Preview = frame
-                    self.ImageAx.Preview = self.Fig.Preview.ax.imshow(self.Image.Preview)
+                    self.Fig.Preview.Image = frame
+                    self.ImageAx.Preview = self.Fig.Preview.ax.imshow(self.Fig.Preview.Image)
                     plotImage(self,"Preview") # Plot image
                     datasetOptCallbacks(self) # Check NaN
                 except:
@@ -942,7 +941,8 @@ def transBeamCallbacks(self):
             # Create a summed image of all diffraction patterns simply for alignment and calibration
             self.ImageAx.DfrnMask = self.Fig.DfrnMask.ax.imshow(np.ones(self.D.NPx,self.D.DataType))
             self.Fig.DfrnMask.canvas.draw()
-            self.ImageAx.Real.set_data(np.reshape(self.Data.sum(axis=1), self.D.NFr))
+            self.Fig.Real.Image = np.reshape(self.Data.sum(axis=1), self.D.NFr)
+            self.ImageAx.Real.set_data(self.Fig.Real.Image)
             self.ImageAx.Real.autoscale()
             self.Fig.Real.canvas.draw()
 
@@ -1117,7 +1117,6 @@ def debugImport(self):
         on_ImpFileSelect_clicked(self)
         self.ImportWindow.ImportDataButton.click()
 
-
 def breakpoint(self):
     print()
 
@@ -1243,18 +1242,14 @@ def slotsSignals(self):
     self.SettingsWindow.DispLock.clicked.connect(lambda: displayCallbacks(self))
     self.SettingsWindow.DispBrightness.valueChanged.connect(lambda: displayCallbacks(self))
     self.SettingsWindow.DispContrast.valueChanged.connect(lambda: displayCallbacks(self))
+    self.SettingsWindow.DispGamma.setSingleStep(0.1/3) # scroll step = 3 single steps
+    self.SettingsWindow.DispGamma.setValue(1)
     self.SettingsWindow.DispGamma.valueChanged.connect(lambda: displayCallbacks(self))
     self.SettingsWindow.DispGammaReset.triggered.connect(lambda: displayCallbacks(self))
     self.SettingsWindow.DispContrastReset.triggered.connect(lambda: displayCallbacks(self))
     self.SettingsWindow.DispBrightnessReset.triggered.connect(lambda: displayCallbacks(self))
     self.SettingsWindow.DispMaskOpa.valueChanged.connect(lambda: displayCallbacks(self))
     self.SettingsWindow.HistLog.clicked.connect(lambda: displayCallbacks(self))
-    
-    # *_NF are the numerical fields; explicit connection should not be needed as they are linked to their respective sliders by QT #TODO
-    self.SettingsWindow.DispBrightness_NF
-    self.SettingsWindow.DispContrast_NF
-    self.SettingsWindow.DispGamma_NF
-    self.SettingsWindow.DispMaskOpa_NF
 
     # reset values, should not be necessary once connected to displayCallbacks #TODO
     self.SettingsWindow.DispBrightnessReset.clicked.connect(lambda: self.SettingsWindow.DispBrightness.setValue(50))
@@ -1340,9 +1335,9 @@ def plotColorWheel(self):
     mask = (xgrid**2 + ygrid**2) < r**2
 
     # plot colorwheel with mask    
-    self.Image.ColorWheel = a
+    self.Fig.ColorWheel.Image = a
     if self.ImageAx.ColorWheel == None:
-        self.ImageAx.ColorWheel = self.Fig.ColorWheel.ax.imshow(self.Image.ColorWheel,alpha=mask.astype(float),cmap='hsv',interpolation="None")
+        self.ImageAx.ColorWheel = self.Fig.ColorWheel.ax.imshow(self.Fig.ColorWheel.Image,alpha=mask.astype(float),cmap='hsv',interpolation="None")
     self.Fig.ColorWheel.maskOpa = 100
 
 class WorkerSignals(qtc.QObject):
@@ -1373,115 +1368,6 @@ class Worker(qtc.QRunnable):
             self.signals.result.emit(adfImages)  # Return the result of the processing
         finally:
             self.signals.finished.emit()  # Done
-
-
-def integrateAnnular(self):
-    # generate meshgrid, divide by annulus width and round so distance increments away
-    # from transmitted beam as integers to allow for direct use with QRangeSlider[int]
-    # and array indexing; self.D.annWidth = 0.5 by default
-    xgrid,ygrid = np.ogrid[-self.B0[0]:self.D.NPxX-self.B0[0],-self.B0[1]:self.D.NPxY-self.B0[1]]
-    self.A.k = np.int32(np.sqrt(xgrid**2+ygrid**2)/self.D.annWidth)
-    k = self.A.k.flatten()
-
-    # generate a vector of pixel distances from transmitted beam center (divided by annWidth)
-    distance = np.arange(0,k.max()+1)
-
-    # create adf annular masks of annWidth pixel width
-    adfMask = np.where((k.reshape(1,len(k))>=distance.reshape(len(distance),1)) & (k.reshape(1,len(k))<(distance.reshape(len(distance),1)+0.5)), True, False).T
-
-    # generate all adf images from 0.0.5 pixel annuli; reshape to 3D for faster plotting
-    self.adfImages = self.Data@adfMask
-    self.adfImages = np.reshape(self.adfImages,(self.D.NFrY,self.D.NFrX,-1))
-
-    # set adfInner and adfOuter slider limits based on k.max()
-    self.AnnRi.setMaximum(k.max())
-
-    # set adfInner and adfOuter numerical field limits based on k.max()/2
-    self.AnnRi_NF.setMaximum(k.max()*self.D.annWidth)
-    self.AnnRo_NF.setMaximum(k.max()*self.D.annWidth)
-    
-    # set maximum scattering angle
-    self.P.RMax = k.max()
-
-def drawAnnDetr(self):
-    """ initiallize the annular detector annotations """
-    # define center location and starting radii for annular detector
-    c = self.B0
-    r1 = self.AnnRi.value()[0]*self.D.annWidth
-    r2 = self.AnnRi.value()[1]*self.D.annWidth
- 
-    # generate adf detector
-    if self.A.adf is None:
-        self.A.adf = InteractiveAnnulus(center=c, radius=(r1,r2), axis=self.Fig.Dfrn.ax, color='r', interactions='resize')
-        self.A.adf.connect()
-        self.A.adf.updateAnnulus.connect(lambda: moveAnnR(self))
-
-def moveAnnR(self):
-    # get QRangeSlider values
-    innerRadius,outerRadius = self.AnnRi.value()
-    
-    # get diffraction scale set by user during alignment
-    scale = self.DfPxR
-
-    # get inner/outer adf radii from the calling widget
-    match self.sender():
-        # InteractiveAnnulus
-        case self.A.adf:
-            innerRadius, outerRadius = (self.A.adf.radius/self.D.annWidth).astype(int)
-        # Inner Radius QDoubleSpinBox
-        case self.AnnRi_NF:
-            innerRadius = round(self.AnnRi_NF.value()/self.D.annWidth/scale)
-        # Outer Radius QDoubleSpinBox 
-        case self.AnnRo_NF:
-            outerRadius = round(self.AnnRo_NF.value()/self.D.annWidth/scale)
-
-    # allow user to drag inner/outer annulus over the other, swapping their relationships
-    if innerRadius>outerRadius:
-        innerRadius,outerRadius = outerRadius,innerRadius
-        #self.A.adfInnerCirc,self.A.adfOuterCirc = self.A.adfOuterCirc,self.A.adfInnerCirc #TODO delete?
-
-    # inner radius cannot be less than 0
-    if innerRadius<0:
-        innerRadius = 0
-
-    # outer radius cannot be greater than max scattering angle
-    if outerRadius>self.P.RMax:
-        outerRadius = self.P.RMax
-
-    # avoid triggering a valueChanged loop by blocking signals
-    self.blockAllSignals = True
-
-    # set slider and numerical field values
-    self.AnnRi.setValue((innerRadius,outerRadius))
-    self.AnnRi_NF.setValue(innerRadius*self.D.annWidth*scale)
-    self.AnnRo_NF.setValue(outerRadius*self.D.annWidth*scale)
-
-    # unblock trigger signals
-    self.blockAllSignals = False
-
-    # update point centers when updated via QRangeSlider or QDoubleSpinBoxes
-    if self.sender() is not self.A.adf:
-        self.A.adf.radius = np.array([innerRadius,outerRadius]).clip(np.finfo(np.single).eps,self.P.RMax)*self.D.annWidth
-        self.A.adf.redraw()
-
-    #if isStaticEvt(evt): #TODO
-    #    mockUICallbacks(app,self.SaveImgPrefix) # Update saving prefix
-
-    # Whether to update segments as well #TODO
-    #if dmod == "DPCMod":
-    #    self.moveSeg()
-
-    # refresh real-space image given new inner/outer radii
-    # (add one to outer limit because python doesn't include the last term of the range)
-    if len(self.Fig.Real.ax.images)==0:
-        self.Image.Real = self.Data.sum(axis=1).reshape(self.D.NFrY,self.D.NFrX)
-        self.ImageAx.Real = self.Fig.Real.ax.imshow(self.Image.Real)
-    else:
-        self.Image.Real = self.adfImages[:,:,innerRadius:outerRadius+1].sum(axis=2)
-        self.ImageAx.Real.set_data(self.Image.Real)
-    
-    self.ImageAx.Real.autoscale()
-    self.Fig.Real.canvas.draw()
 
 def detrCoordCallbacks(self):
     # "Polar" and "Absolute" are mutually exclusive
@@ -1521,7 +1407,7 @@ def detrCoordCallbacks(self):
 
 def annularDetectorCallbacks(self):
 
-    def limitAnnUI(self):
+    def limitAnnUI():
         """ Function to update Annular detector UI limits/labels when coordinate options change """
         self.blockAllSignals = True
         self.AnnRi_NF.setSuffix(" "+self.SettingsWindow.DCUnit.currentData())
@@ -1532,7 +1418,7 @@ def annularDetectorCallbacks(self):
         self.AnnRo_NF.setSingleStep(0.25*self.DfPxR)
         self.blockAllSignals = False
 
-    def enableAnnUI(self):
+    def enableAnnUI():
         """ Function to enable/disable UI """
         # current detector mode
         dmod = self.DetrMode.currentData()
@@ -1555,7 +1441,7 @@ def annularDetectorCallbacks(self):
     def moveAnnDetr():
         """ Function to live update annular/round/segmented detectors """
 
-        def moveAnnR(self):
+        def moveAnnR():
             """ Sub sub function for annular radii """
 
             # get QRangeSlider values
@@ -1615,14 +1501,15 @@ def annularDetectorCallbacks(self):
             # refresh real-space image given new inner/outer radii
             # (add one to outer limit because python doesn't include the last term of the range)
             if len(self.Fig.Real.ax.images)==0:
-                self.Image.Real = self.Data.sum(axis=1).reshape(self.D.NFrY,self.D.NFrX)
-                self.ImageAx.Real = self.Fig.Real.ax.imshow(self.Image.Real)
+                self.Fig.Real.Image = self.Data.sum(axis=1).reshape(self.D.NFrY,self.D.NFrX)
+                self.ImageAx.Real = self.Fig.Real.ax.imshow(self.Fig.Real.Image)
             else:
-                self.Image.Real = self.adfImages[:,:,innerRadius:outerRadius+1].sum(axis=2)
-                self.ImageAx.Real.set_data(self.Image.Real)
+                self.Fig.Real.Image = self.adfImages[:,:,innerRadius:outerRadius+1].sum(axis=2)
+                self.ImageAx.Real.set_data(self.Fig.Real.Image)
             
             self.ImageAx.Real.autoscale()
             self.Fig.Real.canvas.draw()
+            
         def moveSeg():
             pass
         def moveScan():
@@ -1639,26 +1526,26 @@ def annularDetectorCallbacks(self):
         # Cases for different detectors #TODO - no .Tag attributes
         match self.sender():
             case self.A.adf|self.AnnRi|self.AnnRi_NF|self.AnnRo_NF:
-                moveAnnR(self)
+                moveAnnR()
             case self.DetRot|self.DetRot_NF|self.NRung|self.NSeg|self.A.SegDetrCir|self.A.SegDetrL|self.A.SegDetrL0|self.A.SegDetrP0:
-                moveSeg(self)
+                moveSeg()
             case self.ScanDirUnlock|self.ScanDirYFlip|self.ScanDir|self.ScanDir_NF|self.A.ScanDirXline|self.A.ScanDirYline|self.A.ScanDirXcirc|self.A.ScanDirYcirc:
-                moveScan(self)
+                moveScan()
             case self.DetrMode|self.UpdateImages:
-                moveAnnR(self)
+                moveAnnR()
                 if self.ScanDirUnlock.isChecked():
-                    moveScan(self)  # Update scan directions as well
+                    moveScan()  # Update scan directions as well
         
         # Whether to update images
         if toUpdateImage(self):
-            # Skip calculations of new BF/DF `self.Image.Real` if annular radii are not changed
+            # Skip calculations of new BF/DF `self.Fig.Real.Image` if annular radii are not changed
             if isDiffToPrev(self,'AnnR',[ri,ro]): #or isStaticEvt(evt)
                 # self.A.k is a 2D matrix of distances from central beam generated in integrateAnnular
                 # k is already modified by self.D.annWidth, so ri and ro can be used directly
-                self.Image.DfrnMask = np.ma.masked_inside(self.A.k,ri,ro).mask.astype(self.D.DataType) # convert from bool to DataType
+                self.Fig.Dfrn.ImageMask = np.ma.masked_inside(self.A.k,ri,ro).mask.astype(self.D.DataType) # convert from bool to DataType
 
                 # (add one to outer limit because python doesn't include the last term of the range)
-                self.Image.Real = self.adfImages[:,:,ri:ro+1].sum(axis=2)
+                self.Fig.Dfrn.Real = self.adfImages[:,:,ri:ro+1].sum(axis=2)
           
             # CoM/DPC calculations; skip if parameters unchanged
             if dmod in ["CoMMod", "DPCMod"]:
@@ -1666,9 +1553,9 @@ def annularDetectorCallbacks(self):
                     calcCoM(ri, ro, sd, syf, dr)
             
             # Update images
-            plotAllPatterns(self)
+            plotAllPatterns()
     
-    def drawAnnDetr(self):
+    def drawAnnDetr():
         """ initiallize the annular detector annotations """
         # define center location and starting radii for annular detector
         c = self.B0
@@ -1679,15 +1566,15 @@ def annularDetectorCallbacks(self):
         if self.A.adf is None:
             self.A.adf = InteractiveAnnulus(center=c, radius=(r1,r2), axis=self.Fig.Dfrn.ax, color='r', interactions='resize')
             self.A.adf.connect()
-            self.A.adf.updateAnnulus.connect(lambda: moveAnnDetr(self))
+            self.A.adf.updateAnnulus.connect(lambda: moveAnnDetr())
     
-    def drawSegDetr(self):
+    def drawSegDetr():
         pass
     
-    def drawScanDir(self):
+    def drawScanDir():
         pass
     
-    def integrateAnnular(self):
+    def integrateAnnular():
         #  only rerun the annular integration if transmitted disk center is changed
         if isDiffToPrev(self,"B0",self.B0):
             # generate meshgrid, divide by annulus width and round so distance increments away
@@ -1707,17 +1594,23 @@ def annularDetectorCallbacks(self):
             self.adfImages = self.Data@adfMask
             self.adfImages = np.reshape(self.adfImages,(self.D.NFrY,self.D.NFrX,-1))
 
+            # block signals whilst UI components are updated
+            self.blockAllSignals = True
+
             # set adfInner and adfOuter slider limits based on k.max()
             self.AnnRi.setMaximum(k.max())
 
             # set adfInner and adfOuter numerical field limits based on k.max()/2
             self.AnnRi_NF.setMaximum(k.max()*self.D.annWidth)
             self.AnnRo_NF.setMaximum(k.max()*self.D.annWidth)
+
+            # ublock signals
+            self.blockAllSignals = True
             
             # set maximum scattering angle
             self.P.RMax = k.max()
 
-    def plotAllPatterns(self):
+    def plotAllPatterns():
         # always update primary and mask images
         ids = [iID for iType,iID in zip(self.G.ImgType,self.G.ImgID) if iType in ["Primary","Mask"]]
         # update CoM/DPC images if in the correct mode
@@ -1743,13 +1636,13 @@ def annularDetectorCallbacks(self):
 
     match self.sender():
         case self.SettingsWindow.DCSys: # Change coordinate options
-            limitAnnUI(self) # UI limits
+            limitAnnUI() # UI limits
         case self.DetrMode: # Entering current mode
-            limitAnnUI(self) # UI limits
+            limitAnnUI() # UI limits
             self.ScanDirUnlock.setChecked(False) # Lock scan directions first upon entering annular modes
-            enableAnnUI(self) # UI enable/disable
-            integrateAnnular(self) # Update annular integral mask
-            drawAnnDetr(self) # Draw detectors
+            enableAnnUI() # UI enable/disable
+            integrateAnnular() # Update annular integral mask
+            drawAnnDetr() # Draw detectors
             if dmod == "DPCMod":
                 drawSegDetr() # Whether to draw segmented detectors
             moveAnnDetr() # Update UI/ROIs
@@ -1758,10 +1651,10 @@ def annularDetectorCallbacks(self):
             moveAnnDetr() # Update UI/ROIs
         case self.ScanDirUnlock:
             self.P.ScanDirInit = 1; # Flag scan directions as aligned
-            enableAnnUI(self) # Enable/Disable GUI elements
+            enableAnnUI() # Enable/Disable GUI elements
             self.A.removeGroup('ScanDir') # Try to remove existing scan direction ROIs
             if self.ScanDirUnlock.isChecked(self):
-                drawScanDir(self) # Draw annotations
+                drawScanDir() # Draw annotations
             self.SettingsWindow.ShowDfrnAxes.click() # Update diffraction axes annotations
 
 def toUpdateImage(self):
@@ -2438,14 +2331,13 @@ def finishImport(self):
     self.workerThread.quit()
 
     # generate placeholder images
-    self.Image.Preview = np.zeros(self.D.NPx)
-    self.Image.Dfrn = np.zeros(self.D.NPx)
-    self.Image.DfrnMask = np.zeros(self.D.NPx)
-    self.Image.Real = np.zeros(self.D.NFr)
-    self.Image.RealMask = np.zeros(self.D.NFr)
+    self.Fig.Preview.Image = np.zeros(self.D.NPx)
+    self.Fig.Dfrn.Image = np.zeros(self.D.NPx)
+    self.Fig.Dfrn.ImageMask = np.zeros(self.D.NPx)
+    self.Fig.Dfrn.Real = np.zeros(self.D.NFr)
+    self.Fig.Dfrn.RealMask = np.zeros(self.D.NFr)
 
     prepareData(self)
-    integrateAnnular(self)
     reinitializeUI(self)
 
 def reinitializeUI(self):
@@ -2572,7 +2464,7 @@ def startupFcn(self):
         self.Fig.ColorWheel = ImageWindow(id = "ColorWheel", name = "Color Wheel for Phase Direction", space = "ColorWheel", typ = "CoM", cmap = "hsv", pos = [self.C.shc-self.C.sz-self.C.mplDecor.width(), self.C.sz+2*(self.C.decorPad+self.C.titleHeight)+self.C.mplDecor.height() + self.C.vOffset, self.C.sz/2 + self.C.mplDecor.width(), self.C.sz/2 + self.C.mplDecor.height()])
         
         # Variable names, image names and image types (tag) for all patterns'/images' figures/axes/images
-        self.G.ImgID = [ii for ii in self.Fig]                      # ID/fieldnames under `self.Image` `self.Fig` `self.Image` `self.ImgD` etc
+        self.G.ImgID = [ii for ii in self.Fig]                      # ID/fieldnames under `self.Fig` `self.ImageAx` `self.ImgD` etc
         self.G.ImgSpace = [self.Fig[ii].space for ii in self.Fig]   # Spaces ("Real"/"Dfrn")
         self.G.ImgType = [self.Fig[ii].type for ii in self.Fig]     # Types ("Primary", "CoM" related, "Mask", "Test")
         self.G.ImgName = [self.Fig[ii].name for ii in self.Fig]     # Names/Titles
@@ -2980,9 +2872,9 @@ def unloadData(self, keep_p=False):
     # Whether to swap dataset only, without changing any existing parameters
     if not keep_p:
         # clear all axes
-        for image in self.Image:
-            self.Image[image] = None
-            fig = self.Fig[image]
+        for id in self.Fig:
+            fig = self.Fig[id]
+            fig.Image = None
             fig.ax.cla()
             fig.canvas.draw()
             self.ImageAx[id] = None
@@ -3238,7 +3130,7 @@ def displayCallbacks(self):
 
 def plotImage(self,id):
     """Generic function for plotting an image on a given axis with brightness/contrast/gamma values"""
-    
+
     # Special case for plotting the color wheel - can get unloaded
     if id == "ColorWheel":
         plotColorWheel(self)
@@ -3246,7 +3138,7 @@ def plotImage(self,id):
     # get image figure and axes
     fig = self.Fig[id]  # ImageWindow
     ax = fig.ax         # AxesSubplot
-    im = np.ma.masked_invalid(self.Image[id]) # numpy masked array
+    im = np.ma.masked_invalid(self.Fig[id].Image) # numpy masked array
 
     # clear old image(s)
     #[ii.remove() for ii in self.Fig[id].ax.get_images()]
@@ -3298,12 +3190,12 @@ def plotImage(self,id):
         
     # Plot mask opacity on non-mask/non-preview image; maskOpa is in percent (i.e. 50 => 50%)
     if fig.type not in ["Mask","Preview"]:
-        mask = self.Image[fig.space+"Mask"] # should be a logical mask
+        mask = self.Fig[fig.space+"Mask"].Image # should be a logical mask
         self.ImageAx[id].set_alpha((1-fig.maskOpa/100)*(1-mask.astype(bool))+mask.astype(bool))
 
     # Shade CoM/DPC Phase with Magnitude
     if id == "CoMPhMag":
-        CoMMagNorm = self.Image.CoMMag
+        CoMMagNorm = self.Fig.Dfrn.CoMMag
         CoMMagNorm -= np.nanmin(CoMMagNorm)
         CoMMagNorm /= np.nanmax(CoMMagNorm)
         self.ImageAx.CoMPhMag.set_alpha(self.ImageAx.CoMPhMag.get_alpha()*CoMMagNorm)
@@ -3313,7 +3205,7 @@ def plotImage(self,id):
     # Only update statistics if not in changing Event AND it is the "selected" image 
     if (id == self.SettingsWindow.DispImage.currentData()): # and isStaticEvt(evt): #TODO
         # don't update stats while things are changing, only when finished to increase responsiveness
-        pass#updateDispImgStats(self,id,im,minVal,maxVal,limitLow,limitHigh,limitRange)
+        updateDispImgStats(self,id,im,minVal,maxVal,limitLow,limitHigh,limitRange)
 
     # set colormap
     self.ImageAx[id].set_cmap(fig.cmap+["","_r"][fig.invert]) # append "_r" if inverted
@@ -3423,8 +3315,8 @@ def plotVectorField(self,id):
     
     # Plot vector arrows over the selected image
     x,y = np.meshgrid(np.arange(0,self.D.NFrX,vec),np.arange(0,self.D.NFrY,vec))
-    u = self.Image.CoMX[0::vec, 0::vec]
-    v = self.Image.CoMY[0::vec, 0::vec] 
+    u = self.Fig.Dfrn.CoMX[0::vec, 0::vec]
+    v = self.Fig.Dfrn.CoMY[0::vec, 0::vec] 
     self.A.vecField[id] = fig.ax.quiver(x, y, u, v, color=fig.vecColor,units='xy')
     fig.canvas.draw()
 

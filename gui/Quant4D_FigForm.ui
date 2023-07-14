@@ -3234,7 +3234,6 @@
    <slots>
     <signal>valueChanged(double)</signal>
     <slot>setValue(double)</slot>
-    <slot>setValue(50)</slot>
    </slots>
   </customwidget>
   <customwidget>
@@ -3320,8 +3319,8 @@
      <y>327</y>
     </hint>
     <hint type="destinationlabel">
-     <x>339</x>
-     <y>378</y>
+     <x>362</x>
+     <y>365</y>
     </hint>
    </hints>
   </connection>
@@ -3332,8 +3331,8 @@
    <slot>setValue(double)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>288</x>
-     <y>378</y>
+     <x>311</x>
+     <y>365</y>
     </hint>
     <hint type="destinationlabel">
      <x>274</x>
@@ -3352,8 +3351,8 @@
      <y>393</y>
     </hint>
     <hint type="destinationlabel">
-     <x>407</x>
-     <y>448</y>
+     <x>430</x>
+     <y>435</y>
     </hint>
    </hints>
   </connection>
@@ -3364,8 +3363,8 @@
    <slot>setValue(double)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>266</x>
-     <y>448</y>
+     <x>289</x>
+     <y>435</y>
     </hint>
     <hint type="destinationlabel">
      <x>267</x>
@@ -3381,11 +3380,11 @@
    <hints>
     <hint type="sourcelabel">
      <x>461</x>
-     <y>484</y>
+     <y>471</y>
     </hint>
     <hint type="destinationlabel">
-     <x>458</x>
-     <y>518</y>
+     <x>461</x>
+     <y>505</y>
     </hint>
    </hints>
   </connection>
@@ -3396,12 +3395,12 @@
    <slot>setValue(double)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>213</x>
-     <y>518</y>
+     <x>236</x>
+     <y>505</y>
     </hint>
     <hint type="destinationlabel">
      <x>461</x>
-     <y>484</y>
+     <y>471</y>
     </hint>
    </hints>
   </connection>
@@ -3412,12 +3411,12 @@
    <slot>setValue(double)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>394</x>
-     <y>215</y>
+     <x>99</x>
+     <y>138</y>
     </hint>
     <hint type="destinationlabel">
-     <x>422</x>
-     <y>186</y>
+     <x>89</x>
+     <y>138</y>
     </hint>
    </hints>
   </connection>
@@ -3428,12 +3427,12 @@
    <slot>setValue(double)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>422</x>
-     <y>186</y>
+     <x>89</x>
+     <y>138</y>
     </hint>
     <hint type="destinationlabel">
-     <x>291</x>
-     <y>215</y>
+     <x>99</x>
+     <y>138</y>
     </hint>
    </hints>
   </connection>
@@ -3444,12 +3443,12 @@
    <slot>setValue(double)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>422</x>
-     <y>246</y>
+     <x>89</x>
+     <y>138</y>
     </hint>
     <hint type="destinationlabel">
-     <x>315</x>
-     <y>275</y>
+     <x>99</x>
+     <y>138</y>
     </hint>
    </hints>
   </connection>
@@ -3460,12 +3459,12 @@
    <slot>setValue(double)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>358</x>
-     <y>275</y>
+     <x>99</x>
+     <y>138</y>
     </hint>
     <hint type="destinationlabel">
-     <x>422</x>
-     <y>246</y>
+     <x>89</x>
+     <y>138</y>
     </hint>
    </hints>
   </connection>
@@ -3476,12 +3475,12 @@
    <slot>setValue(double)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>422</x>
-     <y>306</y>
+     <x>89</x>
+     <y>138</y>
     </hint>
     <hint type="destinationlabel">
-     <x>262</x>
-     <y>335</y>
+     <x>99</x>
+     <y>140</y>
     </hint>
    </hints>
   </connection>
@@ -3492,12 +3491,12 @@
    <slot>setValue(double)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>222</x>
-     <y>335</y>
+     <x>99</x>
+     <y>140</y>
     </hint>
     <hint type="destinationlabel">
-     <x>422</x>
-     <y>306</y>
+     <x>89</x>
+     <y>138</y>
     </hint>
    </hints>
   </connection>
@@ -3508,12 +3507,12 @@
    <slot>setValue(double)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>422</x>
-     <y>452</y>
+     <x>89</x>
+     <y>147</y>
     </hint>
     <hint type="destinationlabel">
-     <x>326</x>
-     <y>482</y>
+     <x>99</x>
+     <y>149</y>
     </hint>
    </hints>
   </connection>
@@ -3524,12 +3523,12 @@
    <slot>setValue(double)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>239</x>
-     <y>482</y>
+     <x>99</x>
+     <y>149</y>
     </hint>
     <hint type="destinationlabel">
-     <x>422</x>
-     <y>452</y>
+     <x>89</x>
+     <y>147</y>
     </hint>
    </hints>
   </connection>
