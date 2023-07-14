@@ -168,61 +168,80 @@ class Prev:
 
 class A:
     """ Image annotations on `axes` `uiaxes`, excluding annotations on `figure` `uifigure` """
-    # generic circle starting point
-    circX = np.cos(np.arange(0,2.01*np.pi,np.pi/100))
-    circY = np.sin(np.arange(0,2.01*np.pi,np.pi/100))
-    
-    # bf/adf detector
-    adfInnerCirc = None
-    adfOuterCirc = None
-    adfPt = None
-    
-    # transmitted beam
-    tbPt = None
-    tbCirc = None
+    def __init__(self):
+        # generic circle starting point
+        self.circX = np.cos(np.arange(0,2.01*np.pi,np.pi/100))
+        self.circY = np.sin(np.arange(0,2.01*np.pi,np.pi/100))
 
-    # DPC segments
-    SegDetrCir = None
-    SegDetrL = None
-    SegDetrL0 = None
-    SegDetrP0 = None
+        # bf/adf detector
+        self.adf = None
+        
+        # transmitted beam
+        self.tb = None
 
-    # scan direction for CoM/DPC
-    ScanDirXline = None
-    ScanDirYline = None
-    ScanDirXcirc = None
-    ScanDirYcirc = None
+        # DPC segments
+        self.SegDetrCir = None
+        self.SegDetrL = None
+        self.SegDetrL0 = None
+        self.SegDetrP0 = None
 
-    # virtual apertures
-    VrApMirL = None
-    VrApMirP = None
-    VrAp = None
+        # scan direction for CoM/DPC
+        self.ScanDirXline = None
+        self.ScanDirYline = None
+        self.ScanDirXcirc = None
+        self.ScanDirYcirc = None
 
-    # ROIs
-    ROIs = dict()
-    ROIs["RealROI"] = None
-    ROIs["CoMPhMagROI"] = None
-    ROIs["CoMPhROI"] = None
-    ROIs["CoMMagROI"] = None
-    ROIs["CoMXROI"] = None
-    ROIs["CoMYROI"] = None
-    ROIs["dCoMROI"] = None
-    ROIs["iCoMROI"] = None
+        # virtual apertures
+        self.VrApMirL = None
+        self.VrApMirP = None
+        self.VrAp = None
 
-    # vectorField quivers
-    vectField = dict()
-    vectField["CoMPhMag"] = None
-    vectField["Real"] = None
-    vectField["CoMX"] = None
-    vectField["CoMY"] = None
-    vectField["CoMPh"] = None
-    vectField["dCoM"] = None
-    vectField["CoMMag"] = None
-    vectField["iCoM"] = None
+        # ROIs
+        self.ROIs = dict()
+        self.ROIs["RealROI"] = None
+        self.ROIs["CoMPhMagROI"] = None
+        self.ROIs["CoMPhROI"] = None
+        self.ROIs["CoMMagROI"] = None
+        self.ROIs["CoMXROI"] = None
+        self.ROIs["CoMYROI"] = None
+        self.ROIs["dCoMROI"] = None
+        self.ROIs["iCoMROI"] = None
 
-    # histogram annotations
-    histBox = None
-    histGamma = None
+        # vectorField quivers
+        self.vectField = dict()
+        self.vectField["CoMPhMag"] = None
+        self.vectField["Real"] = None
+        self.vectField["CoMX"] = None
+        self.vectField["CoMY"] = None
+        self.vectField["CoMPh"] = None
+        self.vectField["dCoM"] = None
+        self.vectField["CoMMag"] = None
+        self.vectField["iCoM"] = None
+
+        # histogram annotations
+        self.histBox = None
+        self.histGamma = None
+
+    def removeGroup(self,tag):
+        """ allow for groups of annotations to be removed and set to None """
+        for item in vars(self):
+            if item.startswith(tag):
+                
+                if not isinstance(getattr(self,item),dict):
+                    try:
+                        getattr(self,item).remove()
+                    except:
+                        pass
+                    finally:
+                        setattr(self,item,None)
+                else:
+                    for key in getattr(self,item).keys():
+                        try:
+                            getattr(self,item)[key].remove()
+                        except:
+                            pass
+                        finally:
+                            getattr(self,item)[key] = None
 
 class Mask:
     pass
@@ -274,3 +293,4 @@ def appStruct(self):
     setattr(self,'Fig',Fig)
     setattr(self,'Image',Image)
     setattr(self,'ImageAx',ImageAx)
+    setattr(self,'blockAllSignals',False)

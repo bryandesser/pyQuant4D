@@ -174,7 +174,7 @@ class InteractiveCircle(qtc.QObject):
             self.circ.figure.canvas.set_cursor(Cursors.HAND)
         else:
             self.transform = 'translate'
-            self.circ.figure.canvas.set_cursor(Cursors.HAND)
+            self.circ.figure.canvas.set_cursor(Cursors.MOVE)
         
         # save info to the self.press 
         self.press = (self.circ._x,self.circ._y), self.point.get_offsets(), (event.xdata, event.ydata)
@@ -253,7 +253,17 @@ class InteractiveCircle(qtc.QObject):
         InteractiveCircle.lock = None
 
         # update cursor
-        self.circ.figure.canvas.set_cursor(Cursors.POINTER)
+        contains, _ = self.circ.contains(event)
+        # check if hand is within InteractiveCircle
+        if np.linalg.norm((event.xdata,event.ydata)-self.center)<=self.radius:
+            contains=True
+
+        if contains and np.linalg.norm((event.xdata,event.ydata)-self.point.get_offsets())<=5:
+            self.circ.figure.canvas.set_cursor(Cursors.HAND)
+        elif contains:
+            self.circ.figure.canvas.set_cursor(Cursors.MOVE)
+        else:
+            self.circ.figure.canvas.set_cursor(Cursors.POINTER)
 
         # turn off the rect animation property and reset the background
         self.circ.set_animated(False)

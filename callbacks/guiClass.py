@@ -1,5 +1,5 @@
 import sys
-from PyQt5 import QtCore, QtGui, QtWidgets as qtw
+from PyQt5 import QtWidgets as qtw
 from PyQt5 import QtGui as qtg
 from PyQt5 import QtCore as qtc
 from PyQt5 import uic
@@ -9,6 +9,7 @@ import matplotlib
 matplotlib.use('Qt5Agg')
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.backend_bases import key_press_handler
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt 
 import numpy as np
@@ -115,6 +116,7 @@ class ImageWindow(qtw.QMainWindow):
         self.ax = self.fig.add_subplot(111)
         self.fig.subplots_adjust(bottom=0,right=1,top=1,left=0)
         self.canvas = FigureCanvas(self.fig)
+        self.canvas.setFocusPolicy(qtc.Qt.StrongFocus)
         self.ax.axis('off')
         self.ax.set_facecolor('black')
 
@@ -155,6 +157,14 @@ class ImageWindow(qtw.QMainWindow):
             self.setGeometry(qtc.QRect(pos[0],pos[1],pos[2],pos[3]))
         
         self.fig.canvas.mpl_connect('button_press_event', lambda id: self.activateFigure.emit(self.id))
+
+        # add custom keyboard shortcuts
+        self.shortcut = qtw.QShortcut(qtg.QKeySequence("Ctrl+W"), self)
+        self.shortcut.activated.connect(lambda: self.hide())
+
+        # activate native keyboard shortcuts
+        self.canvas.mpl_connect('key_press_event', self.on_key_press)
+
         
     # change closeEvent behavior to hide rather than close window
     def closeEvent(self, a0: qtg.QCloseEvent) -> None:
@@ -168,6 +178,9 @@ class ImageWindow(qtw.QMainWindow):
         self.imageResize.emit(sizeChange,self.space)
         return super().resizeEvent(a0)
     
+    def on_key_press(self, event):
+        key_press_handler(event, self.canvas, self.toolbar)
+
     def mousePressEvent(self, a0: qtg.QMouseEvent) -> None:
         self.activateFigure.emit(self.id)
         return super().mousePressEvent(a0)

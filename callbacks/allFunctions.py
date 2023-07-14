@@ -7,7 +7,9 @@ from PyQt5 import QtCore as qtc
 from PyQt5 import QtGui as qtg
 import callbacks.appClass as appClass
 from callbacks.appClass import *
-from callbacks.annotationsClass import InteractiveCircle,DraggablePoint
+from callbacks.annotationsClass import DraggablePoint
+from annotationsClasses.interactiveAnnulus import InteractiveAnnulus
+from annotationsClasses.interactiveCircle import InteractiveCircle
 
 
 def importCallbacks(self):
@@ -130,6 +132,10 @@ def checkNaN(self, image, preview = False):
         return None
 
 def on_ImpFileSelect_clicked(self):
+    # bypass execution if signals are actively being blocked (i.e. for programmatically updating UI values)
+    if self.blockAllSignals:
+        return
+    
     # if the user pushes the "Select" button in the Import window, open file dialog, filter for known filetypes
     if self.sender() is self.ImportWindow.ImpFileSelect:
         fDialog  = qtw.QFileDialog(self)
@@ -259,8 +265,7 @@ def importFileType(self):
                     '32-bit Signed','32-bit Unsigned','64-bit Real','64-bit Signed','64-bit Unsigned']
 
     # block slots/signals
-    self.ImportWindow.ImpDataType.blockSignals(True)
-    self.ImportWindow.ImpByteOrder.blockSignals(True)
+    self.blockAllSignals = True
 
     # add to combobox
     self.ImportWindow.ImpDataType.clear()
@@ -274,8 +279,7 @@ def importFileType(self):
     self.ImportWindow.ImpByteOrder.setCurrentIndex(0)
 
     # unblock slots/signals
-    self.ImportWindow.ImpDataType.blockSignals(False)
-    self.ImportWindow.ImpByteOrder.blockSignals(False)
+    self.blockAllSignals = False
 
     if os.path.isfile(self.ImportWindow.ImpFilePath.text()):
         if self.ImportWindow.EMPADButton.isChecked():
@@ -493,6 +497,10 @@ def importBoxInput(self):
                 warnDiag.setWindowTitle("Error Selecting GPU")
                 self.ImportWindow.ImpGPU.setCurrentIndex(0)
         return gpu_note
+
+    # bypass execution if signals are actively being blocked (i.e. for programmatically updating UI values)
+    if self.blockAllSignals:
+        return
             
     self.ImportWindow.ImpEstFilesize.setText("")
     notes = ""
@@ -570,11 +578,8 @@ def realSpaceROICallbacks():
 def clearDetectors(self):
 
         detectorList = [
-            "adfPt",
-            "adfInnerCirc",
-            "adfOuterCirc",
-            "tbPt",
-            "tbCirc"]
+            "adf",
+            "tb"]
 
         # Try removing annotations and then setting to None so that they can be replotted later
         for ii in detectorList:
@@ -593,6 +598,10 @@ def clearDetectors(self):
         #delete(findobj(self.ImageAx.Dfrn,'Tag','ScanDirAnnot')) #TODO
 
 def detectorModeCallbacks(self):
+    # bypass execution if signals are actively being blocked (i.e. for programmatically updating UI values)
+    if self.blockAllSignals:
+        return
+    
     dmod = self.DetrMode.currentData()
     enableWindows(self,False) # Enable windows
     clearDetectors(self) # Clear ROIs on Diffraction #TODO deletes tbCirc on initial alignment?
@@ -690,14 +699,6 @@ def detectorModeCallbacks(self):
             self.DfrnDetrTabGroup.setCurrentIndex(0)
             previewCallbacks(self) #TODO
         case "AlignMod":
-            # Create transmitted beam annotation, allow for disk as large as the entire diffraction pattern
-            if self.A.tbCirc is None:
-                self.A.tbCirc = InteractiveCircle(center = self.B0, radius = self.TBR.value(), axis=self.Fig.Dfrn.ax, color='r')
-                self.A.tbCirc.connect()
-                self.A.tbCirc.updateCircle.connect(lambda: moveTransBeam(self))
-            
-            self.DfrnDetrTabGroup.setCurrentIndex(1)
-            transBeamCallbacks(self)
             # display the full dataset pacbed
             self.Image.Dfrn = self.Data.sum(axis=0).reshape(self.D.NPx)
             self.ImageAx.Dfrn = self.Fig.Dfrn.ax.imshow(self.Image.Dfrn,cmap=self.Fig.Dfrn.cmap)
@@ -727,20 +728,32 @@ def detectorModeCallbacks(self):
             self.ImageAx.RealMask.figure.set_facecolor('black')
             self.Fig.RealMask.ax.axis(self.P.RealAxLim)
             self.Fig.RealMask.canvas.draw()
-                        
-            self.A.tbCirc.updateBackground()
+
+            # Create transmitted beam annotation, allow for disk as large as the entire diffraction pattern
+            if self.A.tb is None:
+                self.A.tb = InteractiveCircle(center = self.B0, radius = self.TBR.value(), axis=self.Fig.Dfrn.ax, color="r", interactions="all")
+                self.A.tb.connect()
+                self.A.tb.updateCircle.connect(lambda: moveTransBeam(self))
+            
+            self.DfrnDetrTabGroup.setCurrentIndex(1)
+            transBeamCallbacks(self)
+            
+            self.TBR.valueChanged.emit(self.TBR.value())
+            #self.A.tb.updateBackground()
+            #self.A.tb.redraw()
             
         case "AnnMod":
             self.DfrnDetrTabGroup.setCurrentIndex(2)
             self.dpcControls.setVisible(False)
             self.comControls.setVisible(False)
-            #annularDetectorCallbacks(self) #TODO
+            drawAnnDetr(self)
+            annularDetectorCallbacks(self) #TODO
         case "CoMMod"|"DPCMod":
             self.DfrnDetrTabGroup.setCurrentIndex(2)
             self.dpcControls.setVisible("DPC" in dmod)
             self.comControls.setVisible(True)
-            #annularDetectorCallbacks(self) #TODO
-            #plotImage(self, 'ColorWheel') # Plot ColorWheel #TODO
+            annularDetectorCallbacks(self) #TODO
+            plotImage(self, 'ColorWheel') # Plot ColorWheel #TODO
             self.Fig.CoMPhMag.activateWindow()
             self.Fig.ColorWheel.activateWindow()
             if not self.P.ScanDirInit:
@@ -844,6 +857,10 @@ def getImportInfo(self):
     return notes
 
 def previewCallbacks(self):
+    # bypass execution if signals are actively being blocked (i.e. for programmatically updating UI values)
+    if self.blockAllSignals:
+        return
+
     self.Fig.Preview.show()
 
     match self.sender():
@@ -911,7 +928,6 @@ def previewCallbacks(self):
                     notifDLG(self,'error',"Errors occurred during preview! Maybe reached end-of-file.", 'Error during Preview!')
 
 def transBeamCallbacks(self):
-    print(self.sender())
     match self.sender():
         case self.DetrMode: # Entering mode
             self.Fig.Dfrn.canvas.draw()
@@ -927,7 +943,7 @@ def transBeamCallbacks(self):
             self.ImageAx.DfrnMask = self.Fig.DfrnMask.ax.imshow(np.ones(self.D.NPx,self.D.DataType))
             self.Fig.DfrnMask.canvas.draw()
             self.ImageAx.Real.set_data(np.reshape(self.Data.sum(axis=1), self.D.NFr))
-            self.ImageAx.Real.autoscale(True)
+            self.ImageAx.Real.autoscale()
             self.Fig.Real.canvas.draw()
 
         case self.TBAutoAlign: # Auto-align
@@ -940,9 +956,13 @@ def transBeamCallbacks(self):
     moveTransBeam(self)
 
 def moveTransBeam(self):
+    # bypass execution if signals are actively being blocked (i.e. for programmatically updating UI values)
+    if self.blockAllSignals:
+        return
+    
     """ Function to sync UIs/ROIs depending on the central beam location """
     b0 = np.array([self.TBX.value(),self.TBY.value()])
-    r = max(self.TBR.value(),np.finfo(np.single).eps)
+    r = np.maximum(self.TBR.value(),np.finfo(np.single).eps)
     a = self.Alpha.value()
     mrad_per_px = a/r
     nPix = self.D.NPx
@@ -960,9 +980,9 @@ def moveTransBeam(self):
         case self.mradPx:
             mrad_per_px = self.sender().value()
             a = mrad_per_px*r # Manually set the diffraction scale
-        case self.A.tbCirc:
-            b0 = self.sender().center
-            r = self.sender().radius
+        case self.A.tb:
+            b0 = self.A.tb.center
+            r = self.A.tb.radius
 
     # Restrict transmitted beam location/size
     b0 = b0.clip([1,1],nPix)
@@ -971,16 +991,7 @@ def moveTransBeam(self):
     r = np.clip(r,np.finfo(np.single).eps,self.P.RMax) # 0 < r <= RMax
 
     # avoid triggering a valueChanged loop by blocking signals
-    self.TBX.blockSignals(True)
-    self.TBY.blockSignals(True)
-    self.TBR.blockSignals(True)
-    self.TBX_NF.blockSignals(True)
-    self.TBY_NF.blockSignals(True)
-    self.TBR_NF.blockSignals(True)
-    self.AnnRi.blockSignals(True)
-    self.Alpha.blockSignals(True)
-    self.mradPx.blockSignals(True)
-    self.VrApR.blockSignals(True)
+    self.blockAllSignals = True
 
     # Update UI limits
     self.TBR.setRange(0,self.P.RMax)
@@ -999,22 +1010,13 @@ def moveTransBeam(self):
     self.mradPx.setValue(mrad_per_px)
     
     # Update transmitted beam annotation
-    if (self.sender() is not self.A.tbCirc) and (self.A.tbCirc is not None):
-        self.A.tbCirc.center = b0
-        self.A.tbCirc.radius = r
-        self.A.tbCirc.redraw()
+    if (self.sender() is not self.A.tb) and (self.A.tb is not None):
+        self.A.tb.center = b0
+        self.A.tb.radius = r
+        self.A.tb.redraw()
 
     # unblock trigger signals
-    self.TBX.blockSignals(False)
-    self.TBY.blockSignals(False)
-    self.TBR.blockSignals(False)
-    self.TBX_NF.blockSignals(False)
-    self.TBY_NF.blockSignals(False)
-    self.TBR_NF.blockSignals(False)
-    self.AnnRi.blockSignals(False)
-    self.Alpha.blockSignals(False)
-    self.mradPx.blockSignals(False)
-    self.VrApR.blockSignals(False)
+    self.blockAllSignals = False
 
     detrCoordCallbacks(self)
 
@@ -1031,10 +1033,11 @@ def mathCallbacks():
 def saveVect():
     pass
 
-def showWindowCallbacks():
-    pass
-
 def resizeWindowCallbacks(self):
+    # bypass execution if signals are actively being blocked (i.e. for programmatically updating UI values)
+    if self.blockAllSignals:
+        return
+    
     # set the space: `Dfrn` or `Real`; get updated height and width, add mpl decor size
     if self.sender() in [self.SettingsWindow.WdwWDfrn,self.SettingsWindow.WdwHDfrn,self.SettingsWindow.WdwSetDfrn,self.SettingsWindow.WdwSetAllDfrn]:
         space = "Dfrn"
@@ -1095,6 +1098,10 @@ def updateImagesCallbacks(self):
                 realSpaceROICallbacks(self)
 
 def unlockScanDir(self):
+    # bypass execution if signals are actively being blocked (i.e. for programmatically updating UI values)
+    if self.blockAllSignals:
+        return
+    
     if self.ScanDirUnlock.isChecked():
         self.ScanDirUnlock.setIcon(self.unlock)
     else:
@@ -1183,10 +1190,24 @@ def slotsSignals(self):
 
     self.DetrMode.currentIndexChanged.connect(lambda: detectorModeCallbacks(self))
 
-    # detector slider/numerical field connections
-    self.AnnRi_NF.valueChanged.connect(lambda: moveAnnR(self))
-    self.AnnRo_NF.valueChanged.connect(lambda: moveAnnR(self))
-    self.AnnRi.valueChanged.connect(lambda: moveAnnR(self))
+    # show window buttons
+    self.SettingsWindow.ShowDfrnWdw.clicked.connect(lambda: showWindowCallbacks(self))
+    self.SettingsWindow.ShowRealMaskWdw_2.clicked.connect(lambda: showWindowCallbacks(self))
+    self.SettingsWindow.ShowColorWheelWdw_2.clicked.connect(lambda: showWindowCallbacks(self))
+    self.SettingsWindow.ShowDfrnMaskWdw_2.clicked.connect(lambda: showWindowCallbacks(self))
+    self.SettingsWindow.ShowCoMMagWdw.clicked.connect(lambda: showWindowCallbacks(self))
+    self.SettingsWindow.ShowCoMPhWdw.clicked.connect(lambda: showWindowCallbacks(self))
+    self.SettingsWindow.ShowCoMPhMagWdw.clicked.connect(lambda: showWindowCallbacks(self))
+    self.SettingsWindow.ShowRealWdw.clicked.connect(lambda: showWindowCallbacks(self))
+    self.SettingsWindow.ShowCoMXWdw.clicked.connect(lambda: showWindowCallbacks(self))
+    self.SettingsWindow.ShowCoMYWdw.clicked.connect(lambda: showWindowCallbacks(self))
+    self.SettingsWindow.ShowdCoMWdw.clicked.connect(lambda: showWindowCallbacks(self))
+    self.SettingsWindow.ShowiCoMWdw.clicked.connect(lambda: showWindowCallbacks(self))
+    self.SettingsWindow.ShowImageWdw.clicked.connect(lambda: showWindowCallbacks(self))
+    self.ShowRealMaskWdw.clicked.connect(lambda: showWindowCallbacks(self))
+    self.ShowDfrnMaskWdw.clicked.connect(lambda: showWindowCallbacks(self))
+    self.ShowColorWheelWdw.clicked.connect(lambda: showWindowCallbacks(self))
+    
 
     # transmitted beam controls
     self.TBX.valueChanged.connect(lambda: moveTransBeam(self))
@@ -1194,10 +1215,9 @@ def slotsSignals(self):
     self.TBR.valueChanged.connect(lambda: moveTransBeam(self))
     self.Alpha.valueChanged.connect(lambda: moveTransBeam(self))
     self.mradPx.valueChanged.connect(lambda: moveTransBeam(self))
-
-    #self.TBX_NF.valueChanged.connect(lambda: moveTransBeam(self))
-    #self.TBY_NF.valueChanged.connect(lambda: moveTransBeam(self))
-    #self.TBR_NF.valueChanged.connect(lambda: moveTransBeam(self))
+    self.TBX_NF.valueChanged.connect(lambda: moveTransBeam(self))
+    self.TBY_NF.valueChanged.connect(lambda: moveTransBeam(self))
+    self.TBR_NF.valueChanged.connect(lambda: moveTransBeam(self))
     
     # preview tab on main UI
     self.PvBL.clicked.connect(lambda: previewCallbacks(self))
@@ -1213,10 +1233,7 @@ def slotsSignals(self):
     self.PvFrX.valueChanged.connect(lambda: previewCallbacks(self))
     self.PvFrY.valueChanged.connect(lambda: previewCallbacks(self))
 
-    # settings opacity slider
-    self.SettingsWindow.DispMaskOpa.valueChanged.connect(lambda: maskOpacity(self))
-
-    # displayCallbacks #TODO
+    # displayCallbacks
     self.UpdateImages.triggered.connect(lambda: updateImagesCallbacks(self))
     self.DispVecColor.triggered.connect(lambda: displayCallbacks(self))
     self.DispVecField.currentIndexChanged.connect(lambda: displayCallbacks(self))
@@ -1234,15 +1251,27 @@ def slotsSignals(self):
     self.SettingsWindow.HistLog.clicked.connect(lambda: displayCallbacks(self))
     
     # *_NF are the numerical fields; explicit connection should not be needed as they are linked to their respective sliders by QT #TODO
-    #self.SettingsWindow.DispBrightness_NF
-    #self.SettingsWindow.DispContrast_NF
-    #self.SettingsWindow.DispGamma_NF
-    #self.SettingsWindow.DispMaskOpa_NF
+    self.SettingsWindow.DispBrightness_NF
+    self.SettingsWindow.DispContrast_NF
+    self.SettingsWindow.DispGamma_NF
+    self.SettingsWindow.DispMaskOpa_NF
 
     # reset values, should not be necessary once connected to displayCallbacks #TODO
     self.SettingsWindow.DispBrightnessReset.clicked.connect(lambda: self.SettingsWindow.DispBrightness.setValue(50))
     self.SettingsWindow.DispContrastReset.clicked.connect(lambda: self.SettingsWindow.DispContrast.setValue(50))
     self.SettingsWindow.DispGammaReset.clicked.connect(lambda: self.SettingsWindow.DispGamma.setValue(1))
+
+    # detector slider/numerical field connections
+    self.AnnRi.valueChanged.connect(lambda: annularDetectorCallbacks(self))
+    self.AnnRi_NF.valueChanged.connect(lambda: annularDetectorCallbacks(self))
+    self.AnnRo_NF.valueChanged.connect(lambda: annularDetectorCallbacks(self))
+    self.NSeg.valueChanged.connect(lambda: annularDetectorCallbacks(self))
+    self.DetRot_NF.valueChanged.connect(lambda: annularDetectorCallbacks(self))
+    self.DetRot.valueChanged.connect(lambda: annularDetectorCallbacks(self))
+    self.ScanDirUnlock.clicked.connect(lambda: annularDetectorCallbacks(self))
+    self.ScanDirYFlip.clicked.connect(lambda: annularDetectorCallbacks(self))
+    self.ScanDir_NF.valueChanged.connect(lambda: annularDetectorCallbacks(self))
+    self.ScanDir.valueChanged.connect(lambda: annularDetectorCallbacks(self))
 
 
     
@@ -1253,19 +1282,15 @@ def toggleWindows(self):
             print(999)
 
 def showAllWindows(self):
-    from callbacks.guiClass import ImageWindow
-    for obj in gc.get_objects():
-        if isinstance(obj, ImageWindow):
-            obj.setVisible(True)
+    for ii in self.Fig:
+        self.Fig[ii].show()
     self.actionShow_All_Windows.setChecked(True)
     self.actionHide_All_Windows.setChecked(False)
     self.activateWindow()
 
 def hideAllWindows(self):
-    from callbacks.guiClass import ImageWindow
-    for obj in gc.get_objects():
-        if isinstance(obj, ImageWindow):
-            obj.setVisible(False)
+    for ii in self.Fig:
+        self.Fig[ii].hide()
     self.actionShow_All_Windows.setChecked(False)
     self.actionHide_All_Windows.setChecked(True)
     self.activateWindow()
@@ -1278,6 +1303,10 @@ def unHideOpenWindows(self):
             action.trigger()
 
 def on_ShowImportWdw_triggered(self):
+    # bypass execution if signals are actively being blocked (i.e. for programmatically updating UI values)
+    if self.blockAllSignals:
+        return
+    
     self.ShowImportWdw.setChecked(not self.ImportWindow.isVisible())
     self.ImportWindow.setVisible(self.ShowImportWdw.isChecked())
     
@@ -1295,7 +1324,7 @@ def on_ShowImportWdw_triggered(self):
     
 
 
-def plotColorwheel(self):
+def plotColorWheel(self):
     # Make ColorWheel for DPC/CoM imaging - this color scheme will stay constant for all DPC/CoM images
     # regardless of their individual parameters like scan or detector rotation for consistency
     r = 256
@@ -1311,7 +1340,9 @@ def plotColorwheel(self):
     mask = (xgrid**2 + ygrid**2) < r**2
 
     # plot colorwheel with mask    
-    self.ImageAx.ColorWheel = self.Fig.ColorWheel.ax.imshow(a,alpha=mask.astype(float),cmap='hsv',interpolation="None")
+    self.Image.ColorWheel = a
+    if self.ImageAx.ColorWheel == None:
+        self.ImageAx.ColorWheel = self.Fig.ColorWheel.ax.imshow(self.Image.ColorWheel,alpha=mask.astype(float),cmap='hsv',interpolation="None")
     self.Fig.ColorWheel.maskOpa = 100
 
 class WorkerSignals(qtc.QObject):
@@ -1376,40 +1407,14 @@ def drawAnnDetr(self):
     """ initiallize the annular detector annotations """
     # define center location and starting radii for annular detector
     c = self.B0
-    r1 = self.AnnRi.value()[0]/2
-    r2 = self.AnnRi.value()[1]/2
-
-    # # generate two points that a user can drag to control the annular detector
-    if self.A.adfPt is None:
-        self.A.adfPt = DraggablePoint(self.Fig.Dfrn.ax.scatter(c[0]+np.array([r1,r2]),c[1]-np.array([r1,r2]),s=25,c='r'))
-        self.A.adfPt.connect()
-        self.A.adfPt.redrawCircle.connect(lambda: moveAnnR(self))
-        self.pointPickerRadius.connect(lambda: self.A.adfPt.setPointPickerRadius(self.screen().physicalDotsPerInch()))
-
-    # add circles to pacbed plot, these are not draggable
-    if self.A.adfInnerCirc is None:
-        self.A.adfInnerCirc = self.Fig.Dfrn.ax.plot(self.A.circX*r1*np.sqrt(2)+c[0],self.A.circY*r1*np.sqrt(2)+c[1],color='r')[0]
-    if self.A.adfOuterCirc is None:
-        self.A.adfOuterCirc = self.Fig.Dfrn.ax.plot(self.A.circX*r2*np.sqrt(2)+c[0],self.A.circY*r2*np.sqrt(2)+c[1],color='r')[0]
-
-def annDetrVisibility(self,state):
-    # show/hide adf annotations
-    self.A.adfInnerCirc._visible = state
-    self.A.adfOuterCirc._visible = state
-    self.A.adfPt.point.set_visible(state)
-    self.Fig.Dfrn.canvas.draw()
-    
-def replotCirc(self):
-    """ update the ciruclar annotations on the diffraction pattern """
-    
-    r1 = self.AnnRi.value()[0]/2
-    self.A.adfInnerCirc.set_data(self.A.circX*r1+self.B0[0],self.A.circY*r1+self.B0[1])
-    
-    r2 = self.AnnRi.value()[1]/2
-    self.A.adfOuterCirc.set_data(self.A.circX*r2+self.B0[0],self.A.circY*r2+self.B0[1])
-    
-    # update diffraction pattern figure
-    self.Fig.Dfrn.canvas.draw()
+    r1 = self.AnnRi.value()[0]*self.D.annWidth
+    r2 = self.AnnRi.value()[1]*self.D.annWidth
+ 
+    # generate adf detector
+    if self.A.adf is None:
+        self.A.adf = InteractiveAnnulus(center=c, radius=(r1,r2), axis=self.Fig.Dfrn.ax, color='r', interactions='resize')
+        self.A.adf.connect()
+        self.A.adf.updateAnnulus.connect(lambda: moveAnnR(self))
 
 def moveAnnR(self):
     # get QRangeSlider values
@@ -1420,21 +1425,20 @@ def moveAnnR(self):
 
     # get inner/outer adf radii from the calling widget
     match self.sender():
-        # draggable points on annular detector annothation
-        case self.A.adfPt:
-            innerRadius, outerRadius = np.rint(np.linalg.norm(self.B0-self.A.adfPt.point.get_offsets(),axis=1)/self.D.annWidth).astype(int)
+        # InteractiveAnnulus
+        case self.A.adf:
+            innerRadius, outerRadius = (self.A.adf.radius/self.D.annWidth).astype(int)
         # Inner Radius QDoubleSpinBox
         case self.AnnRi_NF:
             innerRadius = round(self.AnnRi_NF.value()/self.D.annWidth/scale)
         # Outer Radius QDoubleSpinBox 
         case self.AnnRo_NF:
             outerRadius = round(self.AnnRo_NF.value()/self.D.annWidth/scale)
-            
 
     # allow user to drag inner/outer annulus over the other, swapping their relationships
     if innerRadius>outerRadius:
         innerRadius,outerRadius = outerRadius,innerRadius
-        self.A.adfInnerCirc,self.A.adfOuterCirc = self.A.adfOuterCirc,self.A.adfInnerCirc
+        #self.A.adfInnerCirc,self.A.adfOuterCirc = self.A.adfOuterCirc,self.A.adfInnerCirc #TODO delete?
 
     # inner radius cannot be less than 0
     if innerRadius<0:
@@ -1445,9 +1449,7 @@ def moveAnnR(self):
         outerRadius = self.P.RMax
 
     # avoid triggering a valueChanged loop by blocking signals
-    self.AnnRi.blockSignals(True)
-    self.AnnRi_NF.blockSignals(True)
-    self.AnnRo_NF.blockSignals(True)
+    self.blockAllSignals = True
 
     # set slider and numerical field values
     self.AnnRi.setValue((innerRadius,outerRadius))
@@ -1455,19 +1457,12 @@ def moveAnnR(self):
     self.AnnRo_NF.setValue(outerRadius*self.D.annWidth*scale)
 
     # unblock trigger signals
-    self.AnnRi.blockSignals(False)
-    self.AnnRi_NF.blockSignals(False)
-    self.AnnRo_NF.blockSignals(False)
+    self.blockAllSignals = False
 
     # update point centers when updated via QRangeSlider or QDoubleSpinBoxes
-    if self.sender() is not self.A.adfPt:
-        centers = self.A.adfPt.point.get_offsets()-self.B0
-        angles = np.arctan2(centers[:,0],centers[:,1])
-        centers = np.array([np.sin(angles),np.cos(angles)]).T*np.array([[innerRadius],[outerRadius]])*self.D.annWidth+self.B0
-        self.A.adfPt.point.set_offsets(centers)
-
-    # update circles on adf detector and refresh diffraction figure (self.Fig.Dfrn)
-    replotCirc(self)
+    if self.sender() is not self.A.adf:
+        self.A.adf.radius = np.array([innerRadius,outerRadius]).clip(np.finfo(np.single).eps,self.P.RMax)*self.D.annWidth
+        self.A.adf.redraw()
 
     #if isStaticEvt(evt): #TODO
     #    mockUICallbacks(app,self.SaveImgPrefix) # Update saving prefix
@@ -1487,7 +1482,6 @@ def moveAnnR(self):
     
     self.ImageAx.Real.autoscale()
     self.Fig.Real.canvas.draw()
-    #maskOpacity(self)
 
 def detrCoordCallbacks(self):
     # "Polar" and "Absolute" are mutually exclusive
@@ -1516,21 +1510,272 @@ def detrCoordCallbacks(self):
             pass
         case "AnnMod"|"DPCMod"|"CoMMod":
             drawAnnDetr(self)
+            #self.SettingsWindow.DCSys.valueChanged.emit()
             pass#annularDetectorCallbacks(self,struct("Source",self.DCSys,"EventName","UpdateCoord")) #TODO
         case "VrApMod":
+            #self.SettingsWindow.DCSys.valueChanged.emit()
             pass#virtualApertureCallbacks(self,struct("Source",self.DCSys,"EventName","UpdateCoord")) #TODO
         case "CustMod":
+            #self.SettingsWindow.DCSys.valueChanged.emit()
             pass#customDetectorCallbacks(self,struct("Source",self.DCSys,"EventName","UpdateCoord")) #TODO
 
 def annularDetectorCallbacks(self):
-    integrateAnnular(self)
 
-def maskOpacity(self):
-    alpha = self.SettingsWindow.DispMaskOpa.value()/100 # mask opacity slider
-    k = self.A.k.T # distance from optic axis
-    mask = ((k>=self.AnnRi.value()[0])&(k<=self.AnnRi.value()[1]))*(alpha)+1-alpha
-    self.ImageAx.Dfrn.set_alpha(mask)
-    self.Fig.Dfrn.canvas.draw()
+    def limitAnnUI(self):
+        """ Function to update Annular detector UI limits/labels when coordinate options change """
+        self.blockAllSignals = True
+        self.AnnRi_NF.setSuffix(" "+self.SettingsWindow.DCUnit.currentData())
+        self.AnnRo_NF.setSuffix(" "+self.SettingsWindow.DCUnit.currentData())
+        self.AnnRi_NF.setRange(0,self.P.RMax*self.DfPxR)
+        self.AnnRo_NF.setRange(0,self.P.RMax*self.DfPxR)
+        self.AnnRi_NF.setSingleStep(0.25*self.DfPxR)
+        self.AnnRo_NF.setSingleStep(0.25*self.DfPxR)
+        self.blockAllSignals = False
+
+    def enableAnnUI(self):
+        """ Function to enable/disable UI """
+        # current detector mode
+        dmod = self.DetrMode.currentData()
+
+        # Disable/enable segmented panel
+        self.dpcControls.setEnabled(dmod == "DPCMod")
+
+        # Change Enable state of scan direction UIs, except `self.ScanDirUnlock`
+        self.comControls.setEnabled(self.ScanDirUnlock.isChecked())
+        self.ScanDirUnlock.setEnabled(dmod in ["CoMMod","DPCMod"])
+
+        # Highlight to align Scanning Direction
+        if (dmod in ["CoMMod" "DPCMod"]) and (not self.P.ScanDirInit):
+            bc = self.C.WarnC.name()
+        else:
+            bc = self.C.BgC.name()
+        self.comControls.BackgroundColor = bc # Set scan direction panel color
+        self.comControls.setStyleSheet("background-color:"+bc)
+
+    def moveAnnDetr():
+        """ Function to live update annular/round/segmented detectors """
+
+        def moveAnnR(self):
+            """ Sub sub function for annular radii """
+
+            # get QRangeSlider values
+            innerRadius,outerRadius = self.AnnRi.value()
+            
+            # get diffraction scale set by user during alignment
+            scale = self.DfPxR
+
+            # get inner/outer adf radii from the calling widget
+            match self.sender():
+                # InteractiveAnnulus
+                case self.A.adf:
+                    innerRadius, outerRadius = (self.A.adf.radius/self.D.annWidth).astype(int)
+                # Inner Radius QDoubleSpinBox
+                case self.AnnRi_NF:
+                    innerRadius = round(self.AnnRi_NF.value()/self.D.annWidth/scale)
+                # Outer Radius QDoubleSpinBox 
+                case self.AnnRo_NF:
+                    outerRadius = round(self.AnnRo_NF.value()/self.D.annWidth/scale)
+
+            # allow user to drag inner/outer annulus over the other, swapping their relationships
+            if innerRadius>outerRadius:
+                innerRadius,outerRadius = outerRadius,innerRadius
+                #self.A.adfInnerCirc,self.A.adfOuterCirc = self.A.adfOuterCirc,self.A.adfInnerCirc #TODO delete?
+
+            # inner radius cannot be less than 0
+            if innerRadius<0:
+                innerRadius = 0
+
+            # outer radius cannot be greater than max scattering angle
+            if outerRadius>self.P.RMax:
+                outerRadius = self.P.RMax
+
+            # avoid triggering a valueChanged loop by blocking signals
+            self.blockAllSignals = True
+
+            # set slider and numerical field values
+            self.AnnRi.setValue((innerRadius,outerRadius))
+            self.AnnRi_NF.setValue(innerRadius*self.D.annWidth*scale)
+            self.AnnRo_NF.setValue(outerRadius*self.D.annWidth*scale)
+
+            # unblock signals
+            self.blockAllSignals = False
+
+            # update point centers when updated via QRangeSlider or QDoubleSpinBoxes
+            if self.sender() is not self.A.adf:
+                self.A.adf.radius = np.array([innerRadius,outerRadius]).clip(np.finfo(np.single).eps,self.P.RMax)*self.D.annWidth
+                self.A.adf.redraw()
+
+            #if isStaticEvt(evt): #TODO
+            #    mockUICallbacks(app,self.SaveImgPrefix) # Update saving prefix
+
+            # Whether to update segments as well #TODO
+            #if dmod == "DPCMod":
+            #    self.moveSeg()
+
+            # refresh real-space image given new inner/outer radii
+            # (add one to outer limit because python doesn't include the last term of the range)
+            if len(self.Fig.Real.ax.images)==0:
+                self.Image.Real = self.Data.sum(axis=1).reshape(self.D.NFrY,self.D.NFrX)
+                self.ImageAx.Real = self.Fig.Real.ax.imshow(self.Image.Real)
+            else:
+                self.Image.Real = self.adfImages[:,:,innerRadius:outerRadius+1].sum(axis=2)
+                self.ImageAx.Real.set_data(self.Image.Real)
+            
+            self.ImageAx.Real.autoscale()
+            self.Fig.Real.canvas.draw()
+        def moveSeg():
+            pass
+        def moveScan():
+            pass
+
+        # current detector mode
+        dmod = self.DetrMode.currentData()
+
+        ri,ro = self.AnnRi.value()
+        dr = self.DetRot.value()
+        sd = self.ScanDir.value()
+        syf = 1-2*self.ScanDirYFlip.isChecked()
+
+        # Cases for different detectors #TODO - no .Tag attributes
+        match self.sender():
+            case self.A.adf|self.AnnRi|self.AnnRi_NF|self.AnnRo_NF:
+                moveAnnR(self)
+            case self.DetRot|self.DetRot_NF|self.NRung|self.NSeg|self.A.SegDetrCir|self.A.SegDetrL|self.A.SegDetrL0|self.A.SegDetrP0:
+                moveSeg(self)
+            case self.ScanDirUnlock|self.ScanDirYFlip|self.ScanDir|self.ScanDir_NF|self.A.ScanDirXline|self.A.ScanDirYline|self.A.ScanDirXcirc|self.A.ScanDirYcirc:
+                moveScan(self)
+            case self.DetrMode|self.UpdateImages:
+                moveAnnR(self)
+                if self.ScanDirUnlock.isChecked():
+                    moveScan(self)  # Update scan directions as well
+        
+        # Whether to update images
+        if toUpdateImage(self):
+            # Skip calculations of new BF/DF `self.Image.Real` if annular radii are not changed
+            if isDiffToPrev(self,'AnnR',[ri,ro]): #or isStaticEvt(evt)
+                # self.A.k is a 2D matrix of distances from central beam generated in integrateAnnular
+                # k is already modified by self.D.annWidth, so ri and ro can be used directly
+                self.Image.DfrnMask = np.ma.masked_inside(self.A.k,ri,ro).mask.astype(self.D.DataType) # convert from bool to DataType
+
+                # (add one to outer limit because python doesn't include the last term of the range)
+                self.Image.Real = self.adfImages[:,:,ri:ro+1].sum(axis=2)
+          
+            # CoM/DPC calculations; skip if parameters unchanged
+            if dmod in ["CoMMod", "DPCMod"]:
+                if isDiffToPrev(self,'CoM_P',[ri,ro,sd,syf,dr]): # or isStaticEvt(evt):
+                    calcCoM(ri, ro, sd, syf, dr)
+            
+            # Update images
+            plotAllPatterns(self)
+    
+    def drawAnnDetr(self):
+        """ initiallize the annular detector annotations """
+        # define center location and starting radii for annular detector
+        c = self.B0
+        r1 = self.AnnRi.value()[0]*self.D.annWidth
+        r2 = self.AnnRi.value()[1]*self.D.annWidth
+    
+        # generate adf detector
+        if self.A.adf is None:
+            self.A.adf = InteractiveAnnulus(center=c, radius=(r1,r2), axis=self.Fig.Dfrn.ax, color='r', interactions='resize')
+            self.A.adf.connect()
+            self.A.adf.updateAnnulus.connect(lambda: moveAnnDetr(self))
+    
+    def drawSegDetr(self):
+        pass
+    
+    def drawScanDir(self):
+        pass
+    
+    def integrateAnnular(self):
+        #  only rerun the annular integration if transmitted disk center is changed
+        if isDiffToPrev(self,"B0",self.B0):
+            # generate meshgrid, divide by annulus width and round so distance increments away
+            # from transmitted beam as integers to allow for direct use with QRangeSlider[int]
+            # and array indexing; self.D.annWidth = 0.5 by default
+            xgrid,ygrid = np.ogrid[-self.B0[0]:self.D.NPxX-self.B0[0],-self.B0[1]:self.D.NPxY-self.B0[1]]
+            self.A.k = np.int32(np.sqrt(xgrid**2+ygrid**2)/self.D.annWidth)
+            k = self.A.k.flatten()
+
+            # generate a vector of pixel distances from transmitted beam center (divided by annWidth)
+            distance = np.arange(0,k.max()+1)
+
+            # create adf annular masks of annWidth pixel width
+            adfMask = np.where((k.reshape(1,len(k))>=distance.reshape(len(distance),1)) & (k.reshape(1,len(k))<(distance.reshape(len(distance),1)+0.5)), True, False).T
+
+            # generate all adf images from 0.0.5 pixel annuli; reshape to 3D for faster plotting
+            self.adfImages = self.Data@adfMask
+            self.adfImages = np.reshape(self.adfImages,(self.D.NFrY,self.D.NFrX,-1))
+
+            # set adfInner and adfOuter slider limits based on k.max()
+            self.AnnRi.setMaximum(k.max())
+
+            # set adfInner and adfOuter numerical field limits based on k.max()/2
+            self.AnnRi_NF.setMaximum(k.max()*self.D.annWidth)
+            self.AnnRo_NF.setMaximum(k.max()*self.D.annWidth)
+            
+            # set maximum scattering angle
+            self.P.RMax = k.max()
+
+    def plotAllPatterns(self):
+        # always update primary and mask images
+        ids = [iID for iType,iID in zip(self.G.ImgType,self.G.ImgID) if iType in ["Primary","Mask"]]
+        # update CoM/DPC images if in the correct mode
+        if self.DetrMode.currentData() in ["CoMMod","DPCMod"]:
+            ids += [iID for iType,iID in zip(self.G.ImgType,self.G.ImgID) if (iID != "ColorWheel") and (iType=='CoM')]
+        
+        # Update images if visible OR not in changing event; include CoMs if in the modes
+        for id in ids:
+            if self.Fig[id].isVisible(): # or isStaticEvt(evt): #TODO?
+                plotImage(self, id)
+    
+    def calcCoM():
+        def integrateCoM():
+            pass
+        pass
+
+    # bypass execution if signals are actively being blocked (i.e. for programmatically updating UI values)
+    if self.blockAllSignals:
+        return
+
+    b0 = self.B0  # Absolute pixel coordinates of central beam; only changes in `transBeamCallbacks()`
+    dmod = self.DetrMode.currentData() # Detector mode; when changed this callback will be called
+
+    match self.sender():
+        case self.SettingsWindow.DCSys: # Change coordinate options
+            limitAnnUI(self) # UI limits
+        case self.DetrMode: # Entering current mode
+            limitAnnUI(self) # UI limits
+            self.ScanDirUnlock.setChecked(False) # Lock scan directions first upon entering annular modes
+            enableAnnUI(self) # UI enable/disable
+            integrateAnnular(self) # Update annular integral mask
+            drawAnnDetr(self) # Draw detectors
+            if dmod == "DPCMod":
+                drawSegDetr() # Whether to draw segmented detectors
+            moveAnnDetr() # Update UI/ROIs
+            enableWindows(self,True) # Enable windows
+        case self.AnnRi|self.AnnRi_NF|self.AnnRo_NF|self.DetRot|self.DetRot_NF|self.NSeg|self.NRung|self.ScanDir|self.ScanDir_NF|self.ScanDirYFlip|self.UpdateImages:
+            moveAnnDetr() # Update UI/ROIs
+        case self.ScanDirUnlock:
+            self.P.ScanDirInit = 1; # Flag scan directions as aligned
+            enableAnnUI(self) # Enable/Disable GUI elements
+            self.A.removeGroup('ScanDir') # Try to remove existing scan direction ROIs
+            if self.ScanDirUnlock.isChecked(self):
+                drawScanDir(self) # Draw annotations
+            self.SettingsWindow.ShowDfrnAxes.click() # Update diffraction axes annotations
+
+def toUpdateImage(self):
+    """
+    Function to determine whether to update images
+    Return true if any: 1) `self.SettingsWindow.CalcPolicy.currentData()` is 2 (active update)
+                    OR 2) `self.SettingsWindow.CalcPolicy.currentData()` is 1 (reduced) and not when changing
+                    OR 3) is a manual update (from update buttons or detector mode change)
+    #TODO - currently does not support reduced update functionality
+    """
+    calc = self.SettingsWindow.CalcPolicy.currentData()
+    #upd = (calc == 2) or (calc and isStaticEvt(evt)) or (evt.Source == self.UpdateImages) or (self.sender() == self.DetrMode)
+    update = (calc == 2) or (self.sender() in [self.UpdateImages,self.DetrMode])
+    return update
 
 class importThread(qtc.QObject):
     result = qtc.pyqtSignal(np.ndarray)
@@ -2082,6 +2327,9 @@ def readFile(self):
 def prepareData(self):
     from callbacks.guiClass import ImageWindow
     #self.T.progDLG = progDLG(self, 'Preparing data ...', "Data Preparation"); #TODO
+    
+    # block slots/signals whilst initializing UI components
+    self.blockAllSignals = True
 
     # Detector controls
     self.P.ScanDirInit = 0 # Reset alignments
@@ -2143,19 +2391,21 @@ def prepareData(self):
     self.RealROIShape.setCurrentIndex(0) # "full"
 
     # Export controls
-    #exportCallbacks(self, struct("Source",self.ExpPxPart,"EventName",[],"Value",0))#TODO
-    #exportCallbacks(self, struct("Source",self.ExpFrPart,"EventName",[],"Value",0))#TODO
+    self.SaveWindow.ExpPxPart.setChecked(False)
+    self.SaveWindow.ExpFrPart.setChecked(False)
 
     # initiate image display parameters for all ImageWindows
-    for ax in [getattr(self.Fig,child) for child in dir(self.Fig)]:
-        if isinstance(ax,ImageWindow):
-            ax.brightness = 50
-            ax.contrast = 50
-            ax.gamma = 1
-            ax.maskOpa = 0
-            ax.vecField = 0
+    for id in self.G.ImgID:
+        self.Fig[id].brightness = 50
+        self.Fig[id].contrast = 50
+        self.Fig[id].gamma = 1
+        self.Fig[id].maskOpa = 0
+        self.Fig[id].vecField = 0
 
-    self.UpdateImages.trigger() # Update all images f
+    # unblock slots/signals
+    self.blockAllSignals = False
+
+    self.UpdateImages.trigger() # Update all images
     #delete(self.T.progDLG);  # Close progress bar and Enable panel objects #TODO
 
     #initialize SettingsWindow and move next to main UI window
@@ -2190,7 +2440,9 @@ def finishImport(self):
     # generate placeholder images
     self.Image.Preview = np.zeros(self.D.NPx)
     self.Image.Dfrn = np.zeros(self.D.NPx)
+    self.Image.DfrnMask = np.zeros(self.D.NPx)
     self.Image.Real = np.zeros(self.D.NFr)
+    self.Image.RealMask = np.zeros(self.D.NFr)
 
     prepareData(self)
     integrateAnnular(self)
@@ -2210,8 +2462,7 @@ def reinitializeUI(self):
     self.DfrnDetrTabGroup.setVisible(True)
     self.DetectorModeGroup.setVisible(True)
 
-    # Import Data is the only option to start
-    # turn off ALL actions
+    # turn ALL actions back on
     for action in self.findChildren(qtw.QAction):
         action.setEnabled(True)
 
@@ -2320,8 +2571,6 @@ def startupFcn(self):
         self.Fig.Preview = ImageWindow("Preview","Preview","Preview","Preview","gray",[self.C.l, (self.C.ScreenSize[3]-self.C.sz)/2, self.C.sz + self.C.mplDecor.width(), self.C.sz + self.C.mplDecor.height()])
         self.Fig.ColorWheel = ImageWindow(id = "ColorWheel", name = "Color Wheel for Phase Direction", space = "ColorWheel", typ = "CoM", cmap = "hsv", pos = [self.C.shc-self.C.sz-self.C.mplDecor.width(), self.C.sz+2*(self.C.decorPad+self.C.titleHeight)+self.C.mplDecor.height() + self.C.vOffset, self.C.sz/2 + self.C.mplDecor.width(), self.C.sz/2 + self.C.mplDecor.height()])
         
-        plotColorwheel(self) 
-
         # Variable names, image names and image types (tag) for all patterns'/images' figures/axes/images
         self.G.ImgID = [ii for ii in self.Fig]                      # ID/fieldnames under `self.Image` `self.Fig` `self.Image` `self.ImgD` etc
         self.G.ImgSpace = [self.Fig[ii].space for ii in self.Fig]   # Spaces ("Real"/"Dfrn")
@@ -2645,14 +2894,12 @@ def rangeImportExport(self, src):
         # Reset range options if dataset raw dimension changes OR partial selection enables/disables
         getattr(self.ImportWindow,O+U+"D").setMaximum(min(dnp)) # Update binning/sampling UI limits
         if O == "I" and U == "Fr": # Update preview frame limits
-            self.PvFrX.blockSignals(True)
-            self.PvFrY.blockSignals(True)
+            self.blockAllSignals = True
             self.PvFrX.setRange(1,dnp[0])
             self.PvFrX.setValue(dnp[0])
             self.PvFrY.setRange(1,dnp[1])
             self.PvFrY.setValue(dnp[1])
-            self.PvFrX.blockSignals(False)
-            self.PvFrY.blockSignals(False)
+            self.blockAllSignals = False
         binDist = 1
         initPoint = np.asarray([1,1])
         numPoints = dnp
@@ -2738,18 +2985,19 @@ def unloadData(self, keep_p=False):
             fig = self.Fig[image]
             fig.ax.cla()
             fig.canvas.draw()
+            self.ImageAx[id] = None
         self.SettingsWindow.HistAxes.axes.cla()
         self.SettingsWindow.HistAxes.figure.canvas.draw()
 
         # clear annotations (lines and draggable points)
         for ii in dir(self.A):
-            if type(getattr(self.A,ii)) in (DraggablePoint,matplotlib.lines.Line2D):#,InteractiveBox #TODO
+            if type(getattr(self.A,ii)) in (DraggablePoint,InteractiveAnnulus,InteractiveCircle,matplotlib.lines.Line2D):#,InteractiveBox #TODO
                 setattr(self.A,ii,None)
 
-        setattr(self,'P',P)
-        setattr(self,'A',A)
+        setattr(self,'P',P())
+        setattr(self,'A',A())
         #setattr(self,'Image',Image) #TODO
-        setattr(self,'Mask',Mask)
+        setattr(self,'Mask',Mask())
         #self.ImgD = [] #TODO
         self.CDT.clearContents() # custom aperture table
     
@@ -2795,6 +3043,10 @@ def enableWindows(self,sw=True):
 
 def importData(self):
     assert(os.path.isfile(self.ImportWindow.ImpFilePath.text())), "File does not exist at the specified location"
+    
+    # bypass execution if signals are actively being blocked (i.e. for programmatically updating UI values)
+    if self.blockAllSignals:
+        return
     
     if os.path.isfile(self.ImportWindow.ImpFilePath.text()):
         # Set save/export filenames etc.
@@ -2882,6 +3134,10 @@ def getDecorSize(self):
 
 def displayCallbacks(self):
 
+    # bypass execution if signals are actively being blocked (i.e. for programmatically updating UI values)
+    if self.blockAllSignals:
+        return
+    
     id = self.SettingsWindow.DispImage.currentData()
     fig = self.Fig[id]
     ax = self.ImageAx[id]
@@ -2947,6 +3203,7 @@ def displayCallbacks(self):
             
         case other: # e.g. self.SettingsWindow.DispImage
             # Update GUIs by values stored in `self.ImageAx.(id).UserData` for the current selected image
+            self.Fig[id].show()
             self.Fig[id].activateWindow() # Bring selected image to front
             self.DispVecField.setCurrentIndex(self.DispVecField.findData(fig.vecField))
             self.SettingsWindow.DispCMap.setCurrentIndex(self.SettingsWindow.DispCMap.findText(fig.cmap))
@@ -2982,13 +3239,17 @@ def displayCallbacks(self):
 def plotImage(self,id):
     """Generic function for plotting an image on a given axis with brightness/contrast/gamma values"""
     
+    # Special case for plotting the color wheel - can get unloaded
+    if id == "ColorWheel":
+        plotColorWheel(self)
+
     # get image figure and axes
     fig = self.Fig[id]  # ImageWindow
     ax = fig.ax         # AxesSubplot
     im = np.ma.masked_invalid(self.Image[id]) # numpy masked array
 
     # clear old image(s)
-    [ii.remove() for ii in self.Fig[id].ax.get_images()]
+    #[ii.remove() for ii in self.Fig[id].ax.get_images()]
 
     # abort if image not yet ready
     if im is None:
@@ -3029,7 +3290,11 @@ def plotImage(self,id):
         im = np.double(im > immi)
         
     # display image with gamma and brightness contrast applied
-    self.ImageAx[id] = ax.imshow(im**fig.gamma) # Apply gamma factor
+    if self.ImageAx[id] == None:
+        self.ImageAx[id] = ax.imshow(im**fig.gamma)
+    else:
+        self.ImageAx[id].set_data(im**fig.gamma)
+    self.ImageAx[id].autoscale()
         
     # Plot mask opacity on non-mask/non-preview image; maskOpa is in percent (i.e. 50 => 50%)
     if fig.type not in ["Mask","Preview"]:
@@ -3048,12 +3313,12 @@ def plotImage(self,id):
     # Only update statistics if not in changing Event AND it is the "selected" image 
     if (id == self.SettingsWindow.DispImage.currentData()): # and isStaticEvt(evt): #TODO
         # don't update stats while things are changing, only when finished to increase responsiveness
-        updateDispImgStats(self,id,im,minVal,maxVal,limitLow,limitHigh,limitRange)
+        pass#updateDispImgStats(self,id,im,minVal,maxVal,limitLow,limitHigh,limitRange)
 
     # set colormap
     self.ImageAx[id].set_cmap(fig.cmap+["","_r"][fig.invert]) # append "_r" if inverted
 
-    fig.canvas.draw() # update plot
+    fig.canvas.draw_idle() # update plot
 
 
 def updateDispImgStats(self,id,im,minVal,maxVal,limitLow,limitHigh,limitRange):
@@ -3083,12 +3348,12 @@ def updateDispImgStats(self,id,im,minVal,maxVal,limitLow,limitHigh,limitRange):
 
     # Update histogram annotations skip if values unchanged
     if isDiffToPrev(self,'hist',(ax,minVal,maxVal,limitLow,limitHigh,limitRange,fig.gamma,self.SettingsWindow.HistLog.isChecked())):
-        # Update ROIs
-        try:
-            self.A.histBox.remove()
-            self.A.histBox = None
-        except:
-            pass
+        # Update ROIs #TODO
+        #try:
+        #    self.A.histBox.remove()
+        #    self.A.histBox = None
+        #except:
+        #    pass
 
         # Draw ROI of range if not yet #TODO
         if self.A.histBox is None:
@@ -3167,7 +3432,7 @@ def plotVectorField(self,id):
 
 def isDiffToPrev(self,name,val):
     """Function to check whether the named given value is changed compared to the previous value, and store the new value"""
-    c = (not hasattr(self.Prev, name)) or (~(getattr(self.Prev,name)==val))
+    c = (not hasattr(self.Prev, name)) or (getattr(self.Prev,name)!=val)
     
     # in case an image is being compared to an image, c will be an array of bool, not a single bool
     if isinstance(c,np.ndarray):
@@ -3176,3 +3441,22 @@ def isDiffToPrev(self,name,val):
     if c:
         setattr(self.Prev,name,val)
     return c
+
+def showWindowCallbacks(self):
+    id = self.SettingsWindow.DispImage.currentData()
+    match self.sender():
+        case self.SettingsWindow.ShowImageWdw: # Show selected image
+          self.Fig[id].show()
+          self.Fig[id].activateWindow()
+        case self.SettingsWindow.ShowMaskWdw: # Show diffraction or Real `space` mask for the selected image
+            id = self.Fig[id].space + "Mask"
+            self.Fig[id].show()
+            self.Fig[id].activateWindow()
+        case other: # All other `self.Show***Wdw` buttons
+            id = self.sender().accessibleName()
+            if id in self.G.ImgID:
+                self.Fig[id].show()
+                self.Fig[id].activateWindow()
+                # If `id` is one of the available images, select it
+                if (not self.SettingsWindow.DispLock.isChecked()) and (self.SettingsWindow.DispImage.currentData() != id) and (self.SettingsWindow.DispImage.findData(id) != -1):
+                    self.SettingsWindow.DispImage.setCurrentIndex(self.SettingsWindow.DispImage.findData(id))
