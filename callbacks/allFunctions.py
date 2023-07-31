@@ -7,45 +7,215 @@ from PyQt5 import QtCore as qtc
 from PyQt5 import QtGui as qtg
 import callbacks.appClass as appClass
 from callbacks.appClass import *
-from annotationsClasses.interactiveAnnulus import InteractiveAnnulus
-from annotationsClasses.interactiveCircle import InteractiveCircle
+from annotationsClasses.InteractiveCircle import InteractiveCircle
 from annotationsClasses.draggablePoint import DraggablePoint
 
-
 def importCallbacks(self):
+    def gatherImportOptions(preview):
+        d = D() # initialize 
+
+        d.filePath = self.ImportWindow.ImpFilePath.text()
+        [d.fileDir, d.fileName] = os.path.split(d.filePath)
+        d.fileDir = d.fileDir+os.sep
+        d.subImg = self.ImportWindow.ImpSubImg.currentText()
+
+        # BYTES offset of: 1) the dataset from the beginning of file, 2) before and 3) after each frame
+        d.Offset = self.ImportWindow.DataOffset.value()
+        d.FrHead = self.ImportWindow.FrHead.value()
+        d.FrFoot = self.ImportWindow.FrFoot.value()
+
+        # Endianness (big 'b' or little 'l'), Data type of the dataset and Size in bytes of the data type
+        d.ByteOrder = self.ImportWindow.ImpByteOrder.currentData()
+        d.DataType = self.ImportWindow.ImpDataType.currentData()
+        d.ByteSize = self.ByteSize[d.DataType]
+
+        # Physical or virtual memory loading
+        d.mem = self.ImportWindow.ImpMemType.currentText()
+
+        # Select GPU if acceleration is enabled AND not in Import Preview Mode
+        d.GPU = self.ImportWindow.ImpGPU.currentData()
+        if not preview and d.GPU!=None:
+            torch.device(0 if torch.cuda.is_available() else "cpu")
+
+        # Dimensions of pixels/frames in file and import binning/sampling distance
+        d.DNPxX = self.ImportWindow.DNPxX.value()
+        d.DNPxY = self.ImportWindow.DNPxY.value()
+        d.PxD = self.ImportWindow.IPxD.value()
+        d.DNFrX = self.ImportWindow.DNFrX.value()
+        d.DNFrY = self.ImportWindow.DNFrY.value()
+        d.FrD = self.ImportWindow.IFrD.value()
+
+        # Starting points and Number of pixels/frames after binning/sampling to import
+        d.PxX1 = self.ImportWindow.IPxX1.value()
+        d.PxY1 = self.ImportWindow.IPxY1.value()
+        d.NPxX = self.ImportWindow.INPxX.value()
+        d.NPxY = self.ImportWindow.INPxY.value()
+        d.FrX1 = self.ImportWindow.IFrX1.value()
+        d.FrY1 = self.ImportWindow.IFrY1.value()
+        d.NFrX = self.ImportWindow.INFrX.value()
+        d.NFrY = self.ImportWindow.INFrY.value()
+
+        # Frequently used dimension parameters
+        d.NPx = np.array([d.NPxX,d.NPxY])
+        d.NPxS = d.NPxX * d.NPxY
+        d.NFr = np.array([d.NFrY,d.NFrX]) 
+        d.NFrS = d.NFrX * d.NFrY
+
+        # Estimated memory usage for current dataset
+        d.EstMem = self.T.EstMem
+
+        # Swap dataset option+self.ImpNotes.Value
+        d.KeepP = self.ImportWindow.ImpKeepP.isChecked()
+
+        # Notes at import
+        d.NoteFileMeta = self.ImportWindow.ImpFileMetaNotes.toPlainText()
+        d.NoteImp = self.ImportWindow.ImpNotes.toPlainText()
+
+        # H5 dataset path within the H5 file. if not set empty, the H5 library API will be called when importing
+        d.h5ds = []
+        if self.ImportWindow.HDF5Button.isChecked() and  ("Physical Memory" in d.mem):
+            d.h5ds = d.subImg
+
+        return d
+
     match self.sender():
         case self.ShowImportWdw:
-          self.ImportWindow.show()
-          # Enter Import Preview Mode
-          if self.DetrMode.currentData != "PrvwMod":
-            self.DetrMode.setCurrentIndex(self.DetrMode.findData("PrvwMod"))
+            if self.ShowImportWdw.isChecked():
+                # Enter Import Preview Mode
+                if self.DetrMode.currentData != "PrvwMod":
+                    self.DetrMode.setCurrentIndex(self.DetrMode.findData("PrvwMod"))
+                
+                # if the file path exists, keep all fields accessible; else disable all by file selection button
+                fileExists = os.path.exists(self.ImportWindow.ImpFilePath.text())
+                self.ImportWindow.DatasetInfoFrame.setEnabled(fileExists)
+                self.ImportWindow.ImportOptionsFrame.setEnabled(fileExists)
+                self.ImportWindow.ImpFilePath.setEnabled(fileExists)
+                self.ImportWindow.ImportDataButton.setEnabled(fileExists)
+                self.ImportWindow.ImpKeepP.setEnabled(fileExists)
+                self.ImportWindow.ImpFileSelect.setEnabled(True)
+                self.ImportWindow.ImportCancelButton.setEnabled(True)
+
+                # set default button to "Select" if file does NOT exist; else default to "Import"
+                self.ImportWindow.ImportDataButton.setDefault(fileExists)
+                self.ImportWindow.ImportDataButton.setAutoDefault(fileExists)
+                self.ImportWindow.ImpFileSelect.setDefault(not fileExists)
+                self.ImportWindow.ImpFileSelect.setAutoDefault(not fileExists)
+                
+                # show import UI
+                self.ImportWindow.show()
+            else:
+                self.ImportWindow.ImportCancelButton.click()
 
         case self.ImportWindow.ImportCancelButton: # Hide window when closing
-          self.ImportWindow.hide()
-          # return to previous detector mode from Import Preview Mode
-          if (self.DetrMode.currentData() == "PrvwMod") and (self.P.DetrMode != ""):
-            self.DetrMode.setCurrentIndex(self.DetrMode.findData(self.P.DetrMode))
+            self.ImportWindow.hide()
+            self.ShowImportWdw.setChecked(False)
+            # return to previous detector mode from Import Preview Mode
+            if (self.DetrMode.currentData() == "PrvwMod") and (self.P.DetrMode != None):
+                self.DetrMode.setCurrentIndex(self.DetrMode.findData(self.P.DetrMode))
 
         case self.ImportWindow.ImportDataButton|self.PreviewButton: # When the "Import Data" or "Preview" button is pressed
-            self.T.Preview = D()
+            self.T.Preview = D() # reset the preview parameters
+
+            # warn user if file does not exist at path, or the datatype is not selected; else import data
             if not os.path.exists(self.ImportWindow.ImpFilePath.text()):
-                notifDLG(self, 'warn', 'The entered file path is invalid!', 'Invalid File!')
+                notifDLG(self, self.ImportWindow, 'warn', 'The entered file path is invalid!', 'Invalid File!')
+            
             elif self.ImportWindow.ImpDataType.currentData() == "unknown":
-                notifDLG(self, 'warn', 'Select the correct data type!', 'Select Data Type!')
+                notifDLG(self, self.ImportWindow, 'warn', 'Select the correct data type!', 'Select Data Type!')
+            
             else:
                 if self.sender() == self.ImportWindow.ImportDataButton: # Import data
                     self.ImportWindow.hide()
                     unloadData(self, self.ImportWindow.ImpKeepP.isChecked())
-                    self.D = gatherImportOptions(self,self.D,False)
+                    self.D = gatherImportOptions(preview=False)
                     self.T.prev_D = self.D # Backup current `self.D`
                     importData(self)
                 else: # Preview
-                    self.T.Preview = gatherImportOptions(self,self.T.Preview,True)
+                    self.T.Preview = gatherImportOptions(preview=True)
 
         case self.SettingsWindow.SwapDfrnXY|self.SettingsWindow.SwapRealXY: # Refresh axes settings etc when dimensions swapped
-          prepareData(self)
+            prepareData(self)
 
-def notifDLG(self, icon="", msg="", ttl="", opt=[]):
+def previewCallbacks(self):
+    # bypass execution if signals are actively being blocked (i.e. for programmatically updating UI values)
+    if self.blockAllSignals:
+        return
+
+    match self.sender():
+        case self.DetrMode: # Entering mode
+            self.Fig.Preview.ax.cla()
+            self.Fig.Preview.Image = None # Clear previous preview
+            self.ImageAx.Preview = None # clear AxesImage
+            enableWindows(self,True) # Enable windows
+        
+        case self.PvFrX|self.PvFrY:
+            self.PreviewButton.click() # Preview
+
+        case self.PvBC|self.PvBL|self.PvBR|self.PvCC|self.PvCL|self.PvCR|self.PvTC|self.PvTL|self.PvTR: # Location buttons
+            #set fractional probe position; naming convetion is horrible #TODO
+            match self.sender(): 
+                # PvB* = Bottom; PvC* = Vertical Center; PvT* = Top
+                case self.PvBC|self.PvBL|self.PvBR:
+                    frY = self.PvFrY.maximum()
+                case self.PvCC|self.PvCL|self.PvCR:
+                    frY = np.ceil(self.PvFrY.maximum()/2)
+                case self.PvTC|self.PvTL|self.PvTR:
+                    frY = 1
+                
+            match self.sender(): 
+                # Pv*L = Left; Pv*C = Horizontal Center; Pv*R = Right
+                case self.PvBR|self.PvCR|self.PvTR:
+                    frX = self.PvFrX.maximum()
+                case self.PvBC|self.PvCC|self.PvTC:
+                    frX = np.ceil(self.PvFrX.maximum()/2)
+                case self.PvBL|self.PvCL|self.PvTL:
+                    frX = 1
+
+            self.blockAllSignals = True
+            self.PvFrX.setValue(int(frX))
+            self.PvFrY.setValue(int(frY))
+            self.blockAllSignals = False
+            self.PreviewButton.click() # Preview
+          
+        case self.PreviewButton|self.UpdateImages:
+            self.Fig.Preview.ax.cla()
+            self.Fig.Preview.Image = None # Clear previous preview
+            self.ImageAx.Preview = None # clear AxesImage
+            self.Fig.Preview.show()
+            # Get parameters
+            importCallbacks(self)
+            d = self.T.Preview
+            ifx = self.PvFrX.value()-1 # indices displayed in GUI start at 1; python indices start at 0 -->
+            ify = self.PvFrY.value()-1 # subtract 1 to get to the beginning of the frame of interest
+
+            if d != None:
+                dnpx = d.DNPxX
+                dnpy = d.DNPxY
+                dnfx = d.DNFrX
+                dnfy = d.DNFrY
+                self.P.PreviewAxLim = np.array([0, dnpx, dnpy, 0]) - 0.5
+                self.Fig.Preview.ax.set_xlim(self.P.PreviewAxLim[0:2])
+                self.Fig.Preview.ax.set_ylim(self.P.PreviewAxLim[2:])
+                try:
+                    if not d.h5ds == []: # Preview HDF5
+                        f = h5py.File(d.filePath)
+                        if d.h5ds in f:
+                            frame = f[d.h5ds][ify,ifx,:,:]
+                            f.close()
+                        else:
+                            f.close()
+                            return
+                    else: # Preview others
+                        skipBytes = d.Offset + (d.FrHead + dnpx*dnpy*d.ByteSize + d.FrFoot)*(dnfx*ify + ifx) + d.FrHead
+                        frame = np.fromfile(file=d.filePath,offset=skipBytes,count=1,dtype=str(dnpx*dnpy)+d.DataType).reshape(dnpx,dnpy)
+
+                    self.Fig.Preview.Image = frame
+                    plotImage(self,"Preview") # Plot image
+                    datasetOptCallbacks(self) # Check NaN
+                except:
+                    notifDLG(self,self.Fig.Preview,'error',"Errors occurred during preview! Maybe reached end-of-file.", 'Error during Preview!')
+                    
+def notifDLG(self, parent, icon="", msg="", ttl="", opt=[]):
     """ Wrapper for notification dialogs; use `sprintf()` before calling this function to process "\n" in `msg` """
     sel=''
 
@@ -61,11 +231,13 @@ def notifDLG(self, icon="", msg="", ttl="", opt=[]):
     enableWindows(self,False) # disable windows
 
     if icon == 'list':
-        sel,ok = qtw.QInputDialog().getItem(self,ttl,msg,opt,0,False) # default option 0, multiselect=False
+        sel,ok = qtw.QInputDialog().getItem(parent,ttl,msg,opt,0,False) # default option 0, multiselect=False
+        if not ok:
+            enableWindows(self,True) # enable windows
+            return None
     
     else: 
-        dlg = qtw.QMessageBox(self) # establish a messagebox
-        #dlg.setParent(self) # attach to the main UI window
+        dlg = qtw.QMessageBox(parent) # establish a messagebox
         dlg.setIcon(icons[icon]) # set messagebox icon type
         dlg.setText(msg) # set the message
         dlg.setWindowTitle(ttl) # set the title
@@ -118,7 +290,7 @@ def checkNaN(self, image, preview = False):
             self.SettingsWindow.activate()
             self.SettingsWindow.SettingsTabGroup.setCurrentWidget(self.SettingsWindow.InfoTab)  # Select the Data Info tab
         
-        sel = notifDLG(self, 'quest', msg, ttl, opt)
+        sel = notifDLG(self, self.ImportWindow, 'quest', msg, ttl, opt)
 
 
 
@@ -131,7 +303,7 @@ def checkNaN(self, image, preview = False):
     else:
         return None
 
-def on_ImpFileSelect_clicked(self):
+def importSelectFile(self):
     # bypass execution if signals are actively being blocked (i.e. for programmatically updating UI values)
     if self.blockAllSignals:
         return
@@ -144,7 +316,7 @@ def on_ImpFileSelect_clicked(self):
         fDialog.setDirectory(qtc.QDir.currentPath())
         fileName = None
         if fDialog.exec_() == qtw.QDialog.Accepted:
-            fileName = fDialog.selectedFiles()
+            fileName, = fDialog.selectedFiles()
         else: # user selected cancel
             self.ImportWindow.activateWindow()
             self.ImportWindow.ImportDataButton.setDefault(False)
@@ -156,12 +328,16 @@ def on_ImpFileSelect_clicked(self):
 
         # reflect user selection in path field box
         if fileName is not None:
-            self.D.fileName = fileName
-            self.fname = str(self.D.fileName[0])
+            self.fname = fileName
             self.ImportWindow.ImpFilePath.setText(self.fname)
-            # activate rest of wigets in window
+            # enable rest of wigets in window
             for widget in self.ImportWindow.children():
                 widget.setEnabled(True)
+        else:
+            # keep wigets disabled
+            for widget in self.ImportWindow.children():
+                widget.setEnabled(False)
+            
         
         # switch to directory containing dataset for future saving
         os.chdir(qtc.QDir.currentPath())
@@ -178,36 +354,35 @@ def on_ImpFileSelect_clicked(self):
     
     # get file directory, name, extension, and size. display in filesize field
     if os.path.isfile(self.ImportWindow.ImpFilePath.text()):
-        self.D.fileDir = os.path.dirname(self.ImportWindow.ImpFilePath.text())
-        self.D.fileName = os.path.basename(self.ImportWindow.ImpFilePath.text())
-        self.D.fileExt = os.path.splitext(self.ImportWindow.ImpFilePath.text())[1]
-        os.chdir(self.D.fileDir)
-        self.T.FileSize = os.path.getsize(self.D.fileName)
+        self.fileDir = os.path.dirname(self.ImportWindow.ImpFilePath.text())
+        self.fileName = os.path.basename(self.ImportWindow.ImpFilePath.text())
+        _,self.fileExt = os.path.splitext(self.ImportWindow.ImpFilePath.text())
+        os.chdir(self.fileDir)
+        self.T.FileSize = os.path.getsize(self.fileName)
         self.ImportWindow.ImpActualFilesize.setText("{} bytes, {:.2f} GiB".format(self.T.FileSize,self.T.FileSize/1024**3))
 
         # activate Import Preview
         self.DfrnDetrTabGroup.setVisible(True)
-        self.PreviewTab.setVisible(True)
-        self.PreviewTab.setEnabled(True)
+        self.DfrnDetrTabGroup.setCurrentIndex(0)
 
         # activate preset buttons if file extension matches a known filetype, else custom
-        match self.D.fileExt.casefold():
+        match self.fileExt.casefold():
             case ".raw":
-                self.ImportWindow.EMPADButton.setChecked(1)
+                self.ImportWindow.EMPADButton.setChecked(True)
             case ".mib":
-                self.ImportWindow.MedipixButton.setChecked(1)
+                self.ImportWindow.MedipixButton.setChecked(True)
             case ".mrc":
-                self.ImportWindow.MRCButton.setChecked(1)
+                self.ImportWindow.MRCButton.setChecked(True)
             case ".dm3"|".dm4":
-                self.ImportWindow.DM34Button.setChecked(1)
+                self.ImportWindow.DM34Button.setChecked(True)
             case ".h5":
-                self.ImportWindow.HDF5Button.setChecked(1)
+                self.ImportWindow.HDF5Button.setChecked(True)
             case other:
-                self.ImportWindow.CustomButton.setChecked(1)
+                self.ImportWindow.CustomButton.setChecked(True)
     
     # if filename is incorrect/does not exist...
     else:
-        self.ImportWindow.ImpActualFilesize.setText("")
+        self.ImportWindow.ImpActualFilesize.clear()
         self.DfrnDetrTabGroup.setVisible(False)
         self.PreviewTab.setVisible(False)
         self.PreviewTab.setEnabled(False)
@@ -215,43 +390,90 @@ def on_ImpFileSelect_clicked(self):
     importFileType(self)
 
 def importFileType(self):
-    # Make an initial guess at the file dimensions (assume ~square field of view: NFrX≈NFrY)
     def guessFramesFromSize():
-        bitSize = getattr(self.ByteSize,self.ImportWindow.ImpDataType.currentData())
+        """ Make an initial guess at the file dimensions (assume ~square field of view: NFrX≈NFrY) """
         if self.ImportWindow.DNPxX.value() > 1 and self.ImportWindow.DNPxY.value() > 1:
-            x = np.sqrt((self.T.FileSize-self.ImportWindow.DataOffset.value()-self.T.fileTail) \
-                    /(self.ImportWindow.DNPxX.value()*self.ImportWindow.DNPxY.value()*bitSize+self.ImportWindow.FrHead.value()+self.ImportWindow.FrFoot.value()))
-            self.ImportWindow.DNFrX.setValue(np.maximum(np.floor(x),1))
-            self.ImportWindow.DNFrY.setValue(np.maximum(np.floor(x),1))
+            bitSize = self.ByteSize[self.ImportWindow.ImpDataType.currentData()]
 
-    # Guess numbers of Frame X and Y from 3D dataset (with only Frame X)
-    def guessFramesFromDimZ(dz):
-        self.ImportWindow.DNFrX.setValue(np.round(np.sqrt(dz)).astype(int))
-        self.ImportWindow.DNFrY.setValue(np.round(dz/self.ImportWindow.DNFrX.value()).astype(int))
+            # factoring in dataoffset/tail/header/footer lengths, get total number of frames (xy)
+            z = (self.T.FileSize-self.ImportWindow.DataOffset.value()-self.T.fileTail) \
+                    /(self.ImportWindow.DNPxX.value()*self.ImportWindow.DNPxY.value()*bitSize+self.ImportWindow.FrHead.value()+self.ImportWindow.FrFoot.value())
+            
+            # assume dataset is as close to square as possible, factorize xy to (x,y)
+            guessFramesFromDimZ(int(z))
 
-    # Guess dataset size from fileName in the following style (only the first match):
-    #   fileName = 'fooAxBxCxDbar', where:  A = NPxX, B = NPxY, C = NFrX, D = NFrY, and are numbers
-    def getDimFromName(name):
-        s = re.findall("\d+x\d+x\d+x\d+",name)
-        if s:
-            DNPxX,DNPxY,DNFrX,DNFrY = re.split("x",s[0])
-            self.ImportWindow.DNPxX.setValue(int(DNPxX))
-            self.ImportWindow.DNPxY.setValue(int(DNPxY))
-            self.ImportWindow.DNFrX.setValue(int(DNFrX))
-            self.ImportWindow.DNFrY.setValue(int(DNFrY))
+    def guessFramesFromDimZ(z):
+        """ Guess number of frames (x,y) from 3D dataset by finding the two largest integer factors that go into z without remainder """
+        x = round(np.sqrt(z))
+        while z%x > 0:
+            x -= 1
+
+        self.ImportWindow.DNFrX.setValue(x)
+        self.ImportWindow.DNFrY.setValue(z//x)
+
+    def getDimFromName(filename):
+        """
+        Guess dataset size from fileName in the following style (only the first match):
+            fileName = 'fooAxBxCxDbar', where A,B,C,D are integers:
+                            A = NPxX
+                            B = NPxY
+                            C = NFrX
+                            D = NFrY
+        """
+
+        try:
+            # standard EMPAD naming scheme
+            s = re.search('scan_x(\d+)_y(\d+).raw',filename)
+            DNFrX,DNFrY = [int(ii) for ii in s.groups()]
+            DNPxX = DNPxY = int(128)
+
+        except:
+            try:
+                # above described naming scheme
+                t = re.search('(\d+)x(\d+)x(\d+)x(\d+)',filename)
+                DNPxX,DNPxY,DNFrX,DNFrY = [int(ii) for ii in t.groups()]
+            except:
+                # failure, quit now
+                return
+            
+        finally:
+            # if the above passed, set the import window UI values
+            self.ImportWindow.DNPxX.setValue(DNPxX)
+            self.ImportWindow.DNPxY.setValue(DNPxY)
+            self.ImportWindow.DNFrX.setValue(DNFrX)
+            self.ImportWindow.DNFrY.setValue(DNFrY)
     
+    def returnKeys(obj):
+        datasetKeys=[]
+        def allkeys(obj):
+            keys = (obj.name,)
+            if isinstance(obj, h5py.Group):
+                for key, value in obj.items():
+                    if isinstance(value, h5py.Group):
+                        keys = keys + allkeys(value)
+                    else:
+                        keys = keys + (value.name,)
+                        datasetKeys.append(value.name)
+            return keys
+        allkeys(obj)
+        return datasetKeys
     
+    # block slots/signals whilst updating UI values
+    self.blockAllSignals = True
+
     # Default values/properties
-    notes = ""
-    err = 0
+    notes = None
+    err = 0 #TODO
     self.T.dm = []
     self.T.h5 = []
     self.T.fileTail = 0
-    self.ImportWindow.ImpSubImg.clear()
-    self.ImportWindow.ImpSubImg.setEnabled(False)
     self.ImportWindow.DataOffset.setValue(0)
     self.ImportWindow.FrHead.setValue(0)
     self.ImportWindow.FrFoot.setValue(0)
+    self.ImportWindow.DNPxX.setValue(1)
+    self.ImportWindow.DNPxY.setValue(1)
+    self.ImportWindow.DNFrX.setValue(1)
+    self.ImportWindow.DNFrY.setValue(1)
     
     # Medipix data are saved as a .mib file of varying bit-depth as unsigned integers of the next highest class
     #   (i.e. 12-bit is saved as a 16-bit unsigned integer) with big-endian ordering.
@@ -264,16 +486,18 @@ def importFileType(self):
     dataTypeText = ['Select Data Type...','8-bit Signed','8-bit Unsigned','16-bit Signed','16-bit Unsigned','32-bit Real', \
                     '32-bit Signed','32-bit Unsigned','64-bit Real','64-bit Signed','64-bit Unsigned']
 
-    # block slots/signals
-    self.blockAllSignals = True
-
     # add to combobox
     self.ImportWindow.ImpDataType.clear()
     for dtt,dt in zip(dataTypeText,dataType):
         self.ImportWindow.ImpDataType.addItem(dtt,dt)
-    
+
     # default to "Select Data Type..." prompt
     self.ImportWindow.ImpDataType.setCurrentIndex(0)
+
+    # start with h5 directory combobox cleared and disabled
+    if self.sender() == self.ImportWindow.ImpFileSelect:
+        self.ImportWindow.ImpSubImg.clear()
+        self.ImportWindow.ImpSubImg.setEnabled(False)
 
     # default to "little endian"
     self.ImportWindow.ImpByteOrder.setCurrentIndex(0)
@@ -284,34 +508,37 @@ def importFileType(self):
     if os.path.isfile(self.ImportWindow.ImpFilePath.text()):
         if self.ImportWindow.EMPADButton.isChecked():
             self.ImportWindow.FrFoot.setValue(1024)
-            self.ImportWindow.ImpDataType.setCurrentIndex(5)
             self.ImportWindow.DNPxX.setValue(128)
             self.ImportWindow.DNPxY.setValue(128)
+            self.ImportWindow.ImpDataType.setCurrentIndex(self.ImportWindow.ImpDataType.findData('f4'))
 
             notes = 'Pixels:\t128x128\n32-bit Real\n** EMPAD data have 1024-byte frame footers'
-            prepEMPAD(self)
+            guessFramesFromSize()
+            getDimFromName(self.ImportWindow.ImpFilePath.text())
 
         elif self.ImportWindow.MedipixButton.isChecked():
             # available data types and their plain text names - Medipix edition
             dataType = ['unknown','u1','u2','u4']
             dataTypeText = ['Select Data Type...','1 or 6-bit Padded Unsigned','12-bit Padded Unsigned','24-bit Padded Unsigned']
-            
+
             # add to combobox
+            self.ImportWindow.ImpDataType.blockSignals(True)
             self.ImportWindow.ImpDataType.clear()
             for dtt,dt in zip(dataTypeText,dataType):
                 self.ImportWindow.ImpDataType.addItem(dtt,dt)
+            self.ImportWindow.ImpDataType.blockSignals(True)
 
             # check .mib file header
             fmeta = np.fromfile(self.ImportWindow.ImpFilePath.text(),dtype=np.uint8,count=128)
             fmeta = re.split(",",''.join(chr(i) for i in fmeta))
 
-            if len(fmeta) >= 7 and fmeta[6][0].casefold() in ("u","r"):
+            if (len(fmeta) >= 7) and (fmeta[6][0].casefold() in ("u","r")):
                 # Re-read with known header size
                 fmeta = np.fromfile(self.ImportWindow.ImpFilePath.text(),dtype=np.uint8,count=int(fmeta[2]))
                 fmeta = re.split(",",''.join(chr(i) for i in fmeta))
                 datatype = fmeta[6].casefold()
                 bitsize = int(fmeta[-2])
-                if datatype[0] == 'u':
+                if datatype.startswith('u'):
                     match bitsize:
                         case 1|6:
                             self.ImportWindow.ImpDataType.setCurrentIndex(1)
@@ -319,8 +546,9 @@ def importFileType(self):
                             self.ImportWindow.ImpDataType.setCurrentIndex(2)
                         case 24:
                             self.ImportWindow.ImpDataType.setCurrentIndex(3)
+
                 self.ImportWindow.FrHead.setValue(int(fmeta[2]))
-                self.ImportWindow.ImpByteOrder.setValue(1) # 'b'
+                self.ImportWindow.ImpByteOrder.setCurrentIndex(1) # 'b'
                 self.ImportWindow.DNPxX.setValue(int(fmeta[4]))
                 self.ImportWindow.DNPxY.setValue(int(fmeta[5]))
                 notes = 'Dim: X = '+str(int(fmeta[4]))+', Y = '+str(int(fmeta[5]))+'\nData type: '+fmeta[6]+'\nPixel depth: '+str(bitsize)+' bit\n' \
@@ -328,8 +556,9 @@ def importFileType(self):
                 guessFramesFromSize()
                 getDimFromName(self.ImportWindow.ImpFilePath.text())
             else:
-              notes = 'Unrecognizable as a Medipix/.mib file.'
-              err = -1
+                notes = 'Unrecognizable as a Medipix/.mib file.'
+                err = -1
+
         elif self.ImportWindow.MRCButton.isChecked():
             # Read in MRC header - first 1024 bytes
             map = np.fromfile(self.ImportWindow.ImpFilePath.text(),count=212,dtype=np.uint8)
@@ -359,20 +588,20 @@ def importFileType(self):
                 dataType = np.fromfile(self.ImportWindow.ImpFilePath.text(),count=1,dtype=np.uint32,offset=12)
                 match dataType:
                     case 0:
-                        self.ImportWindow.ImpDataType.setCurrentIndex(1)
+                        self.ImportWindow.ImpDataType.setCurrentIndex(self.ImportWindow.ImpDataType.findData('i1'))
                         tnote = '8-bit Signed Integer'
                     case 1:
-                        self.ImportWindow.ImpDataType.setCurrentIndex(3)
+                        self.ImportWindow.ImpDataType.setCurrentIndex(self.ImportWindow.ImpDataType.findData('i2'))
                         tnote = '16-bit Signed Integer'
                     case 2:
-                        self.ImportWindow.ImpDataType.setCurrentIndex(5)
+                        self.ImportWindow.ImpDataType.setCurrentIndex(self.ImportWindow.ImpDataType.findData('f4'))
                         tnote = '32-bit Real Float'
                     case 3:
                         tnote = '16-bit Complex Signed Integer, unsupported'
                     case 4:
                         tnote = '32-bit Complex Float, unsupported'
                     case 6:
-                        self.ImportWindow.ImpDataType.Value = 'uint16'
+                        self.ImportWindow.ImpDataType.setCurrentIndex(self.ImportWindow.ImpDataType.findData('u2'))
                         tnote = '16-bit Unsigned Integer'
                     case other:
                         tnote = 'Uknown data type'
@@ -386,10 +615,65 @@ def importFileType(self):
         elif self.ImportWindow.DM34Button.isChecked():
             prepDM(self)
         elif self.ImportWindow.HDF5Button.isChecked():
-            print('HDF5')
+            try:
+                self.T.h5 = h5py.File(self.ImportWindow.ImpFilePath.text())
+                keys = returnKeys(self.T.h5)
+            except:
+                notes = 'Read HDF5 file error'
+                err = -1
+
+            if err != -1:
+                # enable subimage dropdown
+                self.ImportWindow.ImpSubImg.setEnabled(True)
+                
+                # Select sub-image with the 1st largest dimension; unless manually selected
+                if self.sender() is not self.ImportWindow.ImpSubImg:
+                    # List all images' names in `self.ImportWindow.ImpSubImg`
+                    self.ImportWindow.ImpSubImg.blockSignals(True)
+                    pdim = [self.T.h5[key].size for key in keys]
+                    self.ImportWindow.ImpSubImg.clear()
+                    self.ImportWindow.ImpSubImg.addItems(keys)
+                    self.ImportWindow.ImpSubImg.blockSignals(False)
+                    self.ImportWindow.ImpSubImg.setCurrentIndex(np.argmax(pdim))
+
+                # Info of selected sub-image
+                h5i = self.T.h5[keys[self.ImportWindow.ImpSubImg.currentIndex()]]
+
+                # Read dimensions, 
+                dims = h5i.shape
+                if len(dims)<4: np.append(dims,np.ones(4-len(dims),dtype=int))
+                self.ImportWindow.DNPxX.setValue(dims[3])
+                self.ImportWindow.DNPxY.setValue(dims[2])
+                self.ImportWindow.DNFrX.setValue(dims[1])
+                self.ImportWindow.DNFrY.setValue(dims[0])
+                
+                # Find offset, file tail, data type, byte-order of dataset
+                offset = int(h5i.id.get_offset())
+                if offset == -1:
+                    self.ImportWindow.DataOffset.setValue(0)
+                    noteoffs = 'This dataset is not "contiguous", thus data offset is unknown.'
+                else:
+                    self.ImportWindow.DataOffset.setValue(offset)
+                    noteoffs = "Selected dataset's offset is {} bytes.".format(offset)
+                
+                self.T.fileTail = self.T.FileSize - self.ImportWindow.DataOffset.value() - h5i.size
+
+                # set datatype; strip < or > if included as these represent big/little endian
+                self.ImportWindow.ImpDataType.setCurrentIndex(self.ImportWindow.ImpDataType.findData(re.sub('<|>',"",h5i.dtype.str)))
+                
+                if ">" in h5i.dtype.str:
+                    self.ImportWindow.ImpByteOrder.setCurrentIndex(1)
+                    bo = 'Big Endian'
+                else:
+                    self.ImportWindow.ImpByteOrder.setCurrentIndex(0)
+                    bo = 'Little Endian'
+
+                notes = "Dim: X = {:d}, Y = {:d}, Z = {:d}, W = {:d}\n{:s}, {:s}\n{:s}".format(*dims, bo, str(h5i.dtype), noteoffs)
+                if dims[3] == 1:
+                    guessFramesFromDimZ(dims[2])
         else:
             getDimFromName(self.ImportWindow.ImpFilePath.text())
-            self.ImportWindow.ImpDataType.setCurrentIndex(5) # 'single'
+            self.ImportWindow.ImpDataType.setCurrentIndex(self.ImportWindow.ImpDataType.findData("f4")) #32-bit float
             notes = "Custom import"
     else:
         notes = "File path is invalid"
@@ -397,25 +681,21 @@ def importFileType(self):
     
     self.ImportWindow.ImpFileMetaNotes.setText(notes)
     if self.ImportWindow.ImpDataType.currentIndex() == 0 and  err != -1:
-        warnDiag = qtw.QMessageBox()
-        warnDiag.setIcon(qtw.QMessageBox.Warning)
-        warnDiag.setText("The data type indicated in the file's metadata is not supported/recognized.")
-        warnDiag.setWindowTitle("Invalid Data Type!")
+        _ = notifDLG(self,self.ImportWindow,"warn","The data type indicated in the file's metadata is not supported/recognized.","Invalid Data Type!")
 
     # Reset import range selections
-    self.D = gatherImportOptions(self,self.D,preview=False)
     rangeImportExport(self, self.ImportWindow.DNPxX)
     rangeImportExport(self, self.ImportWindow.DNFrX)
 
-    # generate placeholder images
-    self.Fig.Preview.Image = np.zeros(self.D.NPx)
-    self.Fig.Dfrn.Image = np.zeros(self.D.NPx)
-    self.Fig.Dfrn.Real = np.zeros(self.D.NFr)
+    # generate placeholder images #TODO #DELETE?
+    #self.Fig.Preview.Image = np.zeros(self.D.NPx)
+    #self.Fig.Dfrn.Image = np.zeros(self.D.NPx)
+    #self.Fig.Dfrn.Real = np.zeros(self.D.NFr)
 
     importBoxInput(self)
 
 def importBoxInput(self):
-    # Sub functions
+    
     def checkMem(nPx,nFr,byte_size):
         # Display estimated size in green if matches actual size, brown if smaller, red if larger
         if self.T.EstSize == self.T.FileSize:
@@ -430,35 +710,32 @@ def importBoxInput(self):
 
         # Estimate the amount of memory needed to hold the largest arrays in memory
         # Estimate of the distance to the far corner of the diffraciton pattern
-        # est_mem = np.prod([nPx,nFr]) /                                # self.Data
-        # + np.prod(nFr)*(2*np.floor(np.sqrt(np.sum((nPx/2)**2)))+1) /  # self.ImageAx.IntgAnn
-        # + np.prod(nFr)*10 + np.prod(nPx)*2  /                         # self.Fig[id].Image
-        # + np.prod(nPx)*10                                             # self.Mask
+        # est_mem = np.prod([nPx,nFr]) \                                        # self.Data
+        #         + nFr.prod()*(2*np.floor(np.linalg.norm(nPx/2))+1) \          # self.adfImages
+        #         + 10*nFr.prod() + 2*nPx.prod()  \                             # self.Fig[id].Image
+        #         + 10*nPx.prod()                                               # self.Mask
         est_mem = np.prod([nPx,nFr]) \
-        + np.prod(nFr)*(2*np.floor(np.sqrt(np.sum((nPx/2)**2)))+1) \
-        + np.prod(nFr)*10 + np.prod(nPx)*2 \
-        + np.prod(nPx)*10
+                + nFr.prod()*(2*np.floor(np.linalg.norm(nPx/2))+1) \
+                + 10*nFr.prod() + 2*nPx.prod() \
+                + 10*nPx.prod()
         self.T.EstMem = est_mem*byte_size
 
         notes = "Estimated memory usage: {:.3f} GiB.".format(self.T.EstMem/(1024**3))
-        if self.T.EstMem > self.C.MemTot:
-            warnDiag = qtw.QMessageBox()
-            warnDiag.setIcon(qtw.QMessageBox.Warning)
-            msg = "WARNING: Size of dataset is larger than the system memory!"
-            warnDiag.setText(msg)
-            warnDiag.setWindowTitle("Size Exceeds System Memory!")
-            notes = notes+"\n"+msg
         
-        notes = notes+"\nSystem byte order: "+self.C.EndianTxt[self.C.SysEndian]+"."
+        # warn if the dataset will not fit in memory
+        if self.T.EstMem > self.C.MemTot:
+            msg = "WARNING: Size of dataset is larger than the system memory!"
+            _ = notifDLG(self,self.ImportWindow,"warn",msg,"Size Exceeds System Memory!")
+            notes += "\n"+msg
+        
+        notes += "\nSystem byte order: " + self.C.EndianTxt[self.C.SysEndian] + "."
+
         return notes
 
     def checkGPUMEM(nPx,nFr):
-        igpu = self.ImportWindow.ImpGPU.currentIndex()
-        if ~igpu:
+        igpu = self.ImportWindow.ImpGPU.currentData()
+        if igpu == None:
             gpu_note = 'GPU disabled.'
-        #elif np.prod([nPx,nFr]) > intmax('int32'):
-        #    gpu_note = 'GPU disabled, because dataset has more elements than MATLAB CUDA''s maximum (2^31-1).';
-        #    self.ImportWindow.ImpGPU.setCurrentIndex(0)
         else:
             tgpu = "GPU {:.0f}. "+self.C.GPU(igpu).name+" {:.2f} GiB".format(igpu, self.C.GPU(igpu).mem/1024**3)
             try:
@@ -472,107 +749,109 @@ def importBoxInput(self):
                         pass
 
                 amem_t = '{:.3f} GiB'.format(amem/1024**3)
-                wt = []
+                wt = None
+                # TODO - this seems really arbitrary
                 if self.T.EstMem > amem - 128*1024**2: # Has 128 MiB extra?
-                    gpu_note = tgpu+" has NOT enough free memory ("+amem_t+"). 128 MiB EXTRA free memory is also required."
+                    gpu_note = tgpu + " has NOT enough free memory ("+amem_t+"). 128 MiB EXTRA free memory is also required."
                     wt = 'GPU Not Enough Free Memory!'
-                    self.ImportWindow.ImpGPU.setCurrentIndex(0)
+                    self.ImportWindow.ImpGPU.setCurrentIndex(self.ImportWindow.ImpGPU.findData(None))
+                
                 elif self.T.EstMem > (amem - 512*1024**2): # Has 512 MiB extra?
-                    gpu_note = tgpu+" has LIMITED free memory ("+amem_t+") and may cause errors."
+                    gpu_note = tgpu + " has LIMITED free memory ("+amem_t+") and may cause errors."
                     wt = 'GPU Limited Free Memory!'
+                
                 else:
-                    gpu_note = tgpu+" has enough free memory ("+amem_t+") for the selected dataset."
+                    gpu_note = tgpu + " has enough free memory ("+amem_t+") for the selected dataset."
                 
                 # Notify warnings if any
                 if wt:
-                    warnDiag = qtw.QMessageBox()
-                    warnDiag.setIcon(qtw.QMessageBox.Warning)
-                    warnDiag.setText(gpu_note)
-                    warnDiag.setWindowTitle(wt)
+                    _ = notifDLG(self,self.ImportWindow,"warn",gpu_note,wt)
             except:
                 gpu_note = "Failed to select "+tgpu+"!"
-                warnDiag = qtw.QMessageBox()
-                warnDiag.setIcon(qtw.QMessageBox.Warning)
-                warnDiag.setText(gpu_note)
-                warnDiag.setWindowTitle("Error Selecting GPU")
-                self.ImportWindow.ImpGPU.setCurrentIndex(0)
+                _ = notifDLG(self,self.ImportWindow,"warn",gpu_note,"Error Selecting GPU")
+                self.ImportWindow.ImpGPU.setCurrentIndex(self.ImportWindow.ImpGPU.findData(None))
+
         return gpu_note
 
     # bypass execution if signals are actively being blocked (i.e. for programmatically updating UI values)
     if self.blockAllSignals:
         return
             
-    self.ImportWindow.ImpEstFilesize.setText("")
-    notes = ""
-    dfrn_src = real_src = self.sender()
+    self.ImportWindow.ImpEstFilesize.clear()       # clear estimated file size
+    notes = None                                   # initialize notes in case file is not on path
+    dfrn_src = real_src = self.sender()            # capture UI component that triggered this callback
 
     if os.path.isfile(self.ImportWindow.ImpFilePath.text()):
-        # Update Diffraction and Real-space import ranges; use dummy event if source is not a range UI
+
+        # Update Diffraction and Real-space import ranges; use default source if self.sender() is not a range UI component
         if (not hasattr(self.sender(),'accessibleDescription')) or (not "Dfrn" in self.sender().accessibleDescription()):
             dfrn_src = self.ImportWindow.IPxD
         if (not hasattr(self.sender(),'accessibleDescription')) or (not "Real" in self.sender().accessibleDescription()):
             real_src = self.ImportWindow.IFrD
     
-    self.D = gatherImportOptions(self,self.D,preview=False)
-    dnote,_,_,nPx,_ = rangeImportExport(self, dfrn_src)
-    rnote,_,_,nFr,_ = rangeImportExport(self, real_src)
-    
-    notes = dnote+rnote
-    
-    # Current dataset dimensions
-    irng = [nPx,nFr]
-
-    # Allow for virtual memory mapping in some situations
-    if self.ImportWindow.FrHead.value() == 0 and self.ImportWindow.FrFoot.value() == 0 \
-        and (not self.ImportWindow.HDF5Button.isChecked() or self.ImportWindow.DataOffset.value()) \
-        and self.ImportWindow.ImpByteOrder.currentData() == self.C.SysEndian \
-        and not 'int' in self.ImportWindow.ImpDataType.currentData() \
-        and [self.ImportWindow.DNPxX.value(), self.ImportWindow.DNPxY.value(), self.ImportWindow.DNFrX.value(), self.ImportWindow.DNFrY.value()]==irng:
-        self.ImportWindow.ImpMemType.setEnabled(True)
-    else:
-        self.ImportWindow.ImpMemType.setEnabled(False)
-        self.ImportWindow.ImpMemType.setCurrentIndex(0) #Physical Memory
-    
-    # Calculate dataset size and memory usage
-    if self.ImportWindow.ImpDataType.currentIndex != 0:
-        byte_size = getattr(self.ByteSize,self.ImportWindow.ImpDataType.currentData())
-        self.T.EstSize = self.ImportWindow.DataOffset.value() + self.T.fileTail \
-            + (self.ImportWindow.FrHead.value()+self.ImportWindow.DNPxX.value()*self.ImportWindow.DNPxY.value()*byte_size+self.ImportWindow.FrFoot.value()) \
-            * self.ImportWindow.DNFrX.value()*self.ImportWindow.DNFrY.value()
-        self.ImportWindow.ImpEstFilesize.setText("{} bytes, {:.2f} GiB".format(self.T.EstSize,self.T.EstSize/1024**3))
-
-        if (self.ImportWindow.ImpDataType.currentData() != 'unknown') and (np.issubdtype(self.ImportWindow.ImpDataType.currentData(),np.integer)):
-            if byte_size > 4:
-                f = 'f8'
-            else:
-                f = 'f4'
-            byte_size = getattr(self.ByteSize,f)
-            notes = notes+"\nDataset will be converted into "+str(byte_size*8)+"-bit Real."
+        dnote,_,_,nPx,_ = rangeImportExport(self, dfrn_src)
+        rnote,_,_,nFr,_ = rangeImportExport(self, real_src)
         
-        notes = notes+"\nImport by "+self.ImportWindow.ImpMemType.currentText()+"\n"+checkMem(nPx,nFr,byte_size)
-        notes = notes+"\n\n"+checkGPUMEM(nPx,nFr)
-    
-    # Allow to swap dataset/keep parameters if the dimensions are identical
-    #self.ImportWindow.ImpKeepP.Enable = ~isempty(self.D) and isequal(irng, [self.D.NPxX self.D.NPxY self.D.NFrX self.D.NFrY])
-    self.ImportWindow.ImpKeepP.setEnabled(irng == [self.D.NPxX, self.D.NPxY, self.D.NFrX, self.D.NFrY])
-    if self.ImportWindow.ImpKeepP.isEnabled() == False:
-        self.ImportWindow.ImpKeepP.setChecked(False)
-    if self.ImportWindow.ImpKeepP.isChecked()==True:
-        notes = notes+"\n\nSwapping dataset - keeping current setups/alignments etc."
+        notes = dnote+rnote
+
+        # Enable/Disable Range UIs
+        self.ImportWindow.ImpPxPart.setEnabled(True)
+        self.ImportWindow.ImpFrPart.setEnabled(True)
+        
+        # Current dataset dimensions
+        irng = [nPx,nFr]
+
+        # Allow for virtual memory mapping in some situations
+        if self.ImportWindow.FrHead.value() == 0 and self.ImportWindow.FrFoot.value() == 0 \
+                and (not self.ImportWindow.HDF5Button.isChecked() or self.ImportWindow.DataOffset.value()>0) \
+                and (self.ImportWindow.ImpByteOrder.currentData() == self.C.SysEndian) \
+                and (not 'int' in self.ImportWindow.ImpDataType.currentData()) \
+                and [self.ImportWindow.DNPxX.value(), self.ImportWindow.DNPxY.value(), self.ImportWindow.DNFrX.value(), self.ImportWindow.DNFrY.value()]==irng:
+            self.ImportWindow.ImpMemType.setEnabled(True)
+        else:
+            self.ImportWindow.ImpMemType.setEnabled(False)
+            self.ImportWindow.ImpMemType.setCurrentIndex(0) #Physical Memory
+        
+        # Calculate dataset size and memory usage
+        if self.ImportWindow.ImpDataType.currentData() != "unknown":
+            byte_size = self.ByteSize[self.ImportWindow.ImpDataType.currentData()]
+            self.T.EstSize = self.ImportWindow.DataOffset.value() + self.T.fileTail \
+                            + (self.ImportWindow.FrHead.value()+self.ImportWindow.DNPxX.value()*self.ImportWindow.DNPxY.value()*byte_size+self.ImportWindow.FrFoot.value()) \
+                            * self.ImportWindow.DNFrX.value()*self.ImportWindow.DNFrY.value()
+            self.ImportWindow.ImpEstFilesize.setText("{} bytes, {:.2f} GiB".format(self.T.EstSize,self.T.EstSize/1024**3))
+
+            if np.issubdtype(self.ImportWindow.ImpDataType.currentData(),np.integer):
+                if byte_size > 4:
+                    f = 'f8'
+                else:
+                    f = 'f4'
+                byte_size = self.ByteSize[f]
+                notes += "\nDataset will be converted into "+str(byte_size*8)+"-bit Real."
+            
+            notes += "\nImport by "+self.ImportWindow.ImpMemType.currentText()+"\n"+checkMem(nPx,nFr,byte_size)+"\n\n"
+            notes += checkGPUMEM(nPx,nFr)
+        
+        # Allow to swap dataset/keep parameters if the dimensions are identical and self.D is not None
+        #self.ImportWindow.ImpKeepP.Enable = ~isempty(self.D) and isequal(irng, [self.D.NPxX self.D.NPxY self.D.NFrX self.D.NFrY])
+        self.ImportWindow.ImpKeepP.setEnabled((self.D != None) and (irng == [self.D.NPxX, self.D.NPxY, self.D.NFrX, self.D.NFrY]))
+        if self.ImportWindow.ImpKeepP.isEnabled() == False:
+            self.ImportWindow.ImpKeepP.setChecked(False)
+        if self.ImportWindow.ImpKeepP.isChecked()==True:
+            notes += "\n\nSwapping dataset - keeping current setups/alignments etc."
     
     # update notes in the text field
     self.ImportWindow.ImpNotes.setText(notes)
 
-def saveCallbacks():
+def saveCallbacks(self):
     pass
 
-def exportCallbacks():
+def exportCallbacks(self):
     pass
 
-def axeDirCallbacks():
+def axeDirCallbacks(self):
     pass
 
-def realSpaceROICallbacks():
+def realSpaceROICallbacks(self):
     pass
 
 def clearDetectors(self):
@@ -603,15 +882,16 @@ def detectorModeCallbacks(self):
         return
     
     dmod = self.DetrMode.currentData()
-    enableWindows(self,False) # Enable windows
-    clearDetectors(self) # Clear ROIs on Diffraction #TODO deletes tbCirc on initial alignment?
+
+    enableWindows(self,False) # Disable all on change windows
+    clearDetectors(self) # Clear ROIs on Diffraction
 
     # Clear Real-space images if not switching to alignment or preview
     if dmod not in ["AlignMod","PrvwMod"]:
         for ii in self.G.RealID:
             if not "Mask" in ii:
-                getattr(self.Fig,ii).ax.cla()
-                getattr(self.Fig,ii).canvas.draw()
+                #self.Fig[ii].ax.cla()
+                self.Fig[ii].canvas.draw_idle()
 
     # Enable/Disable CoM/DPC related buttons/images
     for btn in self.G.CoM_btns:
@@ -628,7 +908,7 @@ def detectorModeCallbacks(self):
         self.SettingsWindow.DispImage.clear()
         for itemText,itemID in zip(imageNames,self.G.ImgID):
             self.SettingsWindow.DispImage.addItem(itemText,itemID) # drop down items
-            getattr(self.Fig,itemID).setWindowTitle(itemText) # window title
+            self.Fig[itemID].setWindowTitle(itemText) # window title
         
         # Subsitute "CoM"/"DPC" in button text
         for btn in self.G.CoM_btns:
@@ -636,16 +916,20 @@ def detectorModeCallbacks(self):
         
     else:
         self.SettingsWindow.DispImage.clear()
-        for itemText,itemID in zip(self.G.ImgName,self.G.ImgID):
-            if "CoM" not in itemText:
+        for itemText,itemID,itemType in zip(self.G.ImgName,self.G.ImgID,self.G.ImgType):
+            if "CoM" not in itemType:
                 self.SettingsWindow.DispImage.addItem(itemText,itemID) # drop down items
             else:
-                getattr(self.Fig,itemID).setVisible(False) # Image windows
+                self.Fig[itemID].hide() # Image windows
 
 
     # Show primary diffraction/real-space image when mode changes unless in Preview mode
-    self.Fig.Dfrn.setVisible(dmod != "PrvwMod")
-    self.Fig.Real.setVisible(dmod != "PrvwMod")
+    if dmod != "PrvwMod":
+        self.Fig.Dfrn.show()
+        self.Fig.Real.show()
+    else:
+        self.Fig.Dfrn.hide()
+        self.Fig.Real.hide()
 
     # Special case for Import Preview Mode
     if dmod == "PrvwMod":
@@ -658,14 +942,14 @@ def detectorModeCallbacks(self):
         self.SettingsWindow.SettingsTabGroup.setTabVisible(self.SettingsWindow.SettingsTabGroup.indexOf(self.SettingsWindow.InfoTab),False)
         self.SaveWindow.SaveTabGroup.setTabVisible(self.SaveWindow.SaveTabGroup.indexOf(self.SaveWindow.ExportTab),False)
         
-        self.Fig.Preview.setVisible(True)
-        self.ImportWindow.setVisible(True)
-        self.SettingsWindow.setVisible(True)
+        self.Fig.Preview.show()
+        self.ImportWindow.show()
+        self.SettingsWindow.show()
     else:
         self.P.DetrMode = self.DetrMode.currentData() # Note current mode
         # Remove "Preview" image from drop down
         self.SettingsWindow.DispImage.removeItem(self.SettingsWindow.DispImage.findData("Preview"))
-        self.Fig.Preview.setVisible(False)
+        self.Fig.Preview.hide()
 
         # Show all UIs
         self.SettingsWindow.SettingsTabGroup.setTabVisible(self.SettingsWindow.SettingsTabGroup.indexOf(self.SettingsWindow.MiscTab),True)
@@ -676,10 +960,13 @@ def detectorModeCallbacks(self):
     self.SettingsWindow.DispImage.blockSignals(False)
 
     # Define images in the saving list
+    self.SaveWindow.SaveImgList.blockSignals(True)
     self.SaveWindow.SaveImgList.clear()
     self.SaveWindow.SaveImgList.addItems([self.SettingsWindow.DispImage.itemData(ii) for ii in range(self.SettingsWindow.DispImage.count())])
-    #mockUICallbacks(self,self.SaveImgPrefix)  # Update Image saving prefix #TODO
-    #mockUICallbacks(self,self.ShowDfrnAxes) # Update diffraction axis annotations #TODO
+    self.SaveWindow.SaveImgList.blockSignals(False)
+    self.SaveWindow.SaveImgPrefix.textChanged.emit(self.SaveWindow.SaveImgPrefix.text()) # Update Image saving prefix
+    self.SettingsWindow.ShowDfrnAxes.clicked.emit() # Update diffraction axis annotations
+    
 
     # Set detector size when transmitted beam is aligned the first time
     if not(self.P.TransBeamInit) and (dmod != "AlignMod"):
@@ -690,44 +977,43 @@ def detectorModeCallbacks(self):
         self.P.VrApXY = self.B0
         self.P.TransBeamInit = 1
 
-    #set(self.G.DetrUI,'Visible','off')  # Diffraction detector UI
     # hide custom mask maths tab
     self.SettingsWindow.SettingsTabGroup.setTabVisible(self.SettingsWindow.SettingsTabGroup.indexOf(self.SettingsWindow.MathTab),False)
 
     match dmod:
         case "PrvwMod":
             self.DfrnDetrTabGroup.setCurrentIndex(0)
-            previewCallbacks(self) #TODO
+            previewCallbacks(self)
         case "AlignMod":
             # display the full dataset pacbed
             self.Fig.Dfrn.Image = self.Data.sum(axis=0).reshape(self.D.NPx)
             self.ImageAx.Dfrn = self.Fig.Dfrn.ax.imshow(self.Fig.Dfrn.Image,cmap=self.Fig.Dfrn.cmap)
             self.ImageAx.Dfrn.figure.set_facecolor('black')
-            self.Fig.Dfrn.setVisible(True)
+            self.Fig.Dfrn.show()
             self.Fig.Dfrn.ax.axis(self.P.DfrnAxLim)
-            self.Fig.Dfrn.canvas.draw()
+            self.Fig.Dfrn.canvas.draw_idle()
 
             # initialize real space image with sum over all diffraction space
             self.Fig.Real.Image = self.Data.sum(axis=1).reshape(self.D.NFrY,self.D.NFrX)
             self.ImageAx.Real = self.Fig.Real.ax.imshow(self.Fig.Real.Image,cmap=self.Fig.Real.cmap)
             self.ImageAx.Real.figure.set_facecolor('black')
-            self.Fig.Real.setVisible(True)
+            self.Fig.Real.show()
             self.Fig.Real.ax.axis(self.P.RealAxLim)
-            self.Fig.Real.canvas.draw()
+            self.Fig.Real.canvas.draw_idle()
 
             # initial masking for diffraction space should be all ones
             self.Fig.DfrnMask.Image = np.ones(self.D.NPx)
             self.ImageAx.DfrnMask = self.Fig.DfrnMask.ax.imshow(self.Fig.DfrnMask.Image,cmap=self.Fig.DfrnMask.cmap)
             self.ImageAx.DfrnMask.figure.set_facecolor('black')
             self.Fig.DfrnMask.ax.axis(self.P.DfrnAxLim)
-            self.Fig.DfrnMask.canvas.draw()
+            self.Fig.DfrnMask.canvas.draw_idle()
             
             # initial masking for real space should be all ones
             self.Fig.RealMask.Image = np.ones(self.D.NFr)
             self.ImageAx.RealMask = self.Fig.RealMask.ax.imshow(self.Fig.RealMask.Image,cmap=self.Fig.RealMask.cmap)
             self.ImageAx.RealMask.figure.set_facecolor('black')
             self.Fig.RealMask.ax.axis(self.P.RealAxLim)
-            self.Fig.RealMask.canvas.draw()
+            self.Fig.RealMask.canvas.draw_idle()
 
             # Create transmitted beam annotation, allow for disk as large as the entire diffraction pattern
             if self.A.tb is None:
@@ -740,7 +1026,7 @@ def detectorModeCallbacks(self):
             
             self.TBR.valueChanged.emit(self.TBR.value())
             #self.A.tb.updateBackground()
-            #self.A.tb.redraw()
+            self.A.tb.redraw()
             
         case "AnnMod":
             self.DfrnDetrTabGroup.setCurrentIndex(2)
@@ -777,7 +1063,7 @@ def datasetOptCallbacks(self):
             try:
                 self.Data.byteswap(inplace=True)
             except:
-                notifDLG(self,'error',"It seems the system does not have enough memory for this process! Maybe try to increase system's virtual memory.", "Out of Memory")
+                notifDLG(self,self,'error',"It seems the system does not have enough memory for this process! Maybe try to increase system's virtual memory.", "Out of Memory")
                 return
 
             self.D.ByteOrder = ['b','l'][self.D.ByteOrder=='b'] # swap `l`<->`b` at `self.D.ByteOrder`
@@ -786,7 +1072,7 @@ def datasetOptCallbacks(self):
             #delete(self.T.progDLG) #TODO
             self.progressBar.setValue(1)
             self.progressBar.setMaximum(1)
-            sel = notifDLG(self,'quest',"Is the current byte-order correct?",'Byte Order Swap',["Yes","No. Revert"])
+            sel = notifDLG(self,self,'quest',"Does the current byte-order look correct?",'Byte Order Swap',["Yes","No. Revert"])
             
             # Run the process again if selected "No ....."
             if sel.startswith("No"):
@@ -796,27 +1082,23 @@ def datasetOptCallbacks(self):
             # Diffraction or real-space
             if self.sender() == self.SettingsWindow.SwapDfrnXY:
                 # Swap diffraction X/Y dimensions
-                self.D.DNPxX,self.D.DNPxY = self.D.DNPxY,self.D.DNPxX
-                self.D.NPxX,self.D.NPxY = self.D.NPxY,self.D.NPxX
-                self.D.PxX1,self.D.PxY1 = self.D.PxY1,self.D.PxX1
-                self.D.NPx = np.flip(self.D.NPx)
+                self.D.swapDiff()
+                #self.D.DNPxX,self.D.DNPxY = self.D.DNPxY,self.D.DNPxX
+                #self.D.NPxX,self.D.NPxY = self.D.NPxY,self.D.NPxX
+                #self.D.PxX1,self.D.PxY1 = self.D.PxY1,self.D.PxX1
+                #self.D.NPx = np.flip(self.D.NPx)
 
             else:
                 # Delete all Real-space ROIs;  
-                for ii in self.A.ROIs:
-                    try:
-                        self.A.ROIs[ii].remove()
-                    except:
-                        pass
-                    finally:
-                        self.A.ROIs[ii] = None
+                self.A.removeGroup("ROI")
                 self.P.TransBeamInit = 1
 
                 # Swap real X/Y dimensions
-                self.D.DNFrX,self.D.DNFrY = self.D.DNFrY,self.D.DNFrX
-                self.D.NFrX,self.D.NFrY = self.D.NFrY,self.D.NFrX
-                self.D.FrX1,self.D.FrY1 = self.D.FrY1,self.D.FrX1
-                self.D.NFr = np.flip(self.D.NFr)
+                self.D.swapReal()
+                #self.D.DNFrX,self.D.DNFrY = self.D.DNFrY,self.D.DNFrX
+                #self.D.NFrX,self.D.NFrY = self.D.NFrY,self.D.NFrX
+                #self.D.FrX1,self.D.FrY1 = self.D.FrY1,self.D.FrX1
+                #self.D.NFr = np.flip(self.D.NFr)
             
             # Re-prepare the imported data
             importCallbacks(self)
@@ -841,7 +1123,7 @@ def getImportInfo(self):
     d0 = self.T.prev_D
     notes = "File: "+d.filePath
     if d.subImg != '':
-        notes = notes+"\nSub-dataset: "+d.subImg
+        notes += "\nSub-dataset: "+d.subImg
 
     notes += "\n\n# Current Data Info #" +\
             "\nByte Order: "+self.C.EndianTxt[d.ByteOrder]+"\nData Type: "+np.dtype(d.DataType).name+"\nByte Size: "+str(d.ByteSize)+" bytes" +\
@@ -855,96 +1137,31 @@ def getImportInfo(self):
     
     return notes
 
-def previewCallbacks(self):
-    # bypass execution if signals are actively being blocked (i.e. for programmatically updating UI values)
-    if self.blockAllSignals:
-        return
-
-    self.Fig.Preview.show()
-
-    match self.sender():
-        case self.DetrMode: # Entering mode
-            self.Fig.Preview.ax.cla()
-            self.Fig.Preview.Image = None # Clear previous preview
-            enableWindows(self,True) # Enable windows
-          
-        case self.PvBC|self.PvBL|self.PvBR|self.PvCC|self.PvCL|self.PvCR|self.PvTC|self.PvTL|self.PvTR: # Location buttons
-            #set fractional probe position; naming convetion is horrible #TODO
-            match self.sender(): 
-                # PvB* = Bottom; PvC* = Vertical Center; PvT* = Top
-                case self.PvBC|self.PvBL|self.PvBR:
-                    frY = self.PvFrY.maximum()
-                case self.PvCC|self.PvCL|self.PvCR:
-                    frY = np.ceil(self.PvFrY.maximum()/2)
-                case self.PvTC|self.PvTL|self.PvTR:
-                    frY = 1
-                
-            match self.sender(): 
-                # Pv*L = Left; Pv*C = Horizontal Center; Pv*R = Right
-                case self.PvBR|self.PvCR|self.PvTR:
-                    frX = self.PvFrX.maximum()
-                case self.PvBC|self.PvCC|self.PvTC:
-                    frX = np.ceil(self.PvFrX.maximum()/2)
-                case self.PvBL|self.PvCL|self.PvTL:
-                    frX = 1
-
-            self.PvFrX.setValue(int(frX))
-            self.PvFrY.setValue(int(frY))
-            self.PreviewButton.click() # Preview
-          
-        case self.PreviewButton|self.UpdateImages|self.PvFrX|self.PvFrY:
-            self.Fig.Preview.ax.cla()
-            # Get parameters
-            importCallbacks(self)
-            d = self.D
-            ifx = self.PvFrX.value()-1 # indices displayed in GUI start at 1; python indices start at 0 -->
-            ify = self.PvFrY.value()-1 # subtract 1 to get to the beginning of the frame of interest
-
-            if d != []:
-                dnpx = d.DNPxX
-                dnpy = d.DNPxY
-                dnfx = d.DNFrX
-                dnfy = d.DNFrY
-                self.P.PreviewAxLim = [0, dnpx -1 , 0, dnpy - 1]
-                self.Fig.Preview.ax.set_xlim(0,dnpx-1)
-                self.Fig.Preview.ax.set_ylim(0,dnpy-1)
-                try:
-                    if not d.h5ds == []: # Preview HDF5
-                        f = h5py.File(d.filePath)
-                        if d.h5ds in f:
-                            frame = f["datacube"][ify,ifx,:,:]
-                        else:
-                            return
-                    else: # Preview others
-                        skipBytes = d.Offset + (d.FrHead + dnpx*dnpy*d.ByteSize + d.FrFoot)*(dnfx*ify + ifx) + d.FrHead
-                        frame = np.fromfile(file=d.filePath,offset=skipBytes,count=1,dtype=str(dnpx*dnpy)+d.DataType).reshape(dnpx,dnpy)
-
-                    self.Fig.Preview.Image = frame
-                    self.ImageAx.Preview = self.Fig.Preview.ax.imshow(self.Fig.Preview.Image)
-                    plotImage(self,"Preview") # Plot image
-                    datasetOptCallbacks(self) # Check NaN
-                except:
-                    notifDLG(self,'error',"Errors occurred during preview! Maybe reached end-of-file.", 'Error during Preview!')
-
 def transBeamCallbacks(self):
     match self.sender():
         case self.DetrMode: # Entering mode
-            self.Fig.Dfrn.canvas.draw()
-            self.Fig.Dfrn.activateWindow() # Select `Dfrn` image
+            # Create transmitted beam annotation, allow for disk as large as the entire diffraction pattern
+            if self.A.tb is None:
+                self.A.tb = InteractiveCircle(center = self.B0, radius = self.TBR.value(), axis=self.Fig.Dfrn.ax, color="r", interactions="all")
+                self.A.tb.connect()
+                self.A.tb.updateCircle.connect(lambda: moveTransBeam(self))
+                self.Fig.Dfrn.canvas.draw_idle()
+            
+            # Select `Dfrn` image and bring window to the front
+            self.SettingsWindow.DispImage.setCurrentIndex(self.SettingsWindow.DispImage.findData("Dfrn"))
+            self.Fig.Dfrn.activateWindow()
+
             # If this is the initializing alignment, then do swap byte check and auto-align
             if not self.P.TransBeamInit:
-                pass#datasetOptCallbacks(app, event) #TODO # checks for nans and asks if user wants to swap byteorder
+                datasetOptCallbacks(self) # checks for nans and asks if user wants to swap byteorder
                 #autoAlign() #TODO
-            #enableWindows(app,true) # Enable windows #TODO
+            
+            enableWindows(self,True) # Enable windows
 
         case self.UpdateImages: # Update images
             # Create a summed image of all diffraction patterns simply for alignment and calibration
-            self.ImageAx.DfrnMask = self.Fig.DfrnMask.ax.imshow(np.ones(self.D.NPx,self.D.DataType))
-            self.Fig.DfrnMask.canvas.draw()
+            self.Fig.DfrnMask.Image = np.ones(self.D.NPx,self.D.DataType)
             self.Fig.Real.Image = np.reshape(self.Data.sum(axis=1), self.D.NFr)
-            self.ImageAx.Real.set_data(self.Fig.Real.Image)
-            self.ImageAx.Real.autoscale()
-            self.Fig.Real.canvas.draw()
 
         case self.TBAutoAlign: # Auto-align
             pass#autoAlign() #TODO
@@ -1012,7 +1229,7 @@ def moveTransBeam(self):
     # Update transmitted beam annotation
     if (self.sender() is not self.A.tb) and (self.A.tb is not None):
         self.A.tb.center = b0
-        self.A.tb.radius = r
+        self.A.tb.radius = np.array([r])
         self.A.tb.redraw()
 
     # unblock trigger signals
@@ -1021,16 +1238,16 @@ def moveTransBeam(self):
     detrCoordCallbacks(self)
 
 
-def virtualApertureCallbacks():
+def virtualApertureCallbacks(self):
     pass
 
-def customDetectorCallbacks():
+def customDetectorCallbacks(self):
     pass
 
-def mathCallbacks():
+def mathCallbacks(self):
     pass
 
-def saveVect():
+def saveVect(self):
     pass
 
 def resizeWindowCallbacks(self):
@@ -1114,7 +1331,7 @@ def debugImport(self):
         self.ShowImportWdw.trigger()
         for widget in self.ImportWindow.children():
             widget.setEnabled(True)
-        on_ImpFileSelect_clicked(self)
+        importSelectFile(self)
         self.ImportWindow.ImportDataButton.click()
 
 def breakpoint(self):
@@ -1136,10 +1353,11 @@ def slotsSignals(self):
     self.ScanDirUnlock.clicked.connect(lambda: unlockScanDir(self))
 
     # Import window slots/signals
-    self.ShowImportWdw.triggered.connect(lambda:on_ShowImportWdw_triggered(self))
-    self.ImportWindow.ImportCancelButton.clicked.connect(lambda:on_ShowImportWdw_triggered(self))
-    self.ImportWindow.ImpFileSelect.clicked.connect(lambda:on_ImpFileSelect_clicked(self))
-    self.ImportWindow.ImportDataButton.clicked.connect(lambda:importData(self))
+    self.ShowImportWdw.triggered.connect(lambda:importCallbacks(self))
+    self.ImportWindow.ImportCancelButton.clicked.connect(lambda:importCallbacks(self))
+    self.ImportWindow.xEvent.connect(lambda: self.ShowImportWdw.setChecked(False)) #ImportWindow.ImportCancelButton.click())
+    self.ImportWindow.ImpFileSelect.clicked.connect(lambda:importSelectFile(self))
+    self.ImportWindow.ImportDataButton.clicked.connect(lambda:importCallbacks(self))
     self.ImportWindow.ImpKeepP.clicked.connect(lambda: importBoxInput(self))
     self.ImportWindow.ImpGPU.currentIndexChanged.connect(lambda: importBoxInput(self))
     self.ImportWindow.ImpFrPart.clicked.connect(lambda: importBoxInput(self))
@@ -1163,23 +1381,24 @@ def slotsSignals(self):
     self.ImportWindow.DataOffset.valueChanged.connect(lambda: importBoxInput(self))
     self.ImportWindow.FrFoot.valueChanged.connect(lambda: importBoxInput(self))
     self.ImportWindow.FrHead.valueChanged.connect(lambda: importBoxInput(self))
+    self.ImportWindow.ImpSubImg.currentIndexChanged.connect(lambda: importFileType(self))
 
     # save window slots/signals
     self.SaveWindow.SaveImgSelectAll.clicked.connect(lambda isChecked: self.SaveWindow.SaveImgList.selectAll() if isChecked else self.SaveWindow.SaveImgList.clearSelection())
 
     # menu action slots/signals
-    self.actionShow_Diffraction_Pattern.triggered.connect(lambda: self.Fig.Dfrn.setVisible(self.actionShow_Diffraction_Pattern.isChecked()))
-    self.actionShow_Diffraction_Mask.triggered.connect(lambda: self.Fig.DfrnMask.setVisible(self.actionShow_Diffraction_Mask.isChecked()))
-    self.actionShow_Real_Space_Image.triggered.connect(lambda: self.Fig.Real.setVisible(self.actionShow_Real_Space_Image.isChecked()))
-    self.actionShow_Real_Space_Mask.triggered.connect(lambda: self.Fig.RealMask.setVisible(self.actionShow_Real_Space_Mask.isChecked()))
-    self.actionShow_Center_of_Mass_Magnitude_CoM.triggered.connect(lambda: self.Fig.CoMMag.setVisible(self.actionShow_Center_of_Mass_Magnitude_CoM.isChecked()))
-    self.actionShow_Center_of_Mass_X.triggered.connect(lambda: self.Fig.CoMX.setVisible(self.actionShow_Center_of_Mass_X.isChecked()))
-    self.actionShow_Center_of_Mass_Y.triggered.connect(lambda: self.Fig.CoMY.setVisible(self.actionShow_Center_of_Mass_Y.isChecked()))
-    self.actionShow_Colorwheel.triggered.connect(lambda: self.Fig.ColorWheel.setVisible(self.actionShow_Colorwheel.isChecked()))
-    self.actionShow_Differential_Center_of_Mass_dCoM.triggered.connect(lambda: self.Fig.dCoM.setVisible(self.actionShow_Differential_Center_of_Mass_dCoM.isChecked()))
-    self.actionShow_Integrated_Center_of_Mass_iCoM.triggered.connect(lambda: self.Fig.iCoM.setVisible(self.actionShow_Integrated_Center_of_Mass_iCoM.isChecked()))
-    self.actionShow_Phase_Magnitude.triggered.connect(lambda: self.Fig.CoMPhMag.setVisible(self.actionShow_Phase_Magnitude.isChecked()))
-    self.actionShow_Phase_Vector_Image.triggered.connect(lambda: self.Fig.CoMPh.setVisible(self.actionShow_Phase_Vector_Image.isChecked()))
+    self.actionShow_Diffraction_Pattern.triggered.connect(lambda: self.Fig.Dfrn.show(self.actionShow_Diffraction_Pattern.isChecked()))
+    self.actionShow_Diffraction_Mask.triggered.connect(lambda: self.Fig.DfrnMask.show(self.actionShow_Diffraction_Mask.isChecked()))
+    self.actionShow_Real_Space_Image.triggered.connect(lambda: self.Fig.Real.show(self.actionShow_Real_Space_Image.isChecked()))
+    self.actionShow_Real_Space_Mask.triggered.connect(lambda: self.Fig.RealMask.show(self.actionShow_Real_Space_Mask.isChecked()))
+    self.actionShow_Center_of_Mass_Magnitude_CoM.triggered.connect(lambda: self.Fig.CoMMag.show(self.actionShow_Center_of_Mass_Magnitude_CoM.isChecked()))
+    self.actionShow_Center_of_Mass_X.triggered.connect(lambda: self.Fig.CoMX.show(self.actionShow_Center_of_Mass_X.isChecked()))
+    self.actionShow_Center_of_Mass_Y.triggered.connect(lambda: self.Fig.CoMY.show(self.actionShow_Center_of_Mass_Y.isChecked()))
+    self.actionShow_Colorwheel.triggered.connect(lambda: self.Fig.ColorWheel.show(self.actionShow_Colorwheel.isChecked()))
+    self.actionShow_Differential_Center_of_Mass_dCoM.triggered.connect(lambda: self.Fig.dCoM.show(self.actionShow_Differential_Center_of_Mass_dCoM.isChecked()))
+    self.actionShow_Integrated_Center_of_Mass_iCoM.triggered.connect(lambda: self.Fig.iCoM.show(self.actionShow_Integrated_Center_of_Mass_iCoM.isChecked()))
+    self.actionShow_Phase_Magnitude.triggered.connect(lambda: self.Fig.CoMPhMag.show(self.actionShow_Phase_Magnitude.isChecked()))
+    self.actionShow_Phase_Vector_Image.triggered.connect(lambda: self.Fig.CoMPh.show(self.actionShow_Phase_Vector_Image.isChecked()))
     self.actionShow_All_Windows.triggered.connect(lambda: showAllWindows(self))
     self.actionHide_All_Windows.triggered.connect(lambda: hideAllWindows(self))
     self.ShowSettingsWdw.triggered.connect(lambda: self.SettingsWindow.show())
@@ -1188,6 +1407,11 @@ def slotsSignals(self):
     self.ShowSaveWdw.triggered.connect(lambda: self.SaveWindow.activateWindow())
 
     self.DetrMode.currentIndexChanged.connect(lambda: detectorModeCallbacks(self))
+
+    # dataset options (i.e. swap Rxy, swap Kxy, and swap endianness)
+    self.SettingsWindow.SwapDfrnXY.clicked.connect(lambda: datasetOptCallbacks(self))
+    self.SettingsWindow.SwapRealXY.clicked.connect(lambda: datasetOptCallbacks(self))
+    self.SettingsWindow.SwapByteOrder.clicked.connect(lambda: datasetOptCallbacks(self))
 
     # show window buttons
     self.SettingsWindow.ShowDfrnWdw.clicked.connect(lambda: showWindowCallbacks(self))
@@ -1203,6 +1427,7 @@ def slotsSignals(self):
     self.SettingsWindow.ShowdCoMWdw.clicked.connect(lambda: showWindowCallbacks(self))
     self.SettingsWindow.ShowiCoMWdw.clicked.connect(lambda: showWindowCallbacks(self))
     self.SettingsWindow.ShowImageWdw.clicked.connect(lambda: showWindowCallbacks(self))
+    self.SettingsWindow.ShowMaskWdw.clicked.connect(lambda: showWindowCallbacks(self))
     self.ShowRealMaskWdw.clicked.connect(lambda: showWindowCallbacks(self))
     self.ShowDfrnMaskWdw.clicked.connect(lambda: showWindowCallbacks(self))
     self.ShowColorWheelWdw.clicked.connect(lambda: showWindowCallbacks(self))
@@ -1268,6 +1493,11 @@ def slotsSignals(self):
     self.ScanDir_NF.valueChanged.connect(lambda: annularDetectorCallbacks(self))
     self.ScanDir.valueChanged.connect(lambda: annularDetectorCallbacks(self))
 
+    # Settings window, units choices
+    self.SettingsWindow.DCSys.currentIndexChanged.connect(lambda: detrCoordCallbacks(self))
+    self.SettingsWindow.DCPos.currentIndexChanged.connect(lambda: detrCoordCallbacks(self))
+    self.SettingsWindow.DCUnit.currentIndexChanged.connect(lambda: detrCoordCallbacks(self))
+    self.RealROIShape.currentIndexChanged.connect(lambda: realSpaceROICallbacks(self))
 
     
 def toggleWindows(self):
@@ -1303,13 +1533,8 @@ def on_ShowImportWdw_triggered(self):
         return
     
     self.ShowImportWdw.setChecked(not self.ImportWindow.isVisible())
-    self.ImportWindow.setVisible(self.ShowImportWdw.isChecked())
+    self.ImportWindow.show(self.ShowImportWdw.isChecked())
     
-    # set default button to "Select"
-    self.ImportWindow.ImportDataButton.setDefault(False)
-    self.ImportWindow.ImportDataButton.setAutoDefault(False)
-    self.ImportWindow.ImpFileSelect.setDefault(True)
-    self.ImportWindow.ImpFileSelect.setAutoDefault(True)
 
     if self.ShowImportWdw.isChecked():
         hideAllWindows(self)
@@ -1334,11 +1559,12 @@ def plotColorWheel(self):
     # make circular mask for colorwheel
     mask = (xgrid**2 + ygrid**2) < r**2
 
-    # plot colorwheel with mask    
+    # save masked colorwheel image    
     self.Fig.ColorWheel.Image = a
     if self.ImageAx.ColorWheel == None:
         self.ImageAx.ColorWheel = self.Fig.ColorWheel.ax.imshow(self.Fig.ColorWheel.Image,alpha=mask.astype(float),cmap='hsv',interpolation="None")
     self.Fig.ColorWheel.maskOpa = 100
+    self.Fig.ColorWheel.ax.axis('off')
 
 class WorkerSignals(qtc.QObject):
     finished = qtc.pyqtSignal()
@@ -1395,15 +1621,11 @@ def detrCoordCallbacks(self):
         case "AlignMod":
             pass
         case "AnnMod"|"DPCMod"|"CoMMod":
-            drawAnnDetr(self)
-            #self.SettingsWindow.DCSys.valueChanged.emit()
-            pass#annularDetectorCallbacks(self,struct("Source",self.DCSys,"EventName","UpdateCoord")) #TODO
+            self.SettingsWindow.DCSys.currentIndexChanged.emit(self.SettingsWindow.DCSys.currentIndex())
         case "VrApMod":
-            #self.SettingsWindow.DCSys.valueChanged.emit()
-            pass#virtualApertureCallbacks(self,struct("Source",self.DCSys,"EventName","UpdateCoord")) #TODO
+            self.SettingsWindow.DCSys.currentIndexChanged.emit(self.SettingsWindow.DCSys.currentIndex())
         case "CustMod":
-            #self.SettingsWindow.DCSys.valueChanged.emit()
-            pass#customDetectorCallbacks(self,struct("Source",self.DCSys,"EventName","UpdateCoord")) #TODO
+            self.SettingsWindow.DCSys.currentIndexChanged.emit(self.SettingsWindow.DCSys.currentIndex())
 
 def annularDetectorCallbacks(self):
 
@@ -1492,23 +1714,22 @@ def annularDetectorCallbacks(self):
                 self.A.adf.redraw()
 
             #if isStaticEvt(evt): #TODO
-            #    mockUICallbacks(app,self.SaveImgPrefix) # Update saving prefix
+            #    self.SaveWindow.SaveImgPrefix.textChanged.emit(self.SaveWindow.SaveImgPrefix.text()) # Update saving prefix
 
-            # Whether to update segments as well #TODO
-            #if dmod == "DPCMod":
-            #    self.moveSeg()
+            # Whether to update segments as well
+            if dmod == "DPCMod":
+                moveSeg()
 
             # refresh real-space image given new inner/outer radii
             # (add one to outer limit because python doesn't include the last term of the range)
-            if len(self.Fig.Real.ax.images)==0:
-                self.Fig.Real.Image = self.Data.sum(axis=1).reshape(self.D.NFrY,self.D.NFrX)
-                self.ImageAx.Real = self.Fig.Real.ax.imshow(self.Fig.Real.Image)
-            else:
-                self.Fig.Real.Image = self.adfImages[:,:,innerRadius:outerRadius+1].sum(axis=2)
-                self.ImageAx.Real.set_data(self.Fig.Real.Image)
+            #if len(self.Fig.Real.ax.images)==0:
+            #    self.Fig.Real.Image = self.Data.sum(axis=1).reshape(self.D.NFrY,self.D.NFrX)
+            #    #self.ImageAx.Real = self.Fig.Real.ax.imshow(self.Fig.Real.Image)
+            #else:
+            #    self.Fig.Real.Image = self.adfImages[:,:,innerRadius:outerRadius+1].sum(axis=2)
+            #    #self.ImageAx.Real.set_data(self.Fig.Real.Image)
             
-            self.ImageAx.Real.autoscale()
-            self.Fig.Real.canvas.draw()
+            #self.Fig.Real.canvas.draw_idle()
             
         def moveSeg():
             pass
@@ -1542,18 +1763,18 @@ def annularDetectorCallbacks(self):
             if isDiffToPrev(self,'AnnR',[ri,ro]): #or isStaticEvt(evt)
                 # self.A.k is a 2D matrix of distances from central beam generated in integrateAnnular
                 # k is already modified by self.D.annWidth, so ri and ro can be used directly
-                self.Fig.Dfrn.ImageMask = np.ma.masked_inside(self.A.k,ri,ro).mask.astype(self.D.DataType) # convert from bool to DataType
+                self.Fig.DfrnMask.Image = np.ma.masked_inside(self.A.k,ri,ro).mask.astype(self.D.DataType) # convert from bool to DataType
 
                 # (add one to outer limit because python doesn't include the last term of the range)
-                self.Fig.Dfrn.Real = self.adfImages[:,:,ri:ro+1].sum(axis=2)
+                self.Fig.Real.Image = self.adfImages[:,:,ri:ro+1].sum(axis=2)
           
             # CoM/DPC calculations; skip if parameters unchanged
             if dmod in ["CoMMod", "DPCMod"]:
                 if isDiffToPrev(self,'CoM_P',[ri,ro,sd,syf,dr]): # or isStaticEvt(evt):
-                    calcCoM(ri, ro, sd, syf, dr)
+                    calcCoM()
             
             # Update images
-            plotAllPatterns()
+            plotAllPatterns(self)
     
     def drawAnnDetr():
         """ initiallize the annular detector annotations """
@@ -1564,9 +1785,9 @@ def annularDetectorCallbacks(self):
     
         # generate adf detector
         if self.A.adf is None:
-            self.A.adf = InteractiveAnnulus(center=c, radius=(r1,r2), axis=self.Fig.Dfrn.ax, color='r', interactions='resize')
+            self.A.adf = InteractiveCircle(center=c, radius=(r1,r2), axis=self.Fig.Dfrn.ax, color='r', interactions='resize')
             self.A.adf.connect()
-            self.A.adf.updateAnnulus.connect(lambda: moveAnnDetr())
+            self.A.adf.updateCircle.connect(lambda: moveAnnDetr())
     
     def drawSegDetr():
         pass
@@ -1609,19 +1830,7 @@ def annularDetectorCallbacks(self):
             
             # set maximum scattering angle
             self.P.RMax = k.max()
-
-    def plotAllPatterns():
-        # always update primary and mask images
-        ids = [iID for iType,iID in zip(self.G.ImgType,self.G.ImgID) if iType in ["Primary","Mask"]]
-        # update CoM/DPC images if in the correct mode
-        if self.DetrMode.currentData() in ["CoMMod","DPCMod"]:
-            ids += [iID for iType,iID in zip(self.G.ImgType,self.G.ImgID) if (iID != "ColorWheel") and (iType=='CoM')]
-        
-        # Update images if visible OR not in changing event; include CoMs if in the modes
-        for id in ids:
-            if self.Fig[id].isVisible(): # or isStaticEvt(evt): #TODO?
-                plotImage(self, id)
-    
+   
     def calcCoM():
         def integrateCoM():
             pass
@@ -1657,6 +1866,18 @@ def annularDetectorCallbacks(self):
                 drawScanDir() # Draw annotations
             self.SettingsWindow.ShowDfrnAxes.click() # Update diffraction axes annotations
 
+def plotAllPatterns(self):
+    # always update primary and mask images
+    ids = [iID for iType,iID in zip(self.G.ImgType,self.G.ImgID) if iType in ["Primary","Mask"]]
+    # update CoM/DPC images if in the correct mode
+    if self.DetrMode.currentData() in ["CoMMod","DPCMod"]:
+        ids += [iID for iType,iID in zip(self.G.ImgType,self.G.ImgID) if (iID != "ColorWheel") and (iType=='CoM')]
+    
+    # Update images if visible OR not in changing event; include CoMs if in the modes
+    for id in ids:
+        if self.Fig[id].isVisible(): # or isStaticEvt(evt): #TODO?
+            plotImage(self, id)
+
 def toUpdateImage(self):
     """
     Function to determine whether to update images
@@ -1683,12 +1904,17 @@ class importThread(qtc.QObject):
         self.frameCount = frameCount
         self.dataOffset = dataOffset
         self.isInt = np.issubdtype(self.dType,np.integer)
+        if self.isInt:
+            if np.dtype(self.dType).itemsize>4:
+                self.float = np.float64
+            else:
+                self.float = np.float32
 
 
     def run(self):
         if self.isInt:
-            self.DataMemmap = np.memmap(self.filename, dtype=self.dType, mode = "c", offset=self.dataOffset, shape=(self.frameCount,self.pixCount))
-            self.Data = np.zeros(shape=self.DataMemmap.shape,dtype=np.float32)
+            self.DataMemmap = np.memmap(self.filename, dtype=self.dataType, mode = "c", offset=self.dataOffset, shape=(self.frameCount))["data"]
+            self.Data = np.zeros(shape=self.DataMemmap.shape,dtype=self.float)
             nThreads = psutil.cpu_count(logical=False)
             with ThreadPool(processes=nThreads) as pool:
                 pool.map(self.convertInt2Float,range(self.DataMemmap.shape[0]))
@@ -1699,7 +1925,7 @@ class importThread(qtc.QObject):
         self.finished.emit()
     
     def convertInt2Float(self,val):
-        self.Data[val,:] = self.DataMemmap[val,:].astype(np.float32)
+        self.Data[val,:] = self.DataMemmap[val,:].astype(self.float)
 
 def prepEMPAD(self):
     # filename from import dialog
@@ -2111,16 +2337,18 @@ def prepDM(self):
     filename = self.D.fileName
 
     self.T.dm = dmInfo(filename)
+    
+    self.ImportWindow.ImpSubImg.setEnabled(True)
 
     # List all images' names in `self.ImpSubImg`
-    pdim = np.zeros(len(self.T.dm)-1)
-    self.ImportWindow.ImpSubImg.setEnabled(True)
-    for i in range(pdim.size):
-        self.ImportWindow.ImpSubImg.addItem(self.T.dm[i].Name)
-        pdim[i] = np.array(self.T.dm[i].Dimensions).prod()
-
     # Select sub-image with the largest dimension; unless manually selected
     if self.sender() is not self.ImportWindow.ImpSubImg:
+        pdim = np.zeros(len(self.T.dm)-1)
+        self.ImportWindow.ImpSubImg.blockSignals(True)
+        for i in range(pdim.size):
+            self.ImportWindow.ImpSubImg.addItem(self.T.dm[i].Name)
+            pdim[i] = np.array(self.T.dm[i].Dimensions).prod()
+        self.ImportWindow.ImpSubImg.blockSignals(False)
         self.ImportWindow.ImpSubImg.setCurrentIndex(pdim.argmax())
 
     # Info of selected sub-image
@@ -2218,51 +2446,55 @@ def readFile(self):
         self.Data = np.memmap(filename, dataType,'r')["data"]
 
 def prepareData(self):
-    from callbacks.guiClass import ImageWindow
     #self.T.progDLG = progDLG(self, 'Preparing data ...', "Data Preparation"); #TODO
     
     # block slots/signals whilst initializing UI components
     self.blockAllSignals = True
 
-    # Detector controls
-    self.P.ScanDirInit = 0 # Reset alignments
-    self.NSeg.setValue(4)
-    self.NRung.setValue(1)
-    self.DetRot.setValue(0)
-    self.DetRot_NF.setValue(0)
-    self.ScanDir.setValue(0)
-    self.ScanDir_NF.setValue(0)
+    # move to alignment mode
+    self.DetrMode.setCurrentIndex(self.DetrMode.findData("AlignMod"))
 
-    self.VrApSymm.setCurrentIndex(0)
-    self.VrApInvert.setChecked(False)
-    self.VrApMirror.setChecked(False)
-    self.VrApMirrRot.setValue(0)
-    self.VrApMirrRot_NF.setValue(0)
+    # Detector controls
+    self.P.ScanDirInit = 0              # Reset alignments
+    self.NSeg.setValue(4)               # DPC defaults: 4 segments for DPC
+    self.NRung.setValue(1)              #               1 rung for DPC
+    self.DetRot.setValue(0)             #               0 detector rotation
+    self.DetRot_NF.setValue(0)          #
+    self.ScanDir.setValue(0)            #               0 scan rotation
+    self.ScanDir_NF.setValue(0)         #
+
+    self.VrApSymm.setCurrentIndex(0)    # default to one virtual aperture 
+    self.VrApInvert.setChecked(False)   # without inversion
+    self.VrApMirror.setChecked(False)   # without mirror symmetry
+    self.VrApMirrRot.setValue(0)        # initialize mirror symmetry to 0 degrees
+    self.VrApMirrRot_NF.setValue(0)     # 
 
     # Alignments
-    self.P.DfCtr = self.D.NPx/2+.5 # Exact center of the Diffraction image
-    self.P.RsCtr = self.D.NFr/2+.5 # Exact center of the Real-space image
-    self.Alpha.setValue(12)
-    self.P.VrApXY = self.P.DfCtr
+    self.P.DfCtr = self.D.NPx/2+.5      # Exact center of the Diffraction image
+    self.P.RsCtr = self.D.NFr/2+.5      # Exact center of the Real-space image
+    self.Alpha.setValue(12)             # initialize alpha to 12 mrad
+    self.P.VrApXY = self.P.DfCtr        # initialize virtual aperture to diffraction center
 
-    # Axes limits, restrict to avoid rounding to pixels outside the image
-    self.P.DfrnAxLim = np.array([0, self.D.NPxX, 0, self.D.NPxY]) - 0.5
-    self.P.RealAxLim = np.array([0, self.D.NFrX, 0, self.D.NFrY]) - 0.5
+    # Axes limits, restrict to avoid rounding to pixels outside the image. Origin upper left as in raster scanning
+    self.P.DfrnAxLim = np.array([0, self.D.NPxX, self.D.NPxY, 0]) - 0.5
+    self.P.RealAxLim = np.array([0, self.D.NFrX, self.D.NFrY, 0]) - 0.5
 
-    # initialize diffraction space axis limits
-    self.Fig.Dfrn.ax.set_xbound(self.P.DfrnAxLim[0:2])
-    self.Fig.Dfrn.ax.set_ybound(self.P.DfrnAxLim[2:4])
-    self.Fig.Dfrn.canvas.draw()
+    # initialize diffraction space axis limits for all diffraction space images
+    for id in self.G.DfrnID:
+        self.Fig[id].ax.set_xbound(self.P.DfrnAxLim[0:2])
+        self.Fig[id].ax.set_ybound(self.P.DfrnAxLim[2:4])
+        self.Fig[id].canvas.draw_idle()
 
-    # initialize real space axis limits
-    self.Fig.Real.ax.set_xbound(self.P.RealAxLim[0:2])
-    self.Fig.Real.ax.set_ybound(self.P.RealAxLim[2:4])
-    self.Fig.Real.canvas.draw()
+    # initialize real space axis limits for all real space images
+    for id in self.G.RealID:
+        self.Fig[id].ax.set_xbound(self.P.RealAxLim[0:2])
+        self.Fig[id].ax.set_ybound(self.P.RealAxLim[2:4])
+        self.Fig[id].canvas.draw_idle()
 
     # Transmitted Beam controls
     if self.sender() is not self.SettingsWindow.SwapRealXY: # Keep transmitted beam alignment if swapping Real-space X/Y
         self.P.TransBeamInit = 0
-        # set transmitted beam slider ranges and values
+        # set transmitted beam ranges and values for sliders and number fields
         self.TBR.setRange(0,max(self.D.NPx))
         self.TBX.setRange(0,self.D.NPxX)
         self.TBY.setRange(0,self.D.NPxY)
@@ -2280,10 +2512,10 @@ def prepareData(self):
     self.FrameY.setRange(0,self.D.NFrY)
     self.FrameX.setValue(round(self.P.RsCtr[0]))
     self.FrameY.setValue(round(self.P.RsCtr[1]))
-    self.RealROIInvert.setChecked(False)
-    self.RealROIShape.setCurrentIndex(0) # "full"
+    self.RealROIInvert.setChecked(False) # do not invert the real space ROI picker on initialization
+    self.RealROIShape.setCurrentIndex(self.RealROIShape.findData("full")) # display PACBED from the entire dataset
 
-    # Export controls
+    # Export controls #TODO
     self.SaveWindow.ExpPxPart.setChecked(False)
     self.SaveWindow.ExpFrPart.setChecked(False)
 
@@ -2302,16 +2534,15 @@ def prepareData(self):
     #delete(self.T.progDLG);  # Close progress bar and Enable panel objects #TODO
 
     #initialize SettingsWindow and move next to main UI window
-    self.SettingsWindow.SettingsTabGroup.setCurrentIndex(0) # "Display" tab
-    self.SettingsWindow.setVisible(True)
+    self.SettingsWindow.SettingsTabGroup.setCurrentWidget(self.SettingsWindow.DisplayTab)
     pos = self.SettingsWindow.geometry()
     pos.moveLeft(self.geometry().getRect()[0]+self.geometry().getRect()[2]+self.C.decorPad*2)
     pos.moveTop(self.geometry().getRect()[1])
     self.SettingsWindow.setGeometry(pos)
+    self.SettingsWindow.show()
 
-    #mockUICallbacks(self,self.DetrMode)  # Enter intializing alignment #TODO
     self.DetrMode.setCurrentIndex(self.DetrMode.findData("AlignMod"))
-    #detectorModeCallbacks(self)
+    detectorModeCallbacks(self)
 
     #flashBackground(self, [self.DfrnCalibGrid self.TransBeamAlignGrid])
 
@@ -2377,11 +2608,11 @@ def startupFcn(self):
         self.C.nGPU = 0
         self.C.GPUmem = []
         self.C.GPUname = []
-        
+
         # Check if CUDA capable GPU is available for acceleration
         self.C.nGPU = torch.cuda.device_count()
             
-        # Find GPU devices and turn on/off GPU support; `self.ImgGPU.Value` of `0` is always "GPU off"
+        # Find GPU devices and turn on/off GPU support; self.ImportWindow.ImgGPU.currentData() = None is always "GPU off"
         if self.C.nGPU==0: # no GPU devices
             self.ImportWindow.ImpGPU.addItem('No GPU found.',0)
         else: # 1 or more devices found
@@ -2394,7 +2625,7 @@ def startupFcn(self):
                 if self.C.GPUmem[i] > maxmem:
                     maxmem = self.C.GPUmem[i]
                     self.ImportWindow.ImpGPU.setCurrentIndex(i)
-            self.ImportWindow.ImpGPU.addItem('GPU off',0)
+            self.ImportWindow.ImpGPU.addItem('GPU off',None)
 
     # Function to Check usable system memory and make sure the file will fit
     def getMem(self):
@@ -2463,12 +2694,6 @@ def startupFcn(self):
         self.Fig.Preview = ImageWindow("Preview","Preview","Preview","Preview","gray",[self.C.l, (self.C.ScreenSize[3]-self.C.sz)/2, self.C.sz + self.C.mplDecor.width(), self.C.sz + self.C.mplDecor.height()])
         self.Fig.ColorWheel = ImageWindow(id = "ColorWheel", name = "Color Wheel for Phase Direction", space = "ColorWheel", typ = "CoM", cmap = "hsv", pos = [self.C.shc-self.C.sz-self.C.mplDecor.width(), self.C.sz+2*(self.C.decorPad+self.C.titleHeight)+self.C.mplDecor.height() + self.C.vOffset, self.C.sz/2 + self.C.mplDecor.width(), self.C.sz/2 + self.C.mplDecor.height()])
         
-        # Variable names, image names and image types (tag) for all patterns'/images' figures/axes/images
-        self.G.ImgID = [ii for ii in self.Fig]                      # ID/fieldnames under `self.Fig` `self.ImageAx` `self.ImgD` etc
-        self.G.ImgSpace = [self.Fig[ii].space for ii in self.Fig]   # Spaces ("Real"/"Dfrn")
-        self.G.ImgType = [self.Fig[ii].type for ii in self.Fig]     # Types ("Primary", "CoM" related, "Mask", "Test")
-        self.G.ImgName = [self.Fig[ii].name for ii in self.Fig]     # Names/Titles
-
         # AND their Axes/Figure objects, as well as the gray overlay to disable them
         self.G.ImgAx = [self.Fig[ii].ax for ii in self.Fig]
         self.G.ImgFig = [self.Fig[ii] for ii in self.Fig]
@@ -2478,12 +2703,10 @@ def startupFcn(self):
             fig.imageResize.connect(lambda size,space: updateImageWindowSize(self,size,space))
             fig.activateFigure.connect(lambda id: updateDispImg(self,id))
 
-        # Variable names for all diffraction-sized figures/axes/images AND THEN their Axes objects
-        self.G.DfrnID = [ImgID for ImgID,space in zip(self.G.ImgID,self.G.ImgSpace) if space == "Dfrn"]
+        # Axes objects for all diffraction-sized figures/axes/images
         self.G.DfrnAx = [self.Fig[ii].ax for ii in self.G.DfrnID]
 
-        # Variable names for all real-space-sized figures/axes/images AND THEN their Axes objects
-        self.G.RealID = [ImgID for ImgID,space in zip(self.G.ImgID,self.G.ImgSpace) if space == "Real"]
+        # Axes objects for all real-space-sized figures/axes/images
         self.G.RealAx = [self.Fig[ii].ax for ii in self.G.RealID]
 
         # Group all "Show ... Window" buttons related to CoM/DPC
@@ -2548,7 +2771,7 @@ def startupFcn(self):
 
         # import window, GPU selection
         self.ImportWindow.ImpGPU.clear()
-        self.ImportWindow.ImpGPU.addItem('GPU off')
+        self.ImportWindow.ImpGPU.addItem('GPU off',None)
 
         # import window, memory loading selection
         self.ImportWindow.ImpMemType.clear()
@@ -2669,69 +2892,11 @@ def startupFcn(self):
     # only allow user to import data
     self.ShowImportWdw.setEnabled(True)
 
-def gatherImportOptions(self,d,preview):
-    d.filePath = self.ImportWindow.ImpFilePath.text()
-    [d.fileDir, d.fileName] = os.path.split(d.filePath)
-    d.fileDir = d.fileDir+os.sep
-    d.subImg = self.ImportWindow.ImpSubImg.currentText()
+    resetQuant4DCallbacks
 
-    # BYTES offset of: 1) the dataset from the beginning of file, 2) before and 3) after each frame
-    d.Offset = self.ImportWindow.DataOffset.value()
-    d.FrHead = self.ImportWindow.FrHead.value()
-    d.FrFoot = self.ImportWindow.FrFoot.value()
-
-    # Endianness (big 'b' or little 'l'), Data type of the dataset and Size in bytes of the data type
-    d.ByteOrder = self.ImportWindow.ImpByteOrder.currentData()
-    d.DataType = self.ImportWindow.ImpDataType.currentData()
-    d.ByteSize = getattr(self.ByteSize,d.DataType)
-
-    # Physical or virtual memory loading
-    d.mem = self.ImportWindow.ImpMemType.currentText()
-
-    # Select GPU if acceleration is enabled AND not in Import Preview Mode
-    d.GPU = self.ImportWindow.ImpGPU.currentText()
-    #if not preview and d.GPU: gpuDevice(d.GPU) #TODO
-
-    # Dimensions of pixels/frames in file and import binning/sampling distance
-    d.DNPxX = self.ImportWindow.DNPxX.value()
-    d.DNPxY = self.ImportWindow.DNPxY.value()
-    d.PxD = self.ImportWindow.IPxD.value()
-    d.DNFrX = self.ImportWindow.DNFrX.value()
-    d.DNFrY = self.ImportWindow.DNFrY.value()
-    d.FrD = self.ImportWindow.IFrD.value()
-
-    # Starting points and Number of pixels/frames after binning/sampling to import
-    d.PxX1 = self.ImportWindow.IPxX1.value()
-    d.PxY1 = self.ImportWindow.IPxY1.value()
-    d.NPxX = self.ImportWindow.INPxX.value()
-    d.NPxY = self.ImportWindow.INPxY.value()
-    d.FrX1 = self.ImportWindow.IFrX1.value()
-    d.FrY1 = self.ImportWindow.IFrY1.value()
-    d.NFrX = self.ImportWindow.INFrX.value()
-    d.NFrY = self.ImportWindow.INFrY.value()
-
-    # Frequently used dimension parameters
-    d.NPx = np.array([d.NPxX,d.NPxY])
-    d.NPxS = d.NPxX * d.NPxY
-    d.NFr = np.array([d.NFrX,d.NFrY])
-    d.NFrS = d.NFrX * d.NFrY
-
-    # Estimated memory usage for current dataset
-    d.EstMem = self.T.EstMem
-
-    # Swap dataset option+self.ImpNotes.Value
-    d.KeepP = self.ImportWindow.ImpKeepP.isChecked()
-
-    # Notes at import
-    d.NoteFileMeta = self.ImportWindow.ImpFileMetaNotes.toPlainText()
-    d.NoteImp = self.ImportWindow.ImpNotes.toPlainText()
-
-    # H5 dataset path within the H5 file. if not set empty, the H5 library API will be called when importing
-    d.h5ds = []
-    if self.ImportWindow.HDF5Button.isChecked() and  ("Physical Memory" in d.mem):
-        d.h5ds = d.subImg
-
-    return d
+def resetQuant4DCallbacks(self):
+    unloadData(self,False)
+    self.DetrMode.setCurrentIndex(self.DetrMode.findData("PrvwMod"))
 
 def rangeImportExport(self, src):
     # spinner upper/lower limits must be different, so now set lower limit `0` but force minimum to `1`
@@ -2864,7 +3029,7 @@ def rangeImportExport(self, src):
 # Function to unload data and clean all images
 def unloadData(self, keep_p=False):
     importlib.reload(appClass)
-    from callbacks.appClass import A,P,Mask,D,Prev,propDict#,Image
+    from callbacks.appClass import A,P,Mask,D,Prev
 
     """ Function to unload data and clean all images """
     enableWindows(self,False) # Disable windows for the data unload process
@@ -2876,19 +3041,18 @@ def unloadData(self, keep_p=False):
             fig = self.Fig[id]
             fig.Image = None
             fig.ax.cla()
-            fig.canvas.draw()
+            fig.canvas.draw_idle()
             self.ImageAx[id] = None
         self.SettingsWindow.HistAxes.axes.cla()
-        self.SettingsWindow.HistAxes.figure.canvas.draw()
+        self.SettingsWindow.HistAxes.figure.canvas.draw_idle()
 
         # clear annotations (lines and draggable points)
         for ii in dir(self.A):
-            if type(getattr(self.A,ii)) in (DraggablePoint,InteractiveAnnulus,InteractiveCircle,matplotlib.lines.Line2D):#,InteractiveBox #TODO
+            if type(getattr(self.A,ii)) in (DraggablePoint,InteractiveCircle,matplotlib.lines.Line2D):#,InteractiveBox #TODO
                 setattr(self.A,ii,None)
 
         setattr(self,'P',P())
         setattr(self,'A',A())
-        #setattr(self,'Image',Image) #TODO
         setattr(self,'Mask',Mask())
         #self.ImgD = [] #TODO
         self.CDT.clearContents() # custom aperture table
@@ -2904,8 +3068,9 @@ def unloadData(self, keep_p=False):
     # Clear data, parameters and Axes
     self.Data = None
     self.Memfile = None
-    setattr(self,'D',D)
-    setattr(self,'Prev',Prev)
+    #setattr(self,'D',D()) #TODO #DELTE
+    setattr(self,"D",None)
+    setattr(self,'Prev',Prev())
 
 def enableWindows(self,sw=True):
     """ Function to enable/disable windows/UI; disable is only for notification/progress bar/busy background etc """
@@ -2924,11 +3089,7 @@ def enableWindows(self,sw=True):
     self.SettingsWindow.setEnabled(sw)
     self.SaveWindow.setEnabled(sw)
     self.ImportWindow.setEnabled(sw)
-    
-    # Disable all images when not "on"; visible means disable #TODO
-    # ImgGyO is a gray box overlay that disables figure interactions? 
-    #set(self.G.ImgGyO,'Visible',~sw)
-    
+       
     # Also reset all windows' mouse pointer when enabling UIs
     if sw:
         [ii.setCursor(qtc.Qt.ArrowCursor) for ii in self.G.AllFig]
@@ -2942,18 +3103,20 @@ def importData(self):
     
     if os.path.isfile(self.ImportWindow.ImpFilePath.text()):
         # Set save/export filenames etc.
-        self.setWindowTitle(self.D.fileName)
-        self.SaveWindow.SaveDir.setText(self.D.fileDir)
-        self.SaveWindow.SaveImgPrefix.setText(self.D.fileName.replace(self.D.fileExt,"")+"_")
-        
-        unloadData(self)
-        self.D = gatherImportOptions(self,self.D,preview=False)
-        
+        self.setWindowTitle(self.fileName)
+        self.SaveWindow.SaveDir.setText(self.fileDir)
+        self.SaveWindow.SaveImgPrefix.setText(self.fileName.replace(self.fileExt,"")+"_")
+                
         # TODO
         #if self.ImportWindow.MedipixButton.isChecked():
         #     readMRC(self)
         #elif self.ImportWindow.EMPADButton.isChecked():
-        readFile(self)
+        try:
+            readFile(self)
+        except:
+            unloadData(self)
+            notifDLG(self, self,'error','Error during Import!','Error!')
+            enableWindows(self,True)
 
         # Start file reading here
         #if ~isempty(self.D.h5ds) % HDF5 import
@@ -3018,7 +3181,7 @@ def importData(self):
     else:
         msg = "File: "+self.ImportWindow.ImpFilePath.text()+" is not found!"
         ttl = "File not found!"
-        notifDLG(self, 'error', msg,ttl)
+        notifDLG(self, self.ImportWindow, 'error', msg,ttl)
 
 def getDecorSize(self):
         decorSize = [self.geometry().x()-self.pos().x(), self.geometry().y()-self.pos().y()]
@@ -3088,7 +3251,7 @@ def displayCallbacks(self):
             fig.contrast = self.sender().value() # Contrast
 
         case self.SettingsWindow.DispGamma|self.SettingsWindow.DispGamma_NF:
-            fig.gamma = self.sender().value() # Gamma
+            fig.gamma = max(self.sender().value(),np.finfo(np.single).eps) # Gamma
 
         case self.SettingsWindow.DispMaskOpa|self.SettingsWindow.DispMaskOpa_NF:
             fig.maskOpa = self.sender().value() # Mask opacity
@@ -3103,10 +3266,10 @@ def displayCallbacks(self):
             self.DispVecColor.setStyleSheet("background-color:"+fig.vecColor.name())
             
             # Enable vector field UIs if: 1) in CoM/DPC mode AND 2) real-space image selected
-            state = (self.DetrMode.currentData() in ["CoMMod","DPCMod"]) and (fig.space == "Real")
-            self.DispVecField.setEnabled(state)
-            self.DispVecFieldLabel.setEnabled(state)
-            self.DispVecColor.setEnabled(state)
+            enabledState = (self.DetrMode.currentData() in ["CoMMod","DPCMod"]) and (fig.space == "Real")
+            self.DispVecField.setEnabled(enabledState)
+            self.DispVecFieldLabel.setEnabled(enabledState)
+            self.DispVecColor.setEnabled(enabledState)
             
             # Disable brightness/contrast/colormap UIs if: (CoM/DPC) "Phase" and "ColorWheel for Phase" images
             enabledState = "Phase" not in fig.name # enable components if NOT a Phase image
@@ -3125,6 +3288,22 @@ def displayCallbacks(self):
             self.SettingsWindow.DispMaskOpa_NF.setEnabled(enabledState)
             self.SettingsWindow.DispMaskOpa.setEnabled(enabledState)
 
+    # block signals during UI update
+    self.blockAllSignals = False
+
+    # Update UI
+    self.SettingsWindow.DispBrightness_NF.setValue(fig.brightness)
+    self.SettingsWindow.DispBrightness.setValue(fig.brightness)
+    self.SettingsWindow.DispContrast_NF.setValue(fig.contrast)
+    self.SettingsWindow.DispContrast.setValue(fig.contrast)
+    self.SettingsWindow.DispGamma_NF.setValue(fig.gamma)
+    self.SettingsWindow.DispGamma.setValue(fig.gamma)
+    self.SettingsWindow.DispMaskOpa_NF.setValue(fig.maskOpa)
+    self.SettingsWindow.DispMaskOpa.setValue(fig.maskOpa)
+
+    # unblock signals
+    self.blockAllSignals = False
+
     # Update image
     plotImage(self, id); # Re-plot image
 
@@ -3134,6 +3313,7 @@ def plotImage(self,id):
     # Special case for plotting the color wheel - can get unloaded
     if id == "ColorWheel":
         plotColorWheel(self)
+        return
 
     # get image figure and axes
     fig = self.Fig[id]  # ImageWindow
@@ -3186,7 +3366,7 @@ def plotImage(self,id):
         self.ImageAx[id] = ax.imshow(im**fig.gamma)
     else:
         self.ImageAx[id].set_data(im**fig.gamma)
-    self.ImageAx[id].autoscale()
+    self.ImageAx[id].set_clim(0,1)
         
     # Plot mask opacity on non-mask/non-preview image; maskOpa is in percent (i.e. 50 => 50%)
     if fig.type not in ["Mask","Preview"]:
@@ -3205,18 +3385,20 @@ def plotImage(self,id):
     # Only update statistics if not in changing Event AND it is the "selected" image 
     if (id == self.SettingsWindow.DispImage.currentData()): # and isStaticEvt(evt): #TODO
         # don't update stats while things are changing, only when finished to increase responsiveness
-        updateDispImgStats(self,id,im,minVal,maxVal,limitLow,limitHigh,limitRange)
+        updateDispImgStats(self,id,minVal,maxVal,limitLow,limitHigh,limitRange)
 
     # set colormap
     self.ImageAx[id].set_cmap(fig.cmap+["","_r"][fig.invert]) # append "_r" if inverted
 
-    fig.canvas.draw_idle() # update plot
+    fig.canvas.draw() # update plot
 
 
-def updateDispImgStats(self,id,im,minVal,maxVal,limitLow,limitHigh,limitRange):
+def updateDispImgStats(self,id,minVal,maxVal,limitLow,limitHigh,limitRange):
     """Function to update image's statistics"""
     fig = self.Fig[id]
     ax = fig.ax
+    im = np.ma.masked_invalid(fig.Image)
+
     # Update histogram skip if image unchanged
     if isDiffToPrev(self,'im',im):
         if im.mask.any():
@@ -3233,10 +3415,17 @@ def updateDispImgStats(self,id,im,minVal,maxVal,limitLow,limitHigh,limitRange):
             pass
 
         # Generate an intensity histogram for the selected image
-        binCounts,_,self.A.hist = self.SettingsWindow.HistAxes.axes.hist(im.ravel(),bins=128,ec='k',linewidth=0.5)
+        binCounts,binEdges,self.A.hist = self.SettingsWindow.HistAxes.axes.hist(im.ravel(),bins=128,ec='k',linewidth=0.5)
 
-        # Set histogram y limits
+        # Set histogram limits
+        self.SettingsWindow.HistAxes.axes.set_xlim(binEdges.min(),binEdges.max())
         self.SettingsWindow.HistAxes.axes.set_ylim(0.5,(1.1*binCounts).max().clip(1)) # Make sure upper limit is at least 1
+
+        # set vertical scale
+        if self.SettingsWindow.HistLog.isChecked():
+            self.SettingsWindow.HistAxes.axes.set_yscale('log')
+        else:
+            self.SettingsWindow.HistAxes.axes.set_yscale('linear')
 
     # Update histogram annotations skip if values unchanged
     if isDiffToPrev(self,'hist',(ax,minVal,maxVal,limitLow,limitHigh,limitRange,fig.gamma,self.SettingsWindow.HistLog.isChecked())):
@@ -3283,7 +3472,7 @@ def updateDispImgStats(self,id,im,minVal,maxVal,limitLow,limitHigh,limitRange):
 
         # Gamma line
         x = np.linspace(limitLow,limitHigh,128) # histogram is on x_lim = [0,1]
-        self.A.histGamma, = self.SettingsWindow.HistAxes.axes.plot(np.linspace(0,1,128),((x-limitLow)/(limitHigh-limitLow))**fig.gamma*np.ptp(self.SettingsWindow.HistAxes.axes.get_ylim())+self.SettingsWindow.HistAxes.axes.get_ylim()[0], color='k')
+        self.A.histGamma, = self.SettingsWindow.HistAxes.axes.plot(x,((x-limitLow)/(limitHigh-limitLow))**fig.gamma*np.diff(self.SettingsWindow.HistAxes.axes.get_ylim())+self.SettingsWindow.HistAxes.axes.get_ylim()[0], color='k')
         
         # Print display limits on the histogram
         textstr = "High:{:< 9.2e}\nLow:{:< 9.2e}".format(limitHigh,limitLow)
@@ -3295,7 +3484,7 @@ def updateDispImgStats(self,id,im,minVal,maxVal,limitLow,limitHigh,limitRange):
         self.A.histNote = self.SettingsWindow.HistAxes.axes.text(0.05, 0.95, textstr, transform=ax.transAxes,fontsize=10,verticalalignment='top', bbox=props)#, font="Courier")
 
         # update histogram canvas
-        self.SettingsWindow.HistAxes.figure.canvas.draw()
+        self.SettingsWindow.HistAxes.figure.canvas.draw_idle()
 
 def plotVectorField(self,id):
     """ Function to plot a vector field image over top of the DPC or CoM images (either magnitude, angle, or combination) """
@@ -3318,7 +3507,7 @@ def plotVectorField(self,id):
     u = self.Fig.Dfrn.CoMX[0::vec, 0::vec]
     v = self.Fig.Dfrn.CoMY[0::vec, 0::vec] 
     self.A.vecField[id] = fig.ax.quiver(x, y, u, v, color=fig.vecColor,units='xy')
-    fig.canvas.draw()
+    fig.canvas.draw_idle()
 
 
 

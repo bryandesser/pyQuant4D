@@ -1,6 +1,5 @@
 from callbacks.appClass import D
-from callbacks.allFunctions import prepareData,unloadData,gatherImportOptions,readEMPAD
-from callbacks.notifDLG import notifDLG
+from callbacks.allFunctions import prepareData,unloadData,gatherImportOptions,importData,notifDLG
 import os
 
 def importCallbacks(self):
@@ -29,7 +28,7 @@ def importCallbacks(self):
                     unloadData(self, self.ImpKeepP.Value)
                     self.D = gatherImportOptions(self,self.D,False)
                     self.T.prev_D = self.D; # Backup current `self.D`
-                    readEMPAD(self)
+                    importData(self)
                 else: # Preview
                     self.T.Preview = gatherImportOptions(self,self.T.Preview,True)
 

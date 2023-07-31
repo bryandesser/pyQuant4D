@@ -69,6 +69,7 @@ class MainWindow(MW_Base, MW_Ui):
     
 
 class ImportWindow(IW_Base, IW_Ui):
+    xEvent = qtc.pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -76,6 +77,7 @@ class ImportWindow(IW_Base, IW_Ui):
     
     def closeEvent(self, a0: qtg.QCloseEvent) -> None:
         self.hide()
+        self.xEvent.emit()
         a0.ignore()
         return super().closeEvent(a0)
 
