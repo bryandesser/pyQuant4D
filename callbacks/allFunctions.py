@@ -1,4 +1,6 @@
-import os, sys, traceback, re, gc, psutil, importlib, h5py, matplotlib
+import matplotlib.backend_bases
+import os, sys, traceback, re, gc, psutil, importlib, h5py, matplotlib,time
+from PIL import Image
 import numpy as np
 import torch
 from multiprocessing.pool import ThreadPool
@@ -7,8 +9,8 @@ from PyQt5 import QtCore as qtc
 from PyQt5 import QtGui as qtg
 import callbacks.appClass as appClass
 from callbacks.appClass import *
-from annotationsClasses.InteractiveCircle import InteractiveCircle
-from annotationsClasses.draggablePoint import DraggablePoint
+from annotationsClasses.interactiveCircle import InteractiveCircle
+from annotationsClasses.interactivePoint import InteractivePoint
 
 def importCallbacks(self):
     def gatherImportOptions(preview):
@@ -423,7 +425,7 @@ def importFileType(self):
 
         try:
             # standard EMPAD naming scheme
-            s = re.search('scan_x(\d+)_y(\d+).raw',filename)
+            s = re.search('_x(\d+)_y(\d+).raw',filename)
             DNFrX,DNFrY = [int(ii) for ii in s.groups()]
             DNPxX = DNPxY = int(128)
 
@@ -1020,13 +1022,10 @@ def detectorModeCallbacks(self):
                 self.A.tb = InteractiveCircle(center = self.B0, radius = self.TBR.value(), axis=self.Fig.Dfrn.ax, color="r", interactions="all")
                 self.A.tb.connect()
                 self.A.tb.updateCircle.connect(lambda: moveTransBeam(self))
+                self.Fig.Dfrn.canvas.flush_events()
             
             self.DfrnDetrTabGroup.setCurrentIndex(1)
             transBeamCallbacks(self)
-            
-            self.TBR.valueChanged.emit(self.TBR.value())
-            #self.A.tb.updateBackground()
-            self.A.tb.redraw()
             
         case "AnnMod":
             self.DfrnDetrTabGroup.setCurrentIndex(2)
@@ -1146,6 +1145,7 @@ def transBeamCallbacks(self):
                 self.A.tb.connect()
                 self.A.tb.updateCircle.connect(lambda: moveTransBeam(self))
                 self.Fig.Dfrn.canvas.draw_idle()
+                self.Fig.Dfrn.canvas.flush_events()
             
             # Select `Dfrn` image and bring window to the front
             self.SettingsWindow.DispImage.setCurrentIndex(self.SettingsWindow.DispImage.findData("Dfrn"))
@@ -1173,11 +1173,12 @@ def transBeamCallbacks(self):
     moveTransBeam(self)
 
 def moveTransBeam(self):
+    """ Function to sync UIs/ROIs depending on the central beam location """
+
     # bypass execution if signals are actively being blocked (i.e. for programmatically updating UI values)
     if self.blockAllSignals:
         return
     
-    """ Function to sync UIs/ROIs depending on the central beam location """
     b0 = np.array([self.TBX.value(),self.TBY.value()])
     r = np.maximum(self.TBR.value(),np.finfo(np.single).eps)
     a = self.Alpha.value()
@@ -1325,7 +1326,7 @@ def unlockScanDir(self):
         self.ScanDirUnlock.setIcon(self.lock)
 
 def debugImport(self):
-    self.fname = 'C:/Users/bess0001/Downloads/4DSTEM_data/scan_x128_y128.raw'
+    self.fname = 'C:/Users/bess0001/Documents/dataStorage/research/code/testData/scan_x128_y128.raw'
     if os.path.exists(self.fname):
         self.ImportWindow.ImpFilePath.setText(self.fname)
         self.ShowImportWdw.trigger()
@@ -1641,7 +1642,7 @@ def annularDetectorCallbacks(self):
         self.blockAllSignals = False
 
     def enableAnnUI():
-        """ Function to enable/disable UI """
+        """ Function to enable/disable parts of annular/DPC/CoM UI """
         # current detector mode
         dmod = self.DetrMode.currentData()
 
@@ -1763,9 +1764,9 @@ def annularDetectorCallbacks(self):
             if isDiffToPrev(self,'AnnR',[ri,ro]): #or isStaticEvt(evt)
                 # self.A.k is a 2D matrix of distances from central beam generated in integrateAnnular
                 # k is already modified by self.D.annWidth, so ri and ro can be used directly
-                self.Fig.DfrnMask.Image = np.ma.masked_inside(self.A.k,ri,ro).mask.astype(self.D.DataType) # convert from bool to DataType
+                self.Fig.DfrnMask.Image = np.ma.masked_inside(self.A.k,ri,ro).mask.astype(self.D.DataType).T # convert from bool to DataType
 
-                # (add one to outer limit because python doesn't include the last term of the range)
+                # (add 1 to outer limit because python doesn't include the last term of the range)
                 self.Fig.Real.Image = self.adfImages[:,:,ri:ro+1].sum(axis=2)
           
             # CoM/DPC calculations; skip if parameters unchanged
@@ -1775,6 +1776,8 @@ def annularDetectorCallbacks(self):
             
             # Update images
             plotAllPatterns(self)
+        
+        self.Fig.Dfrn.canvas.flush_events()
     
     def drawAnnDetr():
         """ initiallize the annular detector annotations """
@@ -1788,6 +1791,7 @@ def annularDetectorCallbacks(self):
             self.A.adf = InteractiveCircle(center=c, radius=(r1,r2), axis=self.Fig.Dfrn.ax, color='r', interactions='resize')
             self.A.adf.connect()
             self.A.adf.updateCircle.connect(lambda: moveAnnDetr())
+            self.Fig.Dfrn.canvas.flush_events()
     
     def drawSegDetr():
         pass
@@ -1876,6 +1880,7 @@ def plotAllPatterns(self):
     # Update images if visible OR not in changing event; include CoMs if in the modes
     for id in ids:
         if self.Fig[id].isVisible(): # or isStaticEvt(evt): #TODO?
+            print(id,self.Fig[id].fig.stale)
             plotImage(self, id)
 
 def toUpdateImage(self):
@@ -3048,7 +3053,7 @@ def unloadData(self, keep_p=False):
 
         # clear annotations (lines and draggable points)
         for ii in dir(self.A):
-            if type(getattr(self.A,ii)) in (DraggablePoint,InteractiveCircle,matplotlib.lines.Line2D):#,InteractiveBox #TODO
+            if type(getattr(self.A,ii)) in (InteractivePoint,InteractiveCircle,matplotlib.lines.Line2D):#,InteractiveBox #TODO
                 setattr(self.A,ii,None)
 
         setattr(self,'P',P())
@@ -3323,7 +3328,7 @@ def plotImage(self,id):
     # clear old image(s)
     #[ii.remove() for ii in self.Fig[id].ax.get_images()]
 
-    # abort if image not yet ready
+    # return if image not yet plotted
     if im is None:
         if id == self.SettingsWindow.DispImage.currentData():
             self.SettingsWindow.ImStatsNotes.setPlainText(fig.name)
@@ -3375,7 +3380,7 @@ def plotImage(self,id):
 
     # Shade CoM/DPC Phase with Magnitude
     if id == "CoMPhMag":
-        CoMMagNorm = self.Fig.Dfrn.CoMMag
+        CoMMagNorm  = self.Fig.Dfrn.CoMMag
         CoMMagNorm -= np.nanmin(CoMMagNorm)
         CoMMagNorm /= np.nanmax(CoMMagNorm)
         self.ImageAx.CoMPhMag.set_alpha(self.ImageAx.CoMPhMag.get_alpha()*CoMMagNorm)
@@ -3390,7 +3395,10 @@ def plotImage(self,id):
     # set colormap
     self.ImageAx[id].set_cmap(fig.cmap+["","_r"][fig.invert]) # append "_r" if inverted
 
-    fig.canvas.draw() # update plot
+    # update plot
+    if id != "Dfrn":
+        fig.canvas.draw_idle()
+    fig.canvas.flush_events()
 
 
 def updateDispImgStats(self,id,minVal,maxVal,limitLow,limitHigh,limitRange):
@@ -3541,3 +3549,73 @@ def showWindowCallbacks(self):
                 # If `id` is one of the available images, select it
                 if (not self.SettingsWindow.DispLock.isChecked()) and (self.SettingsWindow.DispImage.currentData() != id) and (self.SettingsWindow.DispImage.findData(id) != -1):
                     self.SettingsWindow.DispImage.setCurrentIndex(self.SettingsWindow.DispImage.findData(id))
+
+# Function to import mask for given (diffraction/real) space
+def importMask(self, space):
+    if space == "Real":
+        spaceName = "Real-space"
+        imShape = self.D.NFr
+    else: # "Dfrn"
+        spaceName = "Diffraction"
+        imShape = self.D.NPx
+
+    im = []
+    msg = ""
+
+    fDialog  = qtw.QFileDialog(self)
+    fDialog.setWindowTitle("Select a mask image with shape [{:d},{:d}]".format(*imShape))
+    fDialog.setNameFilter("('*.tif;*.tiff;*.png;*.jpg;*.jpeg;*.bmp;*.gif);;(*.*)")
+    fDialog.setFileMode(qtw.QFileDialog.ExistingFile)
+    fDialog.setDirectory(qtc.QDir.currentPath())
+    file = None
+    if fDialog.exec_() == qtw.QDialog.Accepted:
+        file = fDialog.selectedFiles()
+    
+    _,ext = os.path.splitext(file)
+
+    match ext.lower(): # force lowercase
+        case '.tif'|'.tiff'|'.png'|'.jpg'|'.jpeg'|'.bmp'|'.gif':
+
+            # directly convert image to grayscale floating point numpy array
+            im = np.array(Image.open(file).convert("L")).astype(np.float64)
+            
+            # get mask shape
+            isize = im.shape
+
+            # if imported dimensions do not matched data dimensions
+            if ~all(isize == imShape):
+                # check for a transpose
+                if all(isize == np.flip(imShape)):
+                    im = im.T
+                    msg += "Image shape ({:d},{:d}) transposed to fit data's {:s} shape ({:d},{:d}).\n".format(*isize, spaceName, *imShape)
+                else: # throw error
+                    notifDLG(self, self, 'warn', "Image size ({:d},{:d}) does not fit data's {:s} size ({:d},{:d})!".format(*isize, spaceName, *imShape),'Dimension Mismatch')
+                    return
+
+        case "": # Canceled, etc.
+            return
+        
+        case other: # unsupported filetype
+            _ = notifDLG(self, self, 'warn', "File type '*"+ext+"' currently unsupported!", 'Import Failed')
+            return
+    
+    # check for invalid data (nan or inf) and replace with zeros
+    invalidMask = np.ma.masked_invalid(im).mask
+    if invalidMask.any():
+        im[invalidMask]=0
+        msg += "NaN/Inf found in image, and set to 0.\n"
+
+    # scale the maximum to 1
+    imax = im.max() 
+    if (imax != 0) and (imax != 1):
+        im /= imax
+        msg += "The maximum was {:d}; now scaled to 1, by `IMG = IMG/{:d}`.\n".format(imax,imax)
+
+    # notify user of what has been done and return the mask
+    if msg != "":
+        msg = "Please note:\n"+msg+"\n"
+
+    _ = notifDLG(self, self, 'help', msg+"Please check the "+spaceName+" Mask image.",'Mask Imported')
+    self.Fig[space+"Mask"].activateWindow()
+
+    return im

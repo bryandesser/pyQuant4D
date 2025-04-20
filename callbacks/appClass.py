@@ -147,11 +147,11 @@ class P:
 class Prev:
     """ Previous values, should be cleared when a dataset is unloaded """
     def __init__(self):
-        self.ims = []
-        self.hist = []
-        self.B0 = []
-        self.AnnR = []
-        self.CoM_P = []
+        self.ims = None
+        self.hist = None
+        self.B0 = None
+        self.AnnR = None
+        self.CoM_P = None
 
 class A:
     """ Image annotations on `axes` `uiaxes`, excluding annotations on `figure` `uifigure` """

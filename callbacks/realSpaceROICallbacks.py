@@ -1,14 +1,18 @@
-from callbacks.allFunctions import enableWindows,notifDLG,toUpdateImage,plotAllPatterns
+from callbacks.allFunctions import enableWindows,notifDLG,toUpdateImage,plotAllPatterns,importMask
 import PyQt5.QtCore as qtc
 import PyQt5.QtWidgets as qtw
 import PyQt5.QtGui as qtg
 import numpy as np
+from annotationsClasses.interactivePoint import InteractivePoint
+from annotationsClasses.interactiveCircle import InteractiveCircle
+
+
 
 def realSpaceROICallbacks(self, event):
 
     match self.sender():
         case self.UpdateImages: # Update diffraction image
-            if isempty(findobj(self.G.RealAx, 'Tag','Real-space ROI')): # Draw ROI etc if not exists
+            if all([self.A.ROIs[roi]==None for roi in self.A.ROIs]): # Draw ROI if not exists
                 self.RealROIShape.currentIndexChanged.emit(self.RealROIShape.currentIndex())
             else:
                 moveRealROI(self.A.RealROI.Real, event)
@@ -17,13 +21,12 @@ def realSpaceROICallbacks(self, event):
             val = self.RealROIShape.currentData()
             if val == "file":
                 self.Image.RealROIFile = importMask(self, "Real")
-            if self.Image.RealROIFile == "":
-                val = "full"
-          
-            # Update GUI if changed
-            self.RealROIShape.blockSignals(True)
-            self.RealROIShape.setCurrentIndex(self.RealROIShape.findData(val))
-            self.RealROIShape.blockSignals(False)
+                if self.Image.RealROIFile == None:
+                    val = "full"
+                    # reset dropdown to full ROI if 
+                    self.RealROIShape.blockSignals(True)
+                    self.RealROIShape.setCurrentIndex(self.RealROIShape.findData(val))
+                    self.RealROIShape.blockSignals(False)
             
             # Panel enable/disable
             self.FrameX.setEnabled(val=="point")
@@ -62,7 +65,7 @@ def realSpaceROICallbacks(self, event):
 
             message = "Select a Real-space Image to draw a polygon ROI.\n\nPress 'Esc' to cancel during drawing. Please refer to MATLAB's 'drawpolygon' for more tips.\n"
             title = "Draw Polygon ROI"
-            sel = notifDLG(self,'list',message,title,self.G.Img.name[rs])
+            sel = notifDLG(self,self,'list',message,title,self.G.Img.name[rs])
 
             # Revert to "full" is canceled
             if sel == None:
@@ -94,29 +97,31 @@ def realSpaceROICallbacks(self, event):
         for id in self.G.Img[(self.G.Img.space=="Real")&(self.G.Img.type!="Mask")].id:
             match typ:
                 case "full":
-                    roi = drawrectangle(self.Fig[id].ax,"Position",[1,1,rg],"Visible",0,"EdgeAlpha",0,"FaceAlpha",0)
+                    roi = InteractiveRectangle(self.Fig[id].ax,"Position",[1,1,rg],"Visible",0,"EdgeAlpha",0,"FaceAlpha",0)
                 case "point":
-                    roi = drawpoint(self.Fig[id].ax,"Position",p)
+                    roi = InteractivePoint(self.Fig[id].ax,"Position",p)
                 case "ellipse":
-                    roi = drawellipse(self.Fig[id].ax,'Center',p,"SemiAxes",min(0.1*rg)*[1,1],'FaceAlpha',0)
+                    roi = InteractiveCircle(self.Fig[id].ax,'Center',p,"SemiAxes",min(0.1*rg)*[1,1],'FaceAlpha',0)
                 case "rectangle":
-                    roi = drawrectangle(self.Fig[id].ax,"Position",[p-0.1*rg, 0.2*rg],"Rotatable",True,'FaceAlpha',0)
+                    roi = InteractiveRectangle(self.Fig[id].ax,"Position",[p-0.1*rg, 0.2*rg],"Rotatable",True,'FaceAlpha',0)
                 case "poly":
-                    roi = drawpolygon(self.Fig[id].ax,"Position",polyPos,'FaceAlpha',0)
+                    roi = InteractivePolygon(self.Fig[id].ax,"Position",polyPos,'FaceAlpha',0)
                 case "file":
-                    roi = drawrectangle(self.Fig[id].ax,"Position",[1,1,rg],"Visible",0,"EdgeAlpha",0,"FaceAlpha",0)
-                    bw = visboundaries(self.Fig[id].ax, bwboundaries(self.Image.RealROIFile), 'Color',c, "EnhanceVisibility",0)
-                    bw.Tag = 'Real-space ROI'
+                    roi = InteractiveRectangle(self.Fig[id].ax,"Position",[1,1,rg],"Visible",0,"EdgeAlpha",0,"FaceAlpha",0)
+                    #bw = visboundaries(self.Fig[id].ax, bwboundaries(self.Image.RealROIFile), 'Color',c, "EnhanceVisibility",0)
+                    #bw.Tag = 'Real-space ROI'
           
             set(roi,'Deletable',False,'Color',c,'Tag','Real-space ROI')
             roi.UserData.Move = addlistener(roi,'MovingROI',@moveRealROI)
             addlistener(roi,'ROIMoved',@moveRealROI)
-            self.A.RealROI.(id) = roi
+            roi.connect()
+            roi.ROIMoved.connect(lambda moveRealROI)
+            self.A.RealROI[id] = roi
 
         moveRealROI(self.A.RealROI.Real, event)
 
 
-    def moveRealROI(self.sender(), evt):
+    def moveRealROI(self, event):
         """ live update function for Real-space ROIs """
 
         # Update panel values for individual probe positions
@@ -170,7 +175,7 @@ def realSpaceROICallbacks(self, event):
         # Sync existing properties of positions etc.
         for p in ["Position","Center","SemiAxes","RotationAngle"]:
             if hasattr(roi, p):
-                setExself.sender()(evt, rois, p, roi.(p))
+                setExSrc(self.sender(),event, rois, p, roi.(p))
         
         # Update images
         if toUpdateImage(self,evt):

@@ -2,7 +2,7 @@ from matplotlib.backend_tools import Cursors
 from PyQt5 import QtCore as qtc
 import numpy as np
 
-class DraggablePoint(qtc.QObject):
+class InteractivePoint(qtc.QObject):
     redrawCircle = qtc.pyqtSignal()
     
     lock = None #only one can be animated at a time
@@ -26,9 +26,9 @@ class DraggablePoint(qtc.QObject):
 
     def on_press(self, event):
         if event.inaxes != self.point.axes: return
-        if DraggablePoint.lock is not None: return
+        if InteractivePoint.lock is not None: return
         
-        # check that mouse press contains one of the DraggablePoints
+        # check that mouse press contains one of the InteractivePoints
         contains, attrd = self.point.contains(event)
 
         if not contains: return
@@ -38,7 +38,7 @@ class DraggablePoint(qtc.QObject):
         # save info to the self.press 
         self.press = (self.point.get_offsets()[attrd["ind"][0]]), event.xdata, event.ydata
 
-        DraggablePoint.lock = self
+        InteractivePoint.lock = self
 
         # draw everything but the selected rectangle and store the pixel buffer
         canvas = self.point.figure.canvas
@@ -65,7 +65,7 @@ class DraggablePoint(qtc.QObject):
         else:
             self.point.figure.canvas.set_cursor(Cursors.POINTER)
 
-        if DraggablePoint.lock is not self:
+        if InteractivePoint.lock is not self:
             return
         if event.inaxes != self.point.axes: return
 
@@ -91,11 +91,11 @@ class DraggablePoint(qtc.QObject):
 
     def on_release(self, event):
         'on release we reset the press data'
-        if DraggablePoint.lock is not self:
+        if InteractivePoint.lock is not self:
             return
 
         self.press = None
-        DraggablePoint.lock = None
+        InteractivePoint.lock = None
 
         # update cursor
         self.point.figure.canvas.set_cursor(Cursors.POINTER)

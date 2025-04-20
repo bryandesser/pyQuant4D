@@ -22,10 +22,13 @@ class InteractiveCircle(qtc.QObject):
     updateCircle = qtc.pyqtSignal()
     rightClick = qtc.pyqtSignal(MouseEvent)
 
-    lock = None #only one InteractiveCircle can be interactived with at a time
+    lock = None # only one InteractiveCircle can be interactived with at a time
 
-    def __init__(self, center, radius, axis, color, interactions='all'):
+    def __init__(self, axis, center=None, radius=None, color='r', interactions='all'):
         super().__init__()
+
+        # set defaults for center and radius if none are provided
+        
 
         # properties
         self.x = np.cos(2 * np.pi * np.arange(0.0, 1.01, 0.01))     # keep basic circle on hand for convenience
@@ -356,7 +359,7 @@ class InteractiveCircle(qtc.QObject):
         """ this function is used to redraw artists and update background for blitting """
 
         # draw everything but the selected circle and store the pixel buffer
-        for circ in self.cir:
+        for circ in self.circ:
             circ.set_animated(True)
         self.point.set_animated(True)
         self.canvas.draw()

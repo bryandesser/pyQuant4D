@@ -7,8 +7,8 @@ from PyQt5 import QtCore as qtc
 from PyQt5 import QtGui as qtg
 import callbacks.appClass as appClass
 from callbacks.appClass import *
-from annotationsClasses.InteractiveCircle import InteractiveCircle
-from annotationsClasses.draggablePoint import DraggablePoint
+from annotationsClasses.interactiveCircle import InteractiveCircle
+from annotationsClasses.interactivePoint import DraggablePoint
 
 
 def importCallbacks(self):

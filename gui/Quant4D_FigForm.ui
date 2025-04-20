@@ -443,9 +443,9 @@
           <widget class="QComboBox" name="DetrMode">
            <property name="font">
             <font>
-             <pointsize>13</pointsize>
+             <pointsize>11</pointsize>
              <weight>75</weight>
-             <italic>true</italic>
+             <italic>false</italic>
              <bold>true</bold>
             </font>
            </property>
