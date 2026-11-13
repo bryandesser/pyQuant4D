@@ -1838,8 +1838,56 @@ def annularDetectorCallbacks(self):
    
     def calcCoM():
         def integrateCoM():
-            pass
-        pass
+            """Tikhonov-regularised Fourier integration of CoM → iCoM phase image."""
+            ny, nx = self.Fig.CoMX.Image.shape
+            kx = np.fft.fftfreq(nx)
+            ky = np.fft.fftfreq(ny)
+            KX, KY = np.meshgrid(kx, ky)
+            k2 = KX**2 + KY**2
+            k2[0, 0] = 1  # prevent division by zero; DC → 0 after IFFT
+
+            FCoMX = np.fft.fft2(self.Fig.CoMX.Image)
+            FCoMY = np.fft.fft2(self.Fig.CoMY.Image)
+
+            # Fourier integration: phase = IFFT[(kx·FCoMX + ky·FCoMY) / (2πi·k²)]
+            self.Fig.iCoM.Image = np.fft.ifft2(
+                (KX * FCoMX + KY * FCoMY) / (2j * np.pi * k2)
+            ).real
+
+            # dCoM: divergence of CoM field (∂CoMX/∂x + ∂CoMY/∂y)
+            dCoMX = np.gradient(self.Fig.CoMX.Image, axis=1)
+            dCoMY = np.gradient(self.Fig.CoMY.Image, axis=0)
+            self.Fig.dCoM.Image = dCoMX + dCoMY
+
+        # Annular mask in diffraction space (flattened, matches self.Data column order)
+        mask = ((self.A.k >= ri) & (self.A.k <= ro)).flatten()
+        if not mask.any():
+            return  # nothing inside the selected annulus
+
+        # Pixel coordinate grids relative to transmitted beam, same layout as self.A.k
+        # self.A.k was built with ogrid[-B0[0]:NPxX-B0[0], -B0[1]:NPxY-B0[1]]
+        xgrid, ygrid = np.mgrid[0:self.D.NPxX, 0:self.D.NPxY]
+        xweight = (xgrid.flatten() - self.B0[0]).astype(np.float32)
+        yweight = (ygrid.flatten() - self.B0[1]).astype(np.float32)
+
+        # Mask-select data columns and compute intensity-weighted CoM
+        data_m = self.Data[:, mask].astype(np.float32)   # (NFrX*NFrY, n_masked)
+        norm = data_m.sum(axis=1).clip(np.finfo(np.float32).eps, None)
+
+        CoMX_flat = (data_m @ xweight[mask]) / norm        # (NFrX*NFrY,)
+        CoMY_flat = (data_m @ yweight[mask]) / norm * syf  # apply Y-axis flip
+
+        # Apply scan-direction rotation (sd in degrees, in scope from moveAnnDetr)
+        c, s = np.cos(np.radians(sd)), np.sin(np.radians(sd))
+        CoM = np.array([[c, -s], [s, c]]) @ np.vstack([CoMX_flat, CoMY_flat])
+
+        # Reshape to real-space images (NFrY × NFrX)
+        self.Fig.CoMX.Image   = CoM[0].reshape(self.D.NFrY, self.D.NFrX)
+        self.Fig.CoMY.Image   = CoM[1].reshape(self.D.NFrY, self.D.NFrX)
+        self.Fig.CoMMag.Image = np.hypot(self.Fig.CoMX.Image, self.Fig.CoMY.Image)
+        self.Fig.CoMPh.Image  = np.arctan2(self.Fig.CoMY.Image, self.Fig.CoMX.Image)
+
+        integrateCoM()
 
     # bypass execution if signals are actively being blocked (i.e. for programmatically updating UI values)
     if self.blockAllSignals:
@@ -3084,10 +3132,10 @@ def enableWindows(self,sw=True):
 
     prvw = self.DetrMode.currentData() == "PrvwMod" # Preview mode or not
     # Detector Mode UI, keep disabled in Import Preview Mode unless a dataset is loaded
-    self.DetrMode.setEnabled(sw and ~prvw) #(sw and (~prvw or ~isempty(self.D))) #TODO ~isempty(self.D) doesn't make sense when converted to Python
+    self.DetrMode.setEnabled(sw and not prvw) #(sw and (not prvw or self.D is not None))
 
     # Real-space ROI controls, keep disabled in Import Preview Mode
-    self.RealSpacePanel.setEnabled(sw and ~prvw)
+    self.RealSpacePanel.setEnabled(sw and not prvw)
 
     # Other UIs can be enabled in Import Preview Mode
     self.toolBar.setEnabled(sw)

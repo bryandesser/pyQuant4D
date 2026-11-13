@@ -1,0 +1,22 @@
+# pyQuant4D runtime dependencies
+# Install with: pip install -r requirements.txt
+#
+# Note: PyQt5 requires Qt 5.15+. On Linux you may also need:
+#   sudo apt-get install libgl1 libglib2.0-0
+#
+# Note: torch (PyTorch) is used for optional GPU acceleration.
+# If you do not have an NVIDIA GPU, the CPU-only wheel is sufficient:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+# For CUDA 12.x:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121
+
+PyQt5>=5.15
+numpy>=1.24
+matplotlib>=3.7
+h5py>=3.8
+psutil>=5.9
+Pillow>=9.0        # PIL / Image I/O
+torch>=2.0         # GPU acceleration (CUDA optional — see note above)
+superqt>=0.5       # QRangeSlider widget used by the annular detector UI
+scipy>=1.11        # ndimage for auto-alignment
+scikit-image>=0.21 # ROI mask rasterisation (skimage.draw, skimage.measure)
