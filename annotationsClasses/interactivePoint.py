@@ -3,9 +3,25 @@ from PyQt5 import QtCore as qtc
 import numpy as np
 
 class InteractivePoint(qtc.QObject):
-    redrawCircle = qtc.pyqtSignal()
-    
-    lock = None #only one can be animated at a time
+    """
+    Wraps an existing matplotlib scatter artist to make it draggable.
+
+    Parameters
+    ----------
+    point : matplotlib PathCollection (scatter artist)
+        The artist to make interactive.  The artist must already be added
+        to an axes before constructing InteractivePoint.
+
+    Signal
+    ------
+    positionChanged
+        Emitted whenever the point moves (on_motion).  Replaces the
+        previously mis-named ``redrawCircle`` signal.
+    """
+    positionChanged = qtc.pyqtSignal()
+
+    lock = None  # only one can be animated at a time
+
     def __init__(self, point):
         super().__init__()
         self.point = point
@@ -86,8 +102,8 @@ class InteractivePoint(qtc.QObject):
         # redraw just the current rectangle
         axes.draw_artist(self.point)
 
-        # replot the annulus
-        self.redrawCircle.emit()
+        # notify listeners (e.g. associated circle/annulus or ROI callback)
+        self.positionChanged.emit()
 
     def on_release(self, event):
         'on release we reset the press data'
@@ -107,6 +123,26 @@ class InteractivePoint(qtc.QObject):
         # redraw the full figure
         self.point.figure.canvas.draw()       
     
-    def setPointPickerRadius(self,radius):
-        self.radius = radius/2
-        self.point.set_sizes(2*[self.radius/2])
+    def setPointPickerRadius(self, radius):
+        self.radius = radius / 2
+        self.point.set_sizes(2 * [self.radius / 2])
+
+    # ------------------------------------------------------------------
+    # Convenience API for standalone ROI use
+    # ------------------------------------------------------------------
+
+    @property
+    def position(self):
+        """Current (x, y) position as a 1-D NumPy array."""
+        return np.asarray(self.point.get_offsets()[self.idx])
+
+    @position.setter
+    def position(self, xy):
+        """Move the point to *xy* = (x, y) without triggering a signal."""
+        offsets = self.point.get_offsets().copy()
+        offsets[self.idx] = xy
+        self.point.set_offsets(offsets)
+
+    def redraw(self):
+        """Refresh the artist after an external position change."""
+        self.point.figure.canvas.draw_idle()

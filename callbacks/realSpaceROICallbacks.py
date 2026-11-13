@@ -1,207 +1,460 @@
-from callbacks.allFunctions import enableWindows,notifDLG,toUpdateImage,plotAllPatterns,importMask
-import PyQt5.QtCore as qtc
+"""
+Real-Space ROI callbacks for pyQuant4D.
+
+Handles all interactions with the real-space ROI controls:
+  - RealROIShape dropdown  (full / point / ellipse / rectangle / poly / file)
+  - FrameX / FrameY spinboxes  (probe position for point-ROI)
+  - UpdateImages button  (force diffraction-pattern recalculation)
+  - Live ROI move signals  (from InteractiveCircle / Rectangle / Polygon / Point)
+
+Porting notes
+-------------
+Replaced MATLAB-only constructs:
+  drawpolygon(ax,...)  → matplotlib.widgets.PolygonSelector (async callback)
+  createMask(roi,img)  → _roi_to_mask(roi, shape, typ)
+  centroid(polyshape(pos))   → np.mean(roi.vertices, axis=0)
+  True(shape)/False(shape)   → np.ones/np.zeros(..., bool)
+  gather(reshape(...))       → (mask_flat @ self.Data / n_sum).reshape(...)
+  structfun / setExSrc       → explicit Python loops with getattr/setattr
+  addlistener(roi, ...)      → roi.updateXxx.connect(lambda ...)
+  ancestor(roi,'figure')     → roi.axis.figure
+"""
+
+from __future__ import annotations
+
+import numpy as np
+from matplotlib.path import Path
+from matplotlib.widgets import PolygonSelector
 import PyQt5.QtWidgets as qtw
 import PyQt5.QtGui as qtg
-import numpy as np
+
+from callbacks.allFunctions import (
+    enableWindows, notifDLG, toUpdateImage, plotAllPatterns, importMask
+)
+from annotationsClasses.InteractiveCircle import InteractiveCircle
+from annotationsClasses.interactiveRectangle import InteractiveRectangle
+from annotationsClasses.interactivePolygon import InteractivePolygon
 from annotationsClasses.interactivePoint import InteractivePoint
-from annotationsClasses.interactiveCircle import InteractiveCircle
 
 
+# ---------------------------------------------------------------------------
+# Mask helper
+# ---------------------------------------------------------------------------
 
-def realSpaceROICallbacks(self, event):
+def _roi_to_mask(roi, shape, typ: str) -> np.ndarray:
+    """
+    Rasterise *roi* onto a boolean grid of *shape* = (ny, nx).
 
-    match self.sender():
-        case self.UpdateImages: # Update diffraction image
-            if all([self.A.ROIs[roi]==None for roi in self.A.ROIs]): # Draw ROI if not exists
-                self.RealROIShape.currentIndexChanged.emit(self.RealROIShape.currentIndex())
-            else:
-                moveRealROI(self.A.RealROI.Real, event)
-          
-        case self.RealROIShape:
-            val = self.RealROIShape.currentData()
-            if val == "file":
-                self.Image.RealROIFile = importMask(self, "Real")
-                if self.Image.RealROIFile == None:
-                    val = "full"
-                    # reset dropdown to full ROI if 
-                    self.RealROIShape.blockSignals(True)
-                    self.RealROIShape.setCurrentIndex(self.RealROIShape.findData(val))
-                    self.RealROIShape.blockSignals(False)
-            
-            # Panel enable/disable
-            self.FrameX.setEnabled(val=="point")
-            self.FrameY.setEnabled(val=="point")
-            self.FrameXLabel.setEnabled(val=="point")
-            self.FrameYLabel.setEnabled(val=="point")
-            self.FrameLabel.setEnabled(val=="point")
-            self.RealROIInvert.setEnabled(val != "full")
-            
-            self.RealROIInvert.blockSignals(True)
-            self.RealROIInvert.setChecked(self.RealROIInvert.isChecked() and self.RealROIInvert.isEnabled()) # If disabled, then off
-            self.RealROIInvert.blockSignals(False)
-            
-            # Draw ROIs
-            drawRealROI(val)
+    Coordinates are in data-space (pixels of the real-space image), where
+    x = column index and y = row index, matching matplotlib's default for
+    imshow with origin='upper'.
+    """
+    ny, nx = shape
+    yy, xx = np.mgrid[0:ny, 0:nx]
+    pts = np.column_stack([xx.ravel().astype(float),
+                           yy.ravel().astype(float)])
 
-        case self.FrameX|self.FrameY:
-            moveRealROI(self.sender(), event)
+    if typ == 'ellipse':
+        # InteractiveCircle: use the outermost radius
+        dist = np.linalg.norm(pts - roi.center, axis=1)
+        return (dist <= roi.radius[-1]).reshape(ny, nx)
 
-        case other:
-            # run the listener to update any/all other ROIs and the diffraction pattern
-            moveRealROI(self.A.RealROI.Real, event)
-      
+    elif typ == 'rectangle':
+        # InteractiveRectangle: transform points into local frame
+        theta = np.radians(roi.rotation)
+        c, s  = np.cos(theta), np.sin(theta)
+        R_inv = np.array([[c, s], [-s, c]])
+        local = (pts - roi.center) @ R_inv.T
+        return np.all(np.abs(local) <= roi.size / 2.0, axis=1).reshape(ny, nx)
 
-    ## Sub functions
-    # function to draw Real-space ROI of various shapes on real space image(s)
-    def drawRealROI(typ):
-        self.A.removeGroup("ROIs") # Delete all previous ROIs
-        c = qtg.QColor(255,127,127)
+    elif typ == 'poly':
+        # InteractivePolygon: point-in-polygon test
+        path = Path(np.vstack([roi.vertices, roi.vertices[0]]))
+        return path.contains_points(pts).reshape(ny, nx)
 
-        # Special case for drawing polygon ROI
-        if typ == "poly":
-            # List for available real-space images
-            rs = (self.G.Img.space=="Real") & (self.G.Img.type!="Mask") # list of bools
-            rs &= self.G.Img.name.isin([self.SettingsWindow.DispImage.itemText(ii) for ii in range(self.SettingsWindow.DispImage.count())])
+    # Fallback — should not be reached for well-typed calls
+    return np.ones((ny, nx), bool)
 
-            message = "Select a Real-space Image to draw a polygon ROI.\n\nPress 'Esc' to cancel during drawing. Please refer to MATLAB's 'drawpolygon' for more tips.\n"
-            title = "Draw Polygon ROI"
-            sel = notifDLG(self,self,'list',message,title,self.G.Img.name[rs])
 
-            # Revert to "full" is canceled
-            if sel == None:
-                self.RealROIShape.currentIndexChanged(self.RealROIShape.findData("full"))
+# ---------------------------------------------------------------------------
+# Main callback dispatcher
+# ---------------------------------------------------------------------------
+
+def realSpaceROICallbacks(self):
+    """
+    Dispatcher connected to every Real-Space ROI-related UI signal.
+
+    Qt `sender()` determines which widget fired; inner functions
+    `drawRealROI` and `moveRealROI` do the actual work.
+    """
+    if self.blockAllSignals:
+        return
+
+    sender = self.sender()
+
+    # -- Force diffraction update from the current ROI --------------------
+    if sender is self.UpdateImages:
+        roi_dict = getattr(self.A, 'RealROI', {})
+        if all(v is None for v in roi_dict.values()):
+            # No ROI drawn yet — trigger shape selection to draw one
+            self.RealROIShape.currentIndexChanged.emit(
+                self.RealROIShape.currentIndex()
+            )
+        else:
+            moveRealROI()
+
+    # -- Shape dropdown changed -------------------------------------------
+    elif sender is self.RealROIShape:
+        val = self.RealROIShape.currentData()
+
+        if val == 'file':
+            self.Image.RealROIFile = importMask(self, 'Real')
+            if self.Image.RealROIFile is None:
+                val = 'full'
+                self.RealROIShape.blockSignals(True)
+                self.RealROIShape.setCurrentIndex(
+                    self.RealROIShape.findData('full')
+                )
+                self.RealROIShape.blockSignals(False)
+
+        # Enable / disable point-only panel widgets
+        is_point = (val == 'point')
+        for w in (self.FrameX, self.FrameY,
+                  self.FrameXLabel, self.FrameYLabel, self.FrameLabel):
+            w.setEnabled(is_point)
+
+        self.RealROIInvert.setEnabled(val != 'full')
+        self.RealROIInvert.blockSignals(True)
+        self.RealROIInvert.setChecked(
+            self.RealROIInvert.isChecked() and self.RealROIInvert.isEnabled()
+        )
+        self.RealROIInvert.blockSignals(False)
+
+        drawRealROI(val)
+
+    # -- Probe-position spinboxes ----------------------------------------
+    elif sender is self.FrameX:
+        moveRealROI(from_spinbox='x')
+
+    elif sender is self.FrameY:
+        moveRealROI(from_spinbox='y')
+
+    # -- Any other sender (e.g. the ROI invert checkbox) -----------------
+    else:
+        moveRealROI()
+
+    # ======================================================================
+    # Inner functions
+    # ======================================================================
+
+    def drawRealROI(typ: str):
+        """
+        Remove any existing ROIs and draw fresh ones of the requested *typ*
+        on every visible real-space image panel.
+        """
+        # Remove all existing ROIs
+        roi_dict = getattr(self.A, 'RealROI', {})
+        for roi in roi_dict.values():
+            if roi is not None:
+                try:
+                    roi.remove()
+                except Exception:
+                    pass
+        self.A.RealROI = {}
+
+        c = qtg.QColor(255, 127, 127)   # salmon red  (#ff7f7f)
+        c_mpl = (c.redF(), c.greenF(), c.blueF())   # (R,G,B) floats for mpl
+
+        # --- Polygon: interactive drawing is asynchronous ----------------
+        if typ == 'poly':
+            # Find real-space images visible in the display-image list
+            img_names = [self.SettingsWindow.DispImage.itemText(ii)
+                         for ii in range(self.SettingsWindow.DispImage.count())]
+            rs_mask = (
+                (self.G.Img.space == 'Real') &
+                (self.G.Img.type  != 'Mask') &
+                self.G.Img.name.isin(img_names)
+            )
+
+            message = (
+                "Select a Real-space Image to draw a polygon ROI.\n\n"
+                "Click to place vertices; click the first vertex to close the\n"
+                "polygon. Press <Esc> to cancel drawing."
+            )
+            sel = notifDLG(self, self, 'list', message,
+                           'Draw Polygon ROI', self.G.Img.name[rs_mask])
+
+            if sel is None:
+                self.RealROIShape.blockSignals(True)
+                self.RealROIShape.setCurrentIndex(
+                    self.RealROIShape.findData('full')
+                )
+                self.RealROIShape.blockSignals(False)
                 return
-            
+
             # Bring selected image window to front
-            id = self.G.Img[self.G.Img.name.isin([sel])].id.item()
-            ax = self.Fig[id].ax
-            self.Fig[id].show()
-            self.Fig[id].activateWindow()
+            id_sel = self.G.Img[self.G.Img.name.isin([sel])].id.item()
+            ax_sel = self.Fig[id_sel].ax
+            self.Fig[id_sel].show()
+            self.Fig[id_sel].activateWindow()
 
-            enableWindows(self,False) # Disable UIs until drawing finishes
-            
-            # Draw temporary polygon for positions
-            tmpPoly = drawpolygon(ax,"Color",c)
-            polyPos = tmpPoly.Position
-            delete(tmpPoly)
+            enableWindows(self, False)
 
-            enableWindows(self,True) # Re-enable all windows
-            # Revert to "full" is canceled
-            if polyPos==[]:
-                self.RealROIShape.currentIndexChanged(self.RealROIShape.findData("full"))
-                return
-        
-        # Draw ROIs on Real-space images, except the mask image
-        rg = np.ptp([self.Fig.Dfrn.ax.get_xlim(),self.Fig.Dfrn.ax.get_ylim()],axis=1)
-        p = np.array([self.FrameX.value(),self.FrameY.value()])
-        for id in self.G.Img[(self.G.Img.space=="Real")&(self.G.Img.type!="Mask")].id:
-            match typ:
-                case "full":
-                    roi = InteractiveRectangle(self.Fig[id].ax,"Position",[1,1,rg],"Visible",0,"EdgeAlpha",0,"FaceAlpha",0)
-                case "point":
-                    roi = InteractivePoint(self.Fig[id].ax,"Position",p)
-                case "ellipse":
-                    roi = InteractiveCircle(self.Fig[id].ax,'Center',p,"SemiAxes",min(0.1*rg)*[1,1],'FaceAlpha',0)
-                case "rectangle":
-                    roi = InteractiveRectangle(self.Fig[id].ax,"Position",[p-0.1*rg, 0.2*rg],"Rotatable",True,'FaceAlpha',0)
-                case "poly":
-                    roi = InteractivePolygon(self.Fig[id].ax,"Position",polyPos,'FaceAlpha',0)
-                case "file":
-                    roi = InteractiveRectangle(self.Fig[id].ax,"Position",[1,1,rg],"Visible",0,"EdgeAlpha",0,"FaceAlpha",0)
-                    #bw = visboundaries(self.Fig[id].ax, bwboundaries(self.Image.RealROIFile), 'Color',c, "EnhanceVisibility",0)
-                    #bw.Tag = 'Real-space ROI'
-          
-            set(roi,'Deletable',False,'Color',c,'Tag','Real-space ROI')
-            roi.UserData.Move = addlistener(roi,'MovingROI',@moveRealROI)
-            addlistener(roi,'ROIMoved',@moveRealROI)
+            def _poly_done(vertices):
+                """Callback fired by PolygonSelector when polygon is closed."""
+                # Disconnect Esc handler
+                try:
+                    ax_sel.figure.canvas.mpl_disconnect(_esc_cid[0])
+                except Exception:
+                    pass
+                # Clean up selector
+                if hasattr(self.A, '_tmp_selector'):
+                    try:
+                        self.A._tmp_selector.disconnect_events()
+                    except Exception:
+                        pass
+                    del self.A._tmp_selector
+
+                enableWindows(self, True)
+
+                if not vertices or len(vertices) < 3:
+                    self.RealROIShape.blockSignals(True)
+                    self.RealROIShape.setCurrentIndex(
+                        self.RealROIShape.findData('full')
+                    )
+                    self.RealROIShape.blockSignals(False)
+                    return
+
+                poly_verts = np.array(vertices, dtype=float)
+                real_ids = self.G.Img[
+                    (self.G.Img.space == 'Real') &
+                    (self.G.Img.type  != 'Mask')
+                ].id
+
+                for img_id in real_ids:
+                    roi = InteractivePolygon(
+                        self.Fig[img_id].ax,
+                        vertices=poly_verts,
+                        color=c_mpl
+                    )
+                    roi.connect()
+                    # Capture roi in closure so the lambda references the
+                    # correct object even as the loop variable changes
+                    roi.updatePoly.connect(
+                        lambda *, _roi=roi: moveRealROI(roi_src=_roi)
+                    )
+                    self.A.RealROI[img_id] = roi
+
+                moveRealROI()
+
+            def _on_esc(event):
+                """Cancel polygon drawing on Escape."""
+                if event.key == 'escape':
+                    _poly_done([])   # empty → revert to 'full'
+
+            _esc_cid = [ax_sel.figure.canvas.mpl_connect(
+                'key_press_event', _on_esc
+            )]
+
+            self.A._tmp_selector = PolygonSelector(
+                ax_sel, _poly_done,
+                props=dict(color=c_mpl, linewidth=1.5)
+            )
+            return   # remainder handled asynchronously in _poly_done
+
+        # --- All other shapes: draw synchronously -----------------------
+        # Range of the DIFFRACTION axes (used as a scale reference, matching
+        # the original MATLAB logic)
+        rg = np.array([
+            np.ptp(self.Fig.Dfrn.ax.get_xlim()),
+            np.ptp(self.Fig.Dfrn.ax.get_ylim())
+        ])
+        p  = np.array([self.FrameX.value(), self.FrameY.value()], dtype=float)
+
+        real_ids = self.G.Img[
+            (self.G.Img.space == 'Real') &
+            (self.G.Img.type  != 'Mask')
+        ].id
+
+        for img_id in real_ids:
+            ax = self.Fig[img_id].ax
+
+            if typ == 'full':
+                xl, xr = sorted(ax.get_xlim())
+                yl, yr = sorted(ax.get_ylim())
+                roi = InteractiveRectangle(
+                    ax,
+                    center=np.array([(xl + xr) / 2, (yl + yr) / 2]),
+                    size=np.array([xr - xl, yr - yl]),
+                    color=c_mpl, interactions='none'
+                )
+                roi.patch.set_alpha(0.0)   # invisible border
+                roi.handles.set_visible(False)
+
+            elif typ == 'point':
+                # InteractivePoint wraps an existing scatter artist
+                pt_artist = ax.scatter(p[0], p[1],
+                                       color=c_mpl, s=50, zorder=5,
+                                       animated=True)
+                roi = InteractivePoint(pt_artist)
+
+            elif typ == 'ellipse':
+                roi = InteractiveCircle(
+                    ax, center=p, radius=float(np.min(0.1 * rg))
+                )
+
+            elif typ == 'rectangle':
+                roi = InteractiveRectangle(
+                    ax,
+                    center=p,
+                    size=0.2 * rg,
+                    color=c_mpl, interactions='all'
+                )
+
+            elif typ == 'file':
+                # Invisible full-frame rectangle; mask comes from the file
+                xl, xr = sorted(ax.get_xlim())
+                yl, yr = sorted(ax.get_ylim())
+                roi = InteractiveRectangle(
+                    ax,
+                    center=np.array([(xl + xr) / 2, (yl + yr) / 2]),
+                    size=np.array([xr - xl, yr - yl]),
+                    color=c_mpl, interactions='none'
+                )
+                roi.patch.set_alpha(0.0)
+                roi.handles.set_visible(False)
+
+            else:
+                continue
+
             roi.connect()
-            roi.ROIMoved.connect(lambda moveRealROI)
-            self.A.RealROI[id] = roi
 
-        moveRealROI(self.A.RealROI.Real, event)
+            # Connect the roi's update signal back to moveRealROI.
+            # Using 'roi_src' kwarg so the lambda always captures the right roi.
+            if hasattr(roi, 'updateRect'):
+                roi.updateRect.connect(lambda *, _roi=roi: moveRealROI(roi_src=_roi))
+            elif hasattr(roi, 'updateCircle'):
+                roi.updateCircle.connect(lambda *, _roi=roi: moveRealROI(roi_src=_roi))
+            elif hasattr(roi, 'positionChanged'):
+                roi.positionChanged.connect(lambda *, _roi=roi: moveRealROI(roi_src=_roi))
 
+            self.A.RealROI[img_id] = roi
 
-    def moveRealROI(self, event):
-        """ live update function for Real-space ROIs """
+        moveRealROI()
 
-        # Update panel values for individual probe positions
-        roi = self.A.RealROI.Real
-        x = self.FrameX.Value
-        y = self.FrameY.Value
+    # ----------------------------------------------------------------------
 
-        match self.sender():
-            case self.FrameX:
-                x = max(1,self.sender().value()) # Force X >= 1
-            case self.FrameY:
-                y = max(1,self.sender().value()) # Force Y >= 1
-            case other: # E.g. ROIs
-                roi = self.sender()
-                match self.RealROIShape.currentData():
+    def moveRealROI(from_spinbox: str | None = None,
+                    roi_src=None):
+        """
+        Recalculate the diffraction pattern for the current real-space ROI.
 
-                    case 'rectangle'|'full'|'file':
-                        pos = self.sender().Position[0:2]+0.5*self.sender().Position[3:]
-                        x = pos(1)
-                        y = pos(2)
+        Parameters
+        ----------
+        from_spinbox : 'x' | 'y' | None
+            Set if the call originated from FrameX or FrameY.
+        roi_src : ROI object | None
+            The ROI that triggered this update (via its signal), or None
+            when called from other contexts.
+        """
+        roi_dict = getattr(self.A, 'RealROI', {})
+        # Primary real-space image id — whatever is registered as 'Real'
+        roi = roi_dict.get('Real') or next(
+            (v for v in roi_dict.values() if v is not None), None
+        )
 
-                    case 'point':
-                        x = self.sender().Position[0]
-                        y = self.sender().Position[1]
+        x = self.FrameX.value()
+        y = self.FrameY.value()
 
-                    case 'ellipse':
-                        x = self.sender().Center[0]
-                        y = self.sender().Center[1]
+        if from_spinbox == 'x':
+            x = max(1, self.FrameX.value())
+        elif from_spinbox == 'y':
+            y = max(1, self.FrameY.value())
+        elif roi_src is not None:
+            roi = roi_src
+            typ = self.RealROIShape.currentData()
+            try:
+                if typ in ('rectangle', 'full', 'file'):
+                    x, y = roi.center[0], roi.center[1]
+                elif typ == 'point':
+                    x, y = roi.position[0], roi.position[1]
+                elif typ == 'ellipse':
+                    x, y = roi.center[0], roi.center[1]
+                elif typ == 'poly':
+                    x, y = np.mean(roi.vertices, axis=0)
+            except AttributeError:
+                pass   # keep current x, y
 
-                    case 'poly':
-                        [x, y] = centroid(polyshape(self.sender().Position))
-        
-        # round x,y location as they represent probe positions
-        x = round(x)
-        y = round(y)
+        x, y = int(round(x)), int(round(y))
 
-        # Set current ROI position if called from `self.FrameX` or `self.FrameY`, and it's a point ROI
-        if (self.sender() in [self.FrameX,self.FrameY]) and (self.RealROIShape.currentData() == "point"):
-            roi.Position = [x,y]
+        # --- For point ROI: move the annotation when spinbox drives it ---
+        if from_spinbox in ('x', 'y') and self.RealROIShape.currentData() == 'point':
+            for r in roi_dict.values():
+                if r is not None and hasattr(r, 'position'):
+                    try:
+                        r.position = np.array([x, y], dtype=float)
+                        r.redraw()
+                    except Exception:
+                        pass
 
-        # Update UI
-        self.blockAllSignals=True
+        # --- Update UI spinboxes (block to avoid re-entrant signals) ----
+        self.blockAllSignals = True
         self.FrameX.setValue(x)
         self.FrameY.setValue(y)
-        self.blockAllSignals=False
+        self.blockAllSignals = False
 
-        # Only upate ROIs on other visible figures; update all when not in "changing" Event
-        rois = structfun(@(i) i, self.A.RealROI)
-        rois = rois(arrayfun(@(i) ancestor(i,'figure').Visible, rois) | isStaticEvt(evt))
+        # --- Sync ROI geometry across all real-space panels --------------
+        if roi is not None:
+            for img_id, other_roi in roi_dict.items():
+                if other_roi is None or other_roi is roi:
+                    continue
+                for prop in ('center', 'size', 'rotation', 'vertices', 'position'):
+                    if hasattr(roi, prop) and hasattr(other_roi, prop):
+                        try:
+                            setattr(other_roi, prop, getattr(roi, prop))
+                            other_roi.redraw()
+                        except Exception:
+                            pass
 
-        # Sync existing properties of positions etc.
-        for p in ["Position","Center","SemiAxes","RotationAngle"]:
-            if hasattr(roi, p):
-                setExSrc(self.sender(),event, rois, p, roi.(p))
-        
-        # Update images
-        if toUpdateImage(self,evt):
-            # generate a mask for displaying diffraction pattern
-            match self.RealROIShape.currentData():
-                case "full":
-                    mask_real = True(self.D.NFr)
-                case 'point':
-                    mask_real = False(self.D.NFr)
-                    mask_real[x, y] = True
-                case 'file':
-                    mask_real = self.Image.RealROIFile
-                case other:
-                    mask_real = createMask(self.sender(), self.ImgD.Real)
-          
-        # Convert to single/double
+        # --- Build the real-space mask -----------------------------------
+        ny, nx = self.D.NFrY, self.D.NFrX
+        typ = self.RealROIShape.currentData()
+
+        if typ == 'full':
+            mask_real = np.ones((ny, nx), bool)
+
+        elif typ == 'point':
+            mask_real = np.zeros((ny, nx), bool)
+            # Convert 1-based probe coordinates to 0-based row/col indices
+            yi = max(0, min(y - 1, ny - 1))
+            xi = max(0, min(x - 1, nx - 1))
+            mask_real[yi, xi] = True
+
+        elif typ == 'file':
+            mask_real = np.asarray(self.Image.RealROIFile, bool)
+
+        elif roi is not None:
+            mask_real = _roi_to_mask(roi, (ny, nx), typ)
+
+        else:
+            mask_real = np.ones((ny, nx), bool)   # fallback: show everything
+
+        # --- Optionally invert -------------------------------------------
         mask_real = mask_real.astype(self.D.DataType)
-        
-        # Invert mask?
         if self.RealROIInvert.isChecked():
-            mask_real = max(mask_real,[],'all') - mask_real
-        
-        # Store the mask for plotting/saving
+            mask_real = mask_real.max() - mask_real
+
         self.Image.RealMask = mask_real
-        
-        # Update diffraction pattern for the specified ROI
-        self.Image.Dfrn = gather(reshape(self.Data*reshape(mask_real,[],1), self.D.NPx)/sum(mask_real,'all'))
+
+        # --- Weighted-average diffraction pattern for selected frames ----
+        # self.Data is (NFr, NPx), so (mask_flat) @ self.Data sums over frames
+        mask_flat = mask_real.ravel()
+        n_sum     = float(mask_flat.sum())
+        if n_sum < np.finfo(np.float32).eps:
+            n_sum = float(np.finfo(np.float32).eps)
+
+        self.Image.Dfrn = (
+            (mask_flat @ self.Data) / n_sum
+        ).reshape(self.D.NPxY, self.D.NPxX)
 
         plotAllPatterns(self)
