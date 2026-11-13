@@ -275,7 +275,7 @@ def plotVectorField(self,id):
     vec = fig.vecField
 
     # if vector field sampling == 0, or not currently in CoM or DPC modes, return
-    if (not vec) or (self.DetrMode.currentData() in ["CoMMod", "DPCMod"]):
+    if (not vec) or (self.DetrMode.currentData() not in ["CoMMod", "DPCMod"]):
         return
     
     # Plot vector arrows over the selected image

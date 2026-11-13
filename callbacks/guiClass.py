@@ -1,4 +1,5 @@
 import sys
+import os as _os
 from PyQt5 import QtWidgets as qtw
 from PyQt5 import QtGui as qtg
 from PyQt5 import QtCore as qtc
@@ -19,16 +20,19 @@ from callbacks.allFunctions import startupFcn
 
 from matplotlib import cbook
 
+# Locate the gui/ directory relative to this file so the package works both
+# when run from the repo root and when installed via pip.
+_GUI_DIR = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "gui")
+
 # Convert .ui Files from QT Designer to python
 # Main window
-#MW_Ui, MW_Base = uic.loadUiType(sys.path[0]+"/gui/Quant4D_FigForm.ui")
-MW_Ui, MW_Base = uic.loadUiType(sys.path[0]+"/gui/Quant4D_FigForm.ui")
+MW_Ui, MW_Base = uic.loadUiType(_os.path.join(_GUI_DIR, "Quant4D_FigForm.ui"))
 # Import window
-IW_Ui, IW_Base = uic.loadUiType(sys.path[0]+"/gui/ImportDataForm.ui")
+IW_Ui, IW_Base = uic.loadUiType(_os.path.join(_GUI_DIR, "ImportDataForm.ui"))
 # Settings window
-SW_Ui, SW_Base = uic.loadUiType(sys.path[0]+"/gui/SettingsPanelForm.ui")
+SW_Ui, SW_Base = uic.loadUiType(_os.path.join(_GUI_DIR, "SettingsPanelForm.ui"))
 # Save/Export window
-EW_Ui, EW_Base = uic.loadUiType(sys.path[0]+"/gui/SavePanelForm.ui")
+EW_Ui, EW_Base = uic.loadUiType(_os.path.join(_GUI_DIR, "SavePanelForm.ui"))
 
 
 class MainWindow(MW_Base, MW_Ui):

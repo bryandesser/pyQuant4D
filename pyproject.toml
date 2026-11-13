@@ -1,0 +1,105 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+# ---------------------------------------------------------------------------
+# Project metadata
+# ---------------------------------------------------------------------------
+[project]
+name            = "pyquant4d"
+version         = "0.1.0"
+description     = "Python GUI for quantitative 4D-STEM data visualisation and analysis"
+readme          = "README.md"
+license         = { file = "LICENSE" }
+requires-python = ">=3.10"
+
+authors = [
+    { name = "Bryan Esser", email = "noreply@monash.edu" },
+]
+
+keywords = [
+    "4D-STEM",
+    "electron microscopy",
+    "STEM",
+    "diffraction",
+    "centre-of-mass",
+    "CoM",
+    "iCoM",
+    "dCoM",
+    "DPC",
+]
+
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+
+# Core dependencies (GPU/torch is optional — see below)
+dependencies = [
+    "PyQt5>=5.15",
+    "numpy>=1.24",
+    "matplotlib>=3.7",
+    "h5py>=3.8",
+    "psutil>=5.9",
+    "Pillow>=9.5",
+    "superqt>=0.4",
+    "scipy>=1.10",
+    "scikit-image>=0.21",
+]
+
+# ---------------------------------------------------------------------------
+# Optional dependencies
+# ---------------------------------------------------------------------------
+[project.optional-dependencies]
+# GPU acceleration via PyTorch — install CUDA-enabled torch separately if needed.
+# See https://pytorch.org/get-started/locally/ for the right wheel for your CUDA version.
+gpu  = ["torch>=2.0"]
+# Full developer extras
+dev  = [
+    "torch>=2.0",
+    "pytest>=7",
+    "flake8>=6",
+    "sphinx>=7",
+    "furo",
+    "myst-parser",
+]
+docs = ["sphinx>=7", "furo", "myst-parser"]
+
+# ---------------------------------------------------------------------------
+# Entry points
+# ---------------------------------------------------------------------------
+[project.scripts]
+quant4d = "Quant4D_app:main"
+
+# ---------------------------------------------------------------------------
+# URLs
+# ---------------------------------------------------------------------------
+[project.urls]
+"Source Code"   = "https://github.com/bryandesser/pyQuant4D"
+"Bug Tracker"   = "https://github.com/bryandesser/pyQuant4D/issues"
+"Documentation" = "https://pyquant4d.readthedocs.io"
+
+# ---------------------------------------------------------------------------
+# Package discovery
+# ---------------------------------------------------------------------------
+[tool.setuptools]
+# Install Quant4D_app.py as a top-level module so the entry point works.
+py-modules = ["Quant4D_app"]
+
+[tool.setuptools.packages.find]
+# Discover callbacks/, annotationsClasses/, and gui/ packages from the repo root.
+where   = ["."]
+include = ["callbacks*", "annotationsClasses*", "gui*"]
+exclude = ["*.tests*"]
+
+# Include .ui files and icon assets shipped inside the gui/ package.
+[tool.setuptools.package-data]
+gui = ["*.ui", "icons/*", "icons/**/*"]
