@@ -92,57 +92,6 @@ def realSpaceROICallbacks(self):
 
     sender = self.sender()
 
-    # -- Force diffraction update from the current ROI --------------------
-    if sender is self.UpdateImages:
-        roi_dict = getattr(self.A, 'RealROI', {})
-        if not roi_dict or all(v is None for v in roi_dict.values()):
-            # No ROI drawn yet — trigger shape selection to draw one
-            self.RealROIShape.currentIndexChanged.emit(
-                self.RealROIShape.currentIndex()
-            )
-        else:
-            moveRealROI()
-
-    # -- Shape dropdown changed -------------------------------------------
-    elif sender is self.RealROIShape:
-        val = self.RealROIShape.currentData()
-
-        if val == 'file':
-            self.Image.RealROIFile = importMask(self, 'Real')
-            if self.Image.RealROIFile is None:
-                val = 'full'
-                self.RealROIShape.blockSignals(True)
-                self.RealROIShape.setCurrentIndex(
-                    self.RealROIShape.findData('full')
-                )
-                self.RealROIShape.blockSignals(False)
-
-        # Enable / disable point-only panel widgets
-        is_point = (val == 'point')
-        for w in (self.FrameX, self.FrameY,
-                  self.FrameXLabel, self.FrameYLabel, self.FrameLabel):
-            w.setEnabled(is_point)
-
-        self.RealROIInvert.setEnabled(val != 'full')
-        self.RealROIInvert.blockSignals(True)
-        self.RealROIInvert.setChecked(
-            self.RealROIInvert.isChecked() and self.RealROIInvert.isEnabled()
-        )
-        self.RealROIInvert.blockSignals(False)
-
-        drawRealROI(val)
-
-    # -- Probe-position spinboxes ----------------------------------------
-    elif sender is self.FrameX:
-        moveRealROI(from_spinbox='x')
-
-    elif sender is self.FrameY:
-        moveRealROI(from_spinbox='y')
-
-    # -- Any other sender (e.g. the ROI invert checkbox) -----------------
-    else:
-        moveRealROI()
-
     # ======================================================================
     # Inner functions
     # ======================================================================
@@ -466,3 +415,59 @@ def realSpaceROICallbacks(self):
         ).reshape(self.D.NPxY, self.D.NPxX)
 
         plotAllPatterns(self)
+
+    # ======================================================================
+    # Dispatch to inner functions based on UI sender
+    # ======================================================================
+
+    # -- Force diffraction update from the current ROI --------------------
+    if sender is self.UpdateImages:
+        roi_dict = getattr(self.A, 'RealROI', {})
+        if not roi_dict or all(v is None for v in roi_dict.values()):
+            # No ROI drawn yet — trigger shape selection to draw one
+            self.RealROIShape.currentIndexChanged.emit(
+                self.RealROIShape.currentIndex()
+            )
+        else:
+            moveRealROI()
+
+    # -- Shape dropdown changed -------------------------------------------
+    elif sender is self.RealROIShape:
+        val = self.RealROIShape.currentData()
+
+        if val == 'file':
+            self.Image.RealROIFile = importMask(self, 'Real')
+            if self.Image.RealROIFile is None:
+                val = 'full'
+                self.RealROIShape.blockSignals(True)
+                self.RealROIShape.setCurrentIndex(
+                    self.RealROIShape.findData('full')
+                )
+                self.RealROIShape.blockSignals(False)
+
+        # Enable / disable point-only panel widgets
+        is_point = (val == 'point')
+        for w in (self.FrameX, self.FrameY,
+                  self.FrameXLabel, self.FrameYLabel, self.FrameLabel):
+            w.setEnabled(is_point)
+
+        self.RealROIInvert.setEnabled(val != 'full')
+        self.RealROIInvert.blockSignals(True)
+        self.RealROIInvert.setChecked(
+            self.RealROIInvert.isChecked() and self.RealROIInvert.isEnabled()
+        )
+        self.RealROIInvert.blockSignals(False)
+
+        drawRealROI(val)
+
+    # -- Probe-position spinboxes ----------------------------------------
+    elif sender is self.FrameX:
+        moveRealROI(from_spinbox='x')
+
+    elif sender is self.FrameY:
+        moveRealROI(from_spinbox='y')
+
+    # -- Any other sender (e.g. the ROI invert checkbox) -----------------
+    else:
+        moveRealROI()
+

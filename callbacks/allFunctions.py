@@ -427,14 +427,14 @@ def importFileType(self):
 
         try:
             # standard EMPAD naming scheme
-            s = re.search('_x(\d+)_y(\d+).raw',filename)
+            s = re.search(r'_x(\d+)_y(\d+).raw', filename)
             DNFrX,DNFrY = [int(ii) for ii in s.groups()]
             DNPxX = DNPxY = int(128)
 
         except:
             try:
                 # above described naming scheme
-                t = re.search('(\d+)x(\d+)x(\d+)x(\d+)',filename)
+                t = re.search(r'(\d+)x(\d+)x(\d+)x(\d+)', filename)
                 DNPxX,DNPxY,DNFrX,DNFrY = [int(ii) for ii in t.groups()]
             except:
                 # failure, quit now
@@ -2252,11 +2252,11 @@ def prepEMPAD(self):
     # check to make sure scan shape makes sense
     if self.T.FileSize != ((header + nopix*nopiy*bitsize + footer)*int(framesx*framesy)):
         # check to see if filename has 'fooAxBxCxDbar' structure, where:  A = NPxX, B = NPxY, C = NFrX, D = NFrY, and are numbers
-        if re.findall("\d+x\d+x\d+x\d+",filename):
-            s = re.findall("\d+x\d+x\d+x\d+",filename)
-            nopix,nopiy,framesx,framesy = [int(i) for i in re.split("x",s[0])]
-        elif re.findall("_x\d+_y\d+",filename):
-            s = re.findall("\d+",filename)
+        if re.findall(r"\d+x\d+x\d+x\d+", filename):
+            s = re.findall(r"\d+x\d+x\d+x\d+", filename)
+            nopix, nopiy, framesx, framesy = [int(i) for i in re.split("x", s[0])]
+        elif re.findall(r"_x\d+_y\d+", filename):
+            s = re.findall(r"\d+", filename)
             framesx,framesy = [int(i) for i in s]
         else:
             framesx,framesy = 1,1

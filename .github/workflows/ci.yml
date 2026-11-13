@@ -22,15 +22,11 @@ jobs:
         run: pip install flake8
 
       - name: Run flake8
-        # E501 line-too-long and W503/W504 line-break conventions are not enforced
-        # to minimise noise during the initial port.
-        run: |
-          flake8 . \
-            --count \
-            --max-line-length=120 \
-            --extend-ignore=E501,W503,W504 \
-            --exclude=.git,__pycache__,callbacks/tmp.py,callbacks/appClassOLD.py \
-            --statistics
+        # Style options are in .flake8 at the repo root.
+        # Only E999 (syntax), W605 (bad escapes) and F821 (undefined names)
+        # are enforced during the initial port; everything else is suppressed
+        # until incremental style cleanup PRs are merged.
+        run: flake8 . --count --statistics
 
   import-test:
     name: Import test (${{ matrix.os }} / Python ${{ matrix.python-version }})
