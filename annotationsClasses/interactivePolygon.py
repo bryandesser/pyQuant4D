@@ -1,184 +1,164 @@
-from matplotlib.backend_tools import Cursors
+"""
+InteractivePolygon — a draggable, closed-polygon annotation.
+
+After vertices are obtained from matplotlib's PolygonSelector (which handles
+the interactive drawing), this class wraps the result in a draggable patch
+so the whole polygon can be translated by click-and-drag inside the shape.
+
+Signals
+-------
+updatePoly : emitted whenever the polygon is moved (on_motion)
+rightClick : emitted on right mouse button press
+
+Public attributes
+-----------------
+vertices : np.ndarray, shape (N, 2)  — polygon vertices in data coordinates
+patch    : matplotlib.patches.Polygon
+"""
+
+from __future__ import annotations
+
+import numpy as np
+from matplotlib.patches import Polygon as MplPolygon
+from matplotlib.path import Path
 from matplotlib.backend_bases import MouseButton
 from matplotlib.backend_bases import MouseEvent
-from matplotlib.patches import Polygon
-from matplotlib.path import Path
+from matplotlib.backend_tools import Cursors
 from PyQt5 import QtCore as qtc
-import numpy as np
 
 
 class InteractivePolygon(qtc.QObject):
     """
-    A draggable, vertex-editable polygon drawn on a matplotlib axes.
-
-    The polygon is supplied as a fixed set of vertices (drawn once a user
-    has sketched them with PolygonSelector and confirmed the shape).
-    Translate the whole polygon by clicking inside; move individual vertices
-    by clicking on a vertex handle.
+    Draggable polygon annotation.
 
     Parameters
     ----------
-    axis : matplotlib Axes
-    vertices : (N, 2) array-like — initial polygon vertices in data coords
-    color  : matplotlib color spec
-    interactions : 'all' | 'translate' | 'resize' | 'none'
-        'all'       — translate body + move individual vertices
-        'translate' — drag the whole polygon only
-        'resize'    — drag individual vertices only
-        'none'      — display only
+    axis     : matplotlib.axes.Axes
+    vertices : array-like, shape (N, 2)  — (x, y) in data units
+    color    : matplotlib colour spec (default ``'r'``)
     """
 
     updatePoly = qtc.pyqtSignal()
     rightClick  = qtc.pyqtSignal(MouseEvent)
 
-    lock = None   # only one InteractivePolygon active at a time
+    # Only one InteractivePolygon may be dragged at a time
+    lock: 'InteractivePolygon | None' = None
 
-    def __init__(self, axis, vertices, color='r', interactions='all'):
+    def __init__(self, axis, vertices, color='r'):
         super().__init__()
 
-        self.vertices     = np.asarray(vertices, dtype=float)   # (N, 2)
-        self.color        = color
-        self.interactions = interactions
+        self.vertices = np.asarray(vertices, float)
+        self.color    = color
+        self.axis     = axis
+        self._press   = None   # (vertices0, xpress, ypress)
 
-        self.transform      = None   # 'translate' | 'vertex'
-        self.press          = None   # (verts0, (xp, yp))
-        self._active_vertex = None   # int index into self.vertices
+        # ---- Closed polygon patch ------------------------------------
+        self.patch = axis.add_patch(MplPolygon(
+            self.vertices,
+            closed=True, animated=True,
+            linewidth=1.5, edgecolor=color, facecolor='none',
+        ))
 
-        # Animated polygon patch
-        self.patch = Polygon(
-            self.vertices, closed=True, fill=False,
-            edgecolor=color, linewidth=1.5, animated=True
-        )
-        axis.add_patch(self.patch)
-
-        # Vertex handles
-        self.handles = axis.scatter(
-            self.vertices[:, 0], self.vertices[:, 1],
-            color=color, s=36, zorder=5, animated=True
-        )
-        if interactions in ('none', 'translate'):
-            self.handles.set_visible(False)
-
+        # ---- Blitting setup -----------------------------------------
         self.canvas = axis.figure.canvas
-        self.axis   = axis
-
         self.canvas.draw()
-        self.background = self.canvas.copy_from_bbox(self.axis.bbox)
+        self.background = self.canvas.copy_from_bbox(axis.bbox)
 
-    # ------------------------------------------------------------------ props
+    # ==================================================================
+    # Geometry helpers
+    # ==================================================================
 
-    @property
-    def centroid(self):
-        """Geometric centroid of the vertex set."""
-        return np.mean(self.vertices, axis=0)
-
-    # ------------------------------------------------------------------ helpers
+    def _contains_point(self, x: float, y: float) -> bool:
+        """Return True if (x, y) is inside the polygon (using matplotlib Path)."""
+        closed_verts = np.vstack([self.vertices, self.vertices[0]])
+        return Path(closed_verts).contains_point((x, y))
 
     def _update_artists(self):
         self.patch.set_xy(self.vertices)
-        self.handles.set_offsets(self.vertices)
 
-    def _hit_test(self, event):
-        """
-        Return (on_vertex, inside, vertex_idx).
-        on_vertex : cursor is on a handle.
-        inside    : cursor is inside the polygon or on a handle.
-        vertex_idx: int or None.
-        """
-        if event.xdata is None or event.ydata is None:
-            return False, False, None
-
-        # Check vertex handles
-        on_vertex, attrd = self.handles.contains(event)
-        vertex_idx = attrd['ind'][-1] if on_vertex else None
-
-        # Point-in-polygon via matplotlib Path
-        path   = Path(np.vstack([self.vertices, self.vertices[0]]))
-        inside = path.contains_point([event.xdata, event.ydata])
-
-        return on_vertex, (inside or on_vertex), vertex_idx
-
-    # ------------------------------------------------------------------ public
+    # ==================================================================
+    # Public API  (mirrors InteractiveCircle / InteractiveRectangle)
+    # ==================================================================
 
     def connect(self):
-        self.cidpress   = self.canvas.mpl_connect('button_press_event',   self.on_press)
-        self.cidrelease = self.canvas.mpl_connect('button_release_event', self.on_release)
-        self.cidmotion  = self.canvas.mpl_connect('motion_notify_event',  self.on_motion)
+        """Connect matplotlib mouse events."""
+        self._cidpress   = self.canvas.mpl_connect('button_press_event',   self.on_press)
+        self._cidrelease = self.canvas.mpl_connect('button_release_event', self.on_release)
+        self._cidmotion  = self.canvas.mpl_connect('motion_notify_event',  self.on_motion)
 
     def remove(self):
+        """Remove polygon patch from the axes."""
         self.patch.remove()
-        self.handles.remove()
 
     def redraw(self):
-        """Refresh artists after external change to self.vertices."""
+        """Sync patch to current vertices and blit."""
         self._update_artists()
         self.restoreBackground()
 
-    def mask(self, shape):
-        """
-        Return a boolean mask of *shape* = (ny, nx) where True means the
-        pixel centre falls inside this polygon.
-        """
-        ny, nx = shape
-        yy, xx = np.mgrid[0:ny, 0:nx]
-        pts    = np.column_stack([xx.ravel(), yy.ravel()])
-        path   = Path(np.vstack([self.vertices, self.vertices[0]]))
-        return path.contains_points(pts).reshape(ny, nx)
+    def restoreBackground(self):
+        """Blit: restore saved background then redraw patch."""
+        self.canvas.restore_region(self.background)
+        self.axis.draw_artist(self.patch)
+        self.canvas.blit(self.axis.bbox)
 
-    # ------------------------------------------------------------------ events
+    def updateBackground(self):
+        """Full redraw, capture new background, then blit patch."""
+        self.patch.set_animated(True)
+        self.canvas.draw()
+        self.background = self.canvas.copy_from_bbox(self.axis.bbox)
+        self.axis.draw_artist(self.patch)
+        self.canvas.blit(self.axis.bbox)
+
+    # ==================================================================
+    # Event handlers
+    # ==================================================================
 
     def on_press(self, event):
         if event.button == MouseButton.RIGHT:
             self.rightClick.emit(event)
             return
-        if self.interactions == 'none':           return
-        if event.inaxes != self.axis:             return
-        if InteractivePolygon.lock is not None:   return
-
-        on_vertex, inside, vertex_idx = self._hit_test(event)
-        if not inside:
+        if event.inaxes != self.axis:
+            return
+        if InteractivePolygon.lock is not None:
+            return
+        if event.xdata is None or event.ydata is None:
+            return
+        if not self._contains_point(event.xdata, event.ydata):
             return
 
-        if on_vertex and self.interactions in ('all', 'resize'):
-            self.transform      = 'vertex'
-            self._active_vertex = vertex_idx
-            self.canvas.set_cursor(Cursors.HAND)
-        elif self.interactions in ('all', 'translate'):
-            self.transform      = 'translate'
-            self._active_vertex = None
-            self.canvas.set_cursor(Cursors.MOVE)
-        else:
-            return
-
-        self.press = (self.vertices.copy(),
-                      np.array([event.xdata, event.ydata]))
+        self._press = (self.vertices.copy(), event.xdata, event.ydata)
         InteractivePolygon.lock = self
+        self.canvas.set_cursor(Cursors.MOVE)
 
+        # Prepare blit background
         self.patch.set_animated(True)
-        self.handles.set_animated(self.handles.get_visible())
         self.canvas.draw()
         self.background = self.canvas.copy_from_bbox(self.axis.bbox)
         self.axis.draw_artist(self.patch)
-        if self.handles.get_visible():
-            self.axis.draw_artist(self.handles)
         self.canvas.blit(self.axis.bbox)
 
     def on_motion(self, event):
-        if self.interactions == 'none':              return
-        if event.inaxes != self.axis:                return
-        if InteractivePolygon.lock is not self:      return
-        if self.press is None or event.xdata is None: return
+        if event.inaxes != self.axis:
+            return
 
-        verts0, (xp, yp) = self.press
-        dx = event.xdata - xp
-        dy = event.ydata - yp
+        # ---- Hover cursor feedback (no drag) -------------------------
+        if InteractivePolygon.lock is not self:
+            if event.xdata is not None and event.ydata is not None:
+                if self._contains_point(event.xdata, event.ydata):
+                    self.canvas.set_cursor(Cursors.MOVE)
+                else:
+                    self.canvas.set_cursor(Cursors.POINTER)
+            return
 
-        if self.transform == 'translate':
-            self.vertices = verts0 + np.array([dx, dy])
-        elif self.transform == 'vertex' and self._active_vertex is not None:
-            self.vertices = verts0.copy()
-            self.vertices[self._active_vertex] += np.array([dx, dy])
+        # ---- Active drag ---------------------------------------------
+        if self._press is None or event.xdata is None:
+            return
 
+        verts0, xpress, ypress = self._press
+        dx = event.xdata - xpress
+        dy = event.ydata - ypress
+
+        self.vertices = verts0 + np.array([dx, dy])
         self._update_artists()
         self.restoreBackground()
         self.updatePoly.emit()
@@ -186,30 +166,8 @@ class InteractivePolygon(qtc.QObject):
     def on_release(self, event):
         if InteractivePolygon.lock is not self:
             return
-        self.press          = None
-        self.transform      = None
-        self._active_vertex = None
+        self._press = None
         InteractivePolygon.lock = None
 
         self.patch.set_animated(False)
-        self.handles.set_animated(False)
         self.canvas.draw()
-
-    # ------------------------------------------------------------------ blit
-
-    def restoreBackground(self):
-        self.canvas.restore_region(self.background)
-        self.axis.draw_artist(self.patch)
-        if self.handles.get_visible():
-            self.axis.draw_artist(self.handles)
-        self.canvas.blit(self.axis.bbox)
-
-    def updateBackground(self):
-        self.patch.set_animated(True)
-        self.handles.set_animated(True)
-        self.canvas.draw()
-        self.background = self.canvas.copy_from_bbox(self.axis.bbox)
-        self.axis.draw_artist(self.patch)
-        if self.handles.get_visible():
-            self.axis.draw_artist(self.handles)
-        self.canvas.blit(self.axis.bbox)

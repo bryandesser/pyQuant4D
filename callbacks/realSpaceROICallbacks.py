@@ -31,7 +31,7 @@ import PyQt5.QtGui as qtg
 from callbacks.allFunctions import (
     enableWindows, notifDLG, toUpdateImage, plotAllPatterns, importMask
 )
-from annotationsClasses.InteractiveCircle import InteractiveCircle
+from annotationsClasses.interactiveCircle import InteractiveCircle        # fixed: lowercase 'i'
 from annotationsClasses.interactiveRectangle import InteractiveRectangle
 from annotationsClasses.interactivePolygon import InteractivePolygon
 from annotationsClasses.interactivePoint import InteractivePoint
@@ -60,8 +60,8 @@ def _roi_to_mask(roi, shape, typ: str) -> np.ndarray:
         return (dist <= roi.radius[-1]).reshape(ny, nx)
 
     elif typ == 'rectangle':
-        # InteractiveRectangle: transform points into local frame
-        theta = np.radians(roi.rotation)
+        # InteractiveRectangle: rotation is always 0, so just check bounds
+        theta = np.radians(roi.rotation)        # 0.0 for axis-aligned
         c, s  = np.cos(theta), np.sin(theta)
         R_inv = np.array([[c, s], [-s, c]])
         local = (pts - roi.center) @ R_inv.T
@@ -84,8 +84,8 @@ def realSpaceROICallbacks(self):
     """
     Dispatcher connected to every Real-Space ROI-related UI signal.
 
-    Qt `sender()` determines which widget fired; inner functions
-    `drawRealROI` and `moveRealROI` do the actual work.
+    Qt ``sender()`` determines which widget fired; inner functions
+    ``drawRealROI`` and ``moveRealROI`` do the actual work.
     """
     if self.blockAllSignals:
         return
@@ -95,7 +95,7 @@ def realSpaceROICallbacks(self):
     # -- Force diffraction update from the current ROI --------------------
     if sender is self.UpdateImages:
         roi_dict = getattr(self.A, 'RealROI', {})
-        if all(v is None for v in roi_dict.values()):
+        if not roi_dict or all(v is None for v in roi_dict.values()):
             # No ROI drawn yet — trigger shape selection to draw one
             self.RealROIShape.currentIndexChanged.emit(
                 self.RealROIShape.currentIndex()
@@ -162,12 +162,19 @@ def realSpaceROICallbacks(self):
                     pass
         self.A.RealROI = {}
 
-        c = qtg.QColor(255, 127, 127)   # salmon red  (#ff7f7f)
-        c_mpl = (c.redF(), c.greenF(), c.blueF())   # (R,G,B) floats for mpl
+        # Also clean up any pending selector from an interrupted polygon draw
+        if hasattr(self.A, '_tmp_selector') and self.A._tmp_selector is not None:
+            try:
+                self.A._tmp_selector.disconnect_events()
+            except Exception:
+                pass
+            self.A._tmp_selector = None
+
+        c = qtg.QColor(255, 127, 127)                       # salmon red
+        c_mpl = (c.redF(), c.greenF(), c.blueF())           # (R, G, B) floats
 
         # --- Polygon: interactive drawing is asynchronous ----------------
         if typ == 'poly':
-            # Find real-space images visible in the display-image list
             img_names = [self.SettingsWindow.DispImage.itemText(ii)
                          for ii in range(self.SettingsWindow.DispImage.count())]
             rs_mask = (
@@ -192,7 +199,7 @@ def realSpaceROICallbacks(self):
                 self.RealROIShape.blockSignals(False)
                 return
 
-            # Bring selected image window to front
+            # Bring the selected image to front for drawing
             id_sel = self.G.Img[self.G.Img.name.isin([sel])].id.item()
             ax_sel = self.Fig[id_sel].ax
             self.Fig[id_sel].show()
@@ -202,18 +209,16 @@ def realSpaceROICallbacks(self):
 
             def _poly_done(vertices):
                 """Callback fired by PolygonSelector when polygon is closed."""
-                # Disconnect Esc handler
                 try:
                     ax_sel.figure.canvas.mpl_disconnect(_esc_cid[0])
                 except Exception:
                     pass
-                # Clean up selector
-                if hasattr(self.A, '_tmp_selector'):
+                if hasattr(self.A, '_tmp_selector') and self.A._tmp_selector is not None:
                     try:
                         self.A._tmp_selector.disconnect_events()
                     except Exception:
                         pass
-                    del self.A._tmp_selector
+                    self.A._tmp_selector = None
 
                 enableWindows(self, True)
 
@@ -235,11 +240,9 @@ def realSpaceROICallbacks(self):
                     roi = InteractivePolygon(
                         self.Fig[img_id].ax,
                         vertices=poly_verts,
-                        color=c_mpl
+                        color=c_mpl,
                     )
                     roi.connect()
-                    # Capture roi in closure so the lambda references the
-                    # correct object even as the loop variable changes
                     roi.updatePoly.connect(
                         lambda *, _roi=roi: moveRealROI(roi_src=_roi)
                     )
@@ -248,28 +251,25 @@ def realSpaceROICallbacks(self):
                 moveRealROI()
 
             def _on_esc(event):
-                """Cancel polygon drawing on Escape."""
                 if event.key == 'escape':
                     _poly_done([])   # empty → revert to 'full'
 
             _esc_cid = [ax_sel.figure.canvas.mpl_connect(
                 'key_press_event', _on_esc
             )]
-
             self.A._tmp_selector = PolygonSelector(
                 ax_sel, _poly_done,
-                props=dict(color=c_mpl, linewidth=1.5)
+                props=dict(color=c_mpl, linewidth=1.5),
             )
             return   # remainder handled asynchronously in _poly_done
 
         # --- All other shapes: draw synchronously -----------------------
-        # Range of the DIFFRACTION axes (used as a scale reference, matching
-        # the original MATLAB logic)
+        # Use diffraction axes extents as a scale reference
         rg = np.array([
             np.ptp(self.Fig.Dfrn.ax.get_xlim()),
-            np.ptp(self.Fig.Dfrn.ax.get_ylim())
+            np.ptp(self.Fig.Dfrn.ax.get_ylim()),
         ])
-        p  = np.array([self.FrameX.value(), self.FrameY.value()], dtype=float)
+        p = np.array([self.FrameX.value(), self.FrameY.value()], dtype=float)
 
         real_ids = self.G.Img[
             (self.G.Img.space == 'Real') &
@@ -284,42 +284,44 @@ def realSpaceROICallbacks(self):
                 yl, yr = sorted(ax.get_ylim())
                 roi = InteractiveRectangle(
                     ax,
-                    center=np.array([(xl + xr) / 2, (yl + yr) / 2]),
+                    center=np.array([(xl + xr) / 2.0, (yl + yr) / 2.0]),
                     size=np.array([xr - xl, yr - yl]),
-                    color=c_mpl, interactions='none'
+                    color=c_mpl, interactions='none',
                 )
-                roi.patch.set_alpha(0.0)   # invisible border
+                roi.patch.set_alpha(0.0)
                 roi.handles.set_visible(False)
 
             elif typ == 'point':
-                # InteractivePoint wraps an existing scatter artist
-                pt_artist = ax.scatter(p[0], p[1],
-                                       color=c_mpl, s=50, zorder=5,
-                                       animated=True)
+                pt_artist = ax.scatter(
+                    p[0], p[1],
+                    color=c_mpl, s=50, zorder=5, animated=True,
+                )
                 roi = InteractivePoint(pt_artist)
 
             elif typ == 'ellipse':
                 roi = InteractiveCircle(
-                    ax, center=p, radius=float(np.min(0.1 * rg))
+                    ax,
+                    center=p.copy(),
+                    radius=float(np.min(0.1 * rg)),
+                    color=c_mpl,
                 )
 
             elif typ == 'rectangle':
                 roi = InteractiveRectangle(
                     ax,
-                    center=p,
+                    center=p.copy(),
                     size=0.2 * rg,
-                    color=c_mpl, interactions='all'
+                    color=c_mpl, interactions='all',
                 )
 
             elif typ == 'file':
-                # Invisible full-frame rectangle; mask comes from the file
                 xl, xr = sorted(ax.get_xlim())
                 yl, yr = sorted(ax.get_ylim())
                 roi = InteractiveRectangle(
                     ax,
-                    center=np.array([(xl + xr) / 2, (yl + yr) / 2]),
+                    center=np.array([(xl + xr) / 2.0, (yl + yr) / 2.0]),
                     size=np.array([xr - xl, yr - yl]),
-                    color=c_mpl, interactions='none'
+                    color=c_mpl, interactions='none',
                 )
                 roi.patch.set_alpha(0.0)
                 roi.handles.set_visible(False)
@@ -329,8 +331,9 @@ def realSpaceROICallbacks(self):
 
             roi.connect()
 
-            # Connect the roi's update signal back to moveRealROI.
-            # Using 'roi_src' kwarg so the lambda always captures the right roi.
+            # Wire the roi's update signal back to moveRealROI.
+            # Using default-argument capture so each lambda closes over
+            # its own roi object, not the loop variable.
             if hasattr(roi, 'updateRect'):
                 roi.updateRect.connect(lambda *, _roi=roi: moveRealROI(roi_src=_roi))
             elif hasattr(roi, 'updateCircle'):
@@ -351,14 +354,15 @@ def realSpaceROICallbacks(self):
 
         Parameters
         ----------
-        from_spinbox : 'x' | 'y' | None
-            Set if the call originated from FrameX or FrameY.
+        from_spinbox : ``'x'`` | ``'y'`` | ``None``
+            Set when the call originated from FrameX or FrameY spinboxes.
         roi_src : ROI object | None
-            The ROI that triggered this update (via its signal), or None
+            The annotation object that triggered this update, or ``None``
             when called from other contexts.
         """
         roi_dict = getattr(self.A, 'RealROI', {})
-        # Primary real-space image id — whatever is registered as 'Real'
+
+        # Pick the primary ROI to read geometry from
         roi = roi_dict.get('Real') or next(
             (v for v in roi_dict.values() if v is not None), None
         )
@@ -375,14 +379,15 @@ def realSpaceROICallbacks(self):
             typ = self.RealROIShape.currentData()
             try:
                 if typ in ('rectangle', 'full', 'file'):
-                    x, y = roi.center[0], roi.center[1]
+                    x, y = float(roi.center[0]), float(roi.center[1])
                 elif typ == 'point':
-                    x, y = roi.position[0], roi.position[1]
+                    x, y = float(roi.position[0]), float(roi.position[1])
                 elif typ == 'ellipse':
-                    x, y = roi.center[0], roi.center[1]
+                    x, y = float(roi.center[0]), float(roi.center[1])
                 elif typ == 'poly':
-                    x, y = np.mean(roi.vertices, axis=0)
-            except AttributeError:
+                    cx, cy = np.mean(roi.vertices, axis=0)
+                    x, y = float(cx), float(cy)
+            except (AttributeError, TypeError):
                 pass   # keep current x, y
 
         x, y = int(round(x)), int(round(y))
@@ -411,7 +416,10 @@ def realSpaceROICallbacks(self):
                 for prop in ('center', 'size', 'rotation', 'vertices', 'position'):
                     if hasattr(roi, prop) and hasattr(other_roi, prop):
                         try:
-                            setattr(other_roi, prop, getattr(roi, prop))
+                            setattr(other_roi, prop,
+                                    getattr(roi, prop).copy()
+                                    if hasattr(getattr(roi, prop), 'copy')
+                                    else getattr(roi, prop))
                             other_roi.redraw()
                         except Exception:
                             pass
@@ -425,7 +433,7 @@ def realSpaceROICallbacks(self):
 
         elif typ == 'point':
             mask_real = np.zeros((ny, nx), bool)
-            # Convert 1-based probe coordinates to 0-based row/col indices
+            # Convert 1-based probe coordinates → 0-based row/col indices
             yi = max(0, min(y - 1, ny - 1))
             xi = max(0, min(x - 1, nx - 1))
             mask_real[yi, xi] = True
@@ -437,10 +445,10 @@ def realSpaceROICallbacks(self):
             mask_real = _roi_to_mask(roi, (ny, nx), typ)
 
         else:
-            mask_real = np.ones((ny, nx), bool)   # fallback: show everything
+            mask_real = np.ones((ny, nx), bool)   # fallback
 
         # --- Optionally invert -------------------------------------------
-        mask_real = mask_real.astype(self.D.DataType)
+        mask_real = mask_real.astype(float)
         if self.RealROIInvert.isChecked():
             mask_real = mask_real.max() - mask_real
 
@@ -449,7 +457,7 @@ def realSpaceROICallbacks(self):
         # --- Weighted-average diffraction pattern for selected frames ----
         # self.Data is (NFr, NPx), so (mask_flat) @ self.Data sums over frames
         mask_flat = mask_real.ravel()
-        n_sum     = float(mask_flat.sum())
+        n_sum = float(mask_flat.sum())
         if n_sum < np.finfo(np.float32).eps:
             n_sum = float(np.finfo(np.float32).eps)
 

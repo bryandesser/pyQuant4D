@@ -1,162 +1,208 @@
-from matplotlib.backend_tools import Cursors
+"""
+InteractiveRectangle — a draggable, resizable axis-aligned rectangle annotation.
+
+Follows the same event-handling pattern as InteractiveCircle so it can be used
+as a drop-in ROI widget in realSpaceROICallbacks.
+
+Signals
+-------
+updateRect : emitted whenever geometry changes (on_motion)
+rightClick : emitted on right mouse button press
+
+Public attributes (exposed for _roi_to_mask compatibility)
+-----------------------------------------------------------
+center   : np.ndarray (2,)  — (cx, cy) in data coordinates
+size     : np.ndarray (2,)  — (width, height), always positive
+rotation : float — always 0.0  (kept for _roi_to_mask API compatibility)
+patch    : matplotlib.patches.Rectangle
+handles  : matplotlib.collections.PathCollection  — four corner scatter points
+"""
+
+from __future__ import annotations
+
+import numpy as np
+from matplotlib.patches import Rectangle
 from matplotlib.backend_bases import MouseButton
 from matplotlib.backend_bases import MouseEvent
-from matplotlib.patches import Polygon
+from matplotlib.backend_tools import Cursors
 from PyQt5 import QtCore as qtc
-import numpy as np
 
 
 class InteractiveRectangle(qtc.QObject):
     """
-    A draggable, resizable rectangle drawn on a matplotlib axes, following
-    the same blitting-based design as InteractiveCircle.
+    Draggable, resizable axis-aligned rectangle annotation.
 
     Parameters
     ----------
-    axis : matplotlib Axes
-    center : (x, y) pair — defaults to axes mid-point
-    size   : (w, h) pair — defaults to 20 % of axes range
-    rotation : float, degrees — CCW rotation (default 0)
-    color  : matplotlib color spec
-    interactions : 'all' | 'translate' | 'resize' | 'none'
+    axis         : matplotlib.axes.Axes
+    center       : array-like (2,)   — initial (cx, cy) in data units
+    size         : array-like (2,)   — initial (width, height) in data units
+    color        : matplotlib colour spec (default ``'r'``)
+    interactions : ``'all'``       — translate + resize (default)
+                   ``'translate'`` — move only
+                   ``'resize'``    — resize only
+                   ``'none'``      — no interaction (static display)
     """
 
     updateRect = qtc.pyqtSignal()
     rightClick  = qtc.pyqtSignal(MouseEvent)
 
-    lock = None   # only one InteractiveRectangle active at a time
+    # Only one InteractiveRectangle may be active at a time
+    lock: 'InteractiveRectangle | None' = None
 
-    def __init__(self, axis, center=None, size=None,
-                 rotation=0.0, color='r', interactions='all'):
+    def __init__(self, axis, center, size, color='r', interactions='all'):
         super().__init__()
 
-        xl, xr = sorted(axis.get_xlim())
-        yl, yr = sorted(axis.get_ylim())
-        ax_w, ax_h = xr - xl, yr - yl
-
-        if center is None:
-            center = [(xl + xr) / 2.0, (yl + yr) / 2.0]
-        if size is None:
-            size = [0.2 * ax_w, 0.2 * ax_h]
-
-        self.center     = np.asarray(center, dtype=float)
-        self.size       = np.asarray(size,   dtype=float)
-        self.rotation   = float(rotation)
-        self.color      = color
+        self.center       = np.asarray(center, float)
+        self.size         = np.abs(np.asarray(size, float))
+        self.rotation     = 0.0          # axis-aligned; kept for API compat
+        self.color        = color
         self.interactions = interactions
+        self.axis         = axis
 
-        self.transform      = None   # 'translate' | 'resize'
-        self.press          = None   # (center0, size0, (xp, yp))
-        self._active_corner = None   # index 0-3
+        self._press     = None           # (center0, size0, xpress, ypress) on drag start
+        self._transform = None           # 'translate' | 'resize_<corner_idx>'
 
-        # Rectangle drawn as an animated Polygon patch
-        self.patch = Polygon(
-            self._corners(), closed=True, fill=False,
-            edgecolor=color, linewidth=1.5, animated=True
-        )
-        axis.add_patch(self.patch)
+        # ---- Rectangle patch ------------------------------------------
+        xy = self.center - self.size / 2.0
+        self.patch = axis.add_patch(Rectangle(
+            xy, self.size[0], self.size[1],
+            linewidth=1.5, edgecolor=color, facecolor='none',
+            animated=True,
+        ))
 
-        # Corner handles as a scatter collection
-        corners = self._corners()
+        # ---- Corner handles (4 scatter points) ------------------------
+        corners = self._corner_positions()
         self.handles = axis.scatter(
             corners[:, 0], corners[:, 1],
-            color=color, s=36, zorder=5, animated=True
+            color=color, s=40, zorder=5, animated=True,
         )
         if interactions in ('none', 'translate'):
             self.handles.set_visible(False)
 
+        # ---- Blitting setup -------------------------------------------
         self.canvas = axis.figure.canvas
-        self.axis   = axis
-
         self.canvas.draw()
-        self.background = self.canvas.copy_from_bbox(self.axis.bbox)
+        self.background = self.canvas.copy_from_bbox(axis.bbox)
 
-    # ------------------------------------------------------------------ helpers
+    # ==================================================================
+    # Geometry helpers
+    # ==================================================================
 
-    def _corners(self, center=None, size=None, rotation=None):
-        """Return the 4 corners of the rectangle as a (4, 2) array."""
-        cx, cy = self.center   if center   is None else center
-        w,  h  = (self.size    if size     is None else size) / 2.0
-        rot    =  self.rotation if rotation is None else rotation
-        theta  = np.radians(rot)
-        c, s   = np.cos(theta), np.sin(theta)
-        R      = np.array([[c, -s], [s, c]])
-        local  = np.array([[-w, -h], [w, -h], [w, h], [-w, h]])
-        return local @ R.T + np.array([cx, cy])
+    def _corner_positions(self) -> np.ndarray:
+        """Return (4, 2) array of corner (x, y) positions (CCW from BL)."""
+        cx, cy = self.center
+        hw, hh = self.size / 2.0
+        return np.array([
+            [cx - hw, cy - hh],   # 0: bottom-left
+            [cx + hw, cy - hh],   # 1: bottom-right
+            [cx + hw, cy + hh],   # 2: top-right
+            [cx - hw, cy + hh],   # 3: top-left
+        ])
+
+    def _hit_radius(self) -> float:
+        """Generous pick radius for corner handles: 5 % of the larger side."""
+        return max(2.0, 0.05 * float(self.size.max()))
+
+    def _nearest_corner(self, x: float, y: float):
+        """Return (index, distance) for the nearest corner to (x, y)."""
+        corners = self._corner_positions()
+        dists   = np.linalg.norm(corners - np.array([x, y]), axis=1)
+        idx     = int(np.argmin(dists))
+        return idx, float(dists[idx])
+
+    def _inside(self, x: float, y: float) -> bool:
+        """Return True if the point (x, y) is inside the rectangle."""
+        cx, cy = self.center
+        hw, hh = self.size / 2.0
+        return (cx - hw <= x <= cx + hw) and (cy - hh <= y <= cy + hh)
 
     def _update_artists(self):
-        corners = self._corners()
-        self.patch.set_xy(corners)
-        self.handles.set_offsets(corners)
+        """Sync patch and handles to current center / size."""
+        xy = self.center - self.size / 2.0
+        self.patch.set_xy(xy)
+        self.patch.set_width(self.size[0])
+        self.patch.set_height(self.size[1])
+        self.handles.set_offsets(self._corner_positions())
 
-    def _hit_test(self, event):
-        """
-        Return (on_corner, inside, corner_idx).
-        on_corner: True if cursor is on a resize handle.
-        inside:    True if cursor is inside the rectangle.
-        corner_idx: 0-3, or None.
-        """
-        if event.xdata is None or event.ydata is None:
-            return False, False, None
-
-        # Check corner handles
-        on_corner, attrd = self.handles.contains(event)
-        corner_idx = attrd['ind'][-1] if on_corner else None
-
-        # Check containment in local (un-rotated) frame
-        pt = np.array([event.xdata, event.ydata])
-        theta = np.radians(self.rotation)
-        c, s  = np.cos(theta), np.sin(theta)
-        R_inv = np.array([[c, s], [-s, c]])     # transpose = inverse rotation
-        local = R_inv @ (pt - self.center)
-        inside = bool(np.all(np.abs(local) <= self.size / 2.0))
-
-        return on_corner, (inside or on_corner), corner_idx
-
-    # ------------------------------------------------------------------ public
+    # ==================================================================
+    # Public API  (mirrors InteractiveCircle / InteractivePoint)
+    # ==================================================================
 
     def connect(self):
-        self.cidpress   = self.canvas.mpl_connect('button_press_event',   self.on_press)
-        self.cidrelease = self.canvas.mpl_connect('button_release_event', self.on_release)
-        self.cidmotion  = self.canvas.mpl_connect('motion_notify_event',  self.on_motion)
+        """Connect matplotlib mouse events."""
+        self._cidpress   = self.canvas.mpl_connect('button_press_event',   self.on_press)
+        self._cidrelease = self.canvas.mpl_connect('button_release_event', self.on_release)
+        self._cidmotion  = self.canvas.mpl_connect('motion_notify_event',  self.on_motion)
 
     def remove(self):
+        """Remove patch and handle scatter from the axes."""
         self.patch.remove()
         self.handles.remove()
 
     def redraw(self):
-        """Update artists when center / size / rotation change externally."""
+        """Redraw after an external geometry change and blit."""
         self._update_artists()
         self.restoreBackground()
 
-    # ------------------------------------------------------------------ events
+    def restoreBackground(self):
+        """Blit: restore saved background then redraw artists."""
+        self.canvas.restore_region(self.background)
+        self.axis.draw_artist(self.patch)
+        if self.handles.get_visible():
+            self.axis.draw_artist(self.handles)
+        self.canvas.blit(self.axis.bbox)
+
+    def updateBackground(self):
+        """Redraw full canvas, capture new background, then blit artists."""
+        self.patch.set_animated(True)
+        self.handles.set_animated(True)
+        self.canvas.draw()
+        self.background = self.canvas.copy_from_bbox(self.axis.bbox)
+        self.axis.draw_artist(self.patch)
+        if self.handles.get_visible():
+            self.axis.draw_artist(self.handles)
+        self.canvas.blit(self.axis.bbox)
+
+    # ==================================================================
+    # Event handlers
+    # ==================================================================
 
     def on_press(self, event):
         if event.button == MouseButton.RIGHT:
             self.rightClick.emit(event)
             return
-        if self.interactions == 'none':             return
-        if event.inaxes != self.axis:               return
-        if InteractiveRectangle.lock is not None:   return
-
-        on_corner, inside, corner_idx = self._hit_test(event)
-        if not inside:
+        if self.interactions == 'none':
+            return
+        if event.inaxes != self.axis:
+            return
+        if InteractiveRectangle.lock is not None:
+            return
+        if event.xdata is None or event.ydata is None:
             return
 
-        if on_corner and self.interactions in ('all', 'resize'):
-            self.transform      = 'resize'
-            self._active_corner = corner_idx
+        x, y = event.xdata, event.ydata
+
+        # ---- Prioritise corner handles --------------------------------
+        corner_idx, corner_dist = self._nearest_corner(x, y)
+        if (self.interactions in ('all', 'resize')
+                and self.handles.get_visible()
+                and corner_dist <= self._hit_radius()):
+            self._transform = f'resize_{corner_idx}'
             self.canvas.set_cursor(Cursors.HAND)
-        elif self.interactions in ('all', 'translate'):
-            self.transform = 'translate'
-            self.canvas.set_cursor(Cursors.MOVE)
-        else:
-            return
 
-        self.press = (self.center.copy(), self.size.copy(),
-                      np.array([event.xdata, event.ydata]))
+        # ---- Fall back to translate inside the rectangle --------------
+        elif self.interactions in ('all', 'translate') and self._inside(x, y):
+            self._transform = 'translate'
+            self.canvas.set_cursor(Cursors.MOVE)
+
+        else:
+            return   # click was outside — ignore
+
+        self._press = (self.center.copy(), self.size.copy(), x, y)
         InteractiveRectangle.lock = self
 
+        # Prepare blit background
         self.patch.set_animated(True)
         self.handles.set_animated(self.handles.get_visible())
         self.canvas.draw()
@@ -167,36 +213,46 @@ class InteractiveRectangle(qtc.QObject):
         self.canvas.blit(self.axis.bbox)
 
     def on_motion(self, event):
-        if self.interactions == 'none':              return
-        if event.inaxes != self.axis:                return
-        if InteractiveRectangle.lock is not self:    return
-        if self.press is None or event.xdata is None: return
+        if event.inaxes != self.axis:
+            return
 
-        center0, size0, (xp, yp) = self.press
-        dx = event.xdata - xp
-        dy = event.ydata - yp
+        # ---- Hover cursor feedback (no drag) --------------------------
+        if InteractiveRectangle.lock is not self:
+            if event.xdata is None or event.ydata is None:
+                return
+            x, y = event.xdata, event.ydata
+            _, cdist = self._nearest_corner(x, y)
+            if self.handles.get_visible() and cdist <= self._hit_radius():
+                self.canvas.set_cursor(Cursors.HAND)
+            elif self._inside(x, y) and self.interactions in ('all', 'translate'):
+                self.canvas.set_cursor(Cursors.MOVE)
+            else:
+                self.canvas.set_cursor(Cursors.POINTER)
+            return
 
-        if self.transform == 'translate':
+        # ---- Active drag ----------------------------------------------
+        if self._press is None or event.xdata is None:
+            return
+
+        center0, size0, xpress, ypress = self._press
+        dx = event.xdata - xpress
+        dy = event.ydata - ypress
+
+        if self._transform == 'translate':
             self.center = center0 + np.array([dx, dy])
 
-        elif self.transform == 'resize' and self._active_corner is not None:
-            # Keep the corner diagonally opposite fixed
-            opp_idx = (self._active_corner + 2) % 4
-            corners0 = self._corners(center0, size0, self.rotation)
-            fixed   = corners0[opp_idx]
-            moved   = corners0[self._active_corner] + np.array([dx, dy])
-            new_center = (fixed + moved) / 2.0
-
-            # Project (moved - fixed) onto local axes to get new half-widths
-            theta = np.radians(self.rotation)
-            c, s  = np.cos(theta), np.sin(theta)
-            R_inv = np.array([[c, s], [-s, c]])
-            diff  = R_inv @ (moved - fixed)
-            new_size = np.abs(diff)
-            if np.any(new_size < 1e-6):
-                return
-            self.center = new_center
-            self.size   = new_size
+        elif self._transform is not None and self._transform.startswith('resize_'):
+            corner_idx = int(self._transform[-1])
+            # Build the four corners from the saved state
+            half = np.array([[-1, -1], [1, -1], [1, 1], [-1, 1]]) * size0 / 2.0
+            corners0    = center0[None, :] + half
+            new_corner  = corners0[corner_idx] + np.array([dx, dy])
+            opp_idx     = (corner_idx + 2) % 4
+            fixed_corner = corners0[opp_idx]
+            new_size    = np.abs(new_corner - fixed_corner)
+            if new_size[0] > 1e-6 and new_size[1] > 1e-6:
+                self.center = (new_corner + fixed_corner) / 2.0
+                self.size   = new_size
 
         self._update_artists()
         self.restoreBackground()
@@ -205,30 +261,10 @@ class InteractiveRectangle(qtc.QObject):
     def on_release(self, event):
         if InteractiveRectangle.lock is not self:
             return
-        self.press          = None
-        self.transform      = None
-        self._active_corner = None
+        self._press     = None
+        self._transform = None
         InteractiveRectangle.lock = None
 
         self.patch.set_animated(False)
         self.handles.set_animated(False)
         self.canvas.draw()
-
-    # ------------------------------------------------------------------ blit
-
-    def restoreBackground(self):
-        self.canvas.restore_region(self.background)
-        self.axis.draw_artist(self.patch)
-        if self.handles.get_visible():
-            self.axis.draw_artist(self.handles)
-        self.canvas.blit(self.axis.bbox)
-
-    def updateBackground(self):
-        self.patch.set_animated(True)
-        self.handles.set_animated(True)
-        self.canvas.draw()
-        self.background = self.canvas.copy_from_bbox(self.axis.bbox)
-        self.axis.draw_artist(self.patch)
-        if self.handles.get_visible():
-            self.axis.draw_artist(self.handles)
-        self.canvas.blit(self.axis.bbox)

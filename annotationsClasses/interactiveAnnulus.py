@@ -1,57 +1,48 @@
-from annotationsClasses.InteractiveCircle import InteractiveCircle
+"""
+InteractiveAnnulus — a resizable two-ring (annular) detector overlay.
+
+Thin subclass of InteractiveCircle with:
+  • two concentric circles (inner ring, outer ring)
+  • resize-only interactions (centre is locked to the beam centre)
+
+The parent class already supports multiple radii and the 'resize' interaction
+mode, so the only job here is to provide a clean constructor interface and
+document the semantics clearly.
+
+Signals (inherited)
+-------------------
+updateCircle : emitted whenever the user drags either ring handle
+rightClick   : emitted on right-click events
+
+Attributes (inherited, most useful ones)
+-----------------------------------------
+center : np.ndarray shape (2,)  — beam-centre in data units (read-only in
+                                   this mode; use parent.center to read)
+radius : np.ndarray shape (2,)  — [inner_radius, outer_radius] in data units
+"""
+
+from annotationsClasses.interactiveCircle import InteractiveCircle
 
 
 class InteractiveAnnulus(InteractiveCircle):
     """
-    An interactive annular (donut-shaped) detector annotation.
-
-    Subclass of InteractiveCircle that is always initialised with exactly two
-    radii: an inner radius and an outer radius.  All interaction logic (drag,
-    resize, blitting, signals) is inherited unchanged from InteractiveCircle.
+    Annular (ring) detector annotation with two concentric, resizable circles
+    and a fixed centre.
 
     Parameters
     ----------
-    axis : matplotlib.axes.Axes
-        The axes on which the annulus is drawn.
-    center : array-like, shape (2,)
-        (x, y) centre of the annulus in data coordinates.
-    inner_radius : float
-        Radius of the inner boundary circle.
-    outer_radius : float
-        Radius of the outer boundary circle.
-    color : str or matplotlib colour spec, optional
-        Annotation colour.  Default ``'r'``.
-    interactions : str, optional
-        One of ``'all'``, ``'resize'``, ``'translate'``, or ``'none'``.
-        Default ``'all'``.
+    axis          : matplotlib.axes.Axes
+    center        : array-like, shape (2,)   — (x, y) in data units
+    inner_radius  : float — inner ring radius in data units
+    outer_radius  : float — outer ring radius in data units
+    color         : matplotlib colour spec (default ``'r'``)
     """
 
-    def __init__(self, axis, center=None, inner_radius=0.0, outer_radius=1.0,
-                 color='r', interactions='all'):
-        # Ensure the radii are sorted so inner < outer, then delegate to parent.
-        r_inner = min(inner_radius, outer_radius)
-        r_outer = max(inner_radius, outer_radius)
-        super().__init__(axis, center=center, radius=[r_inner, r_outer],
-                         color=color, interactions=interactions)
-
-    # ------------------------------------------------------------------
-    # Convenience properties so callers can use semantic names.
-    # ------------------------------------------------------------------
-
-    @property
-    def inner_radius(self):
-        """The smaller of the two radii (innermost boundary)."""
-        return float(self.radius[0])
-
-    @inner_radius.setter
-    def inner_radius(self, value):
-        self.radius[0] = float(value)
-
-    @property
-    def outer_radius(self):
-        """The larger of the two radii (outermost boundary)."""
-        return float(self.radius[-1])
-
-    @outer_radius.setter
-    def outer_radius(self, value):
-        self.radius[-1] = float(value)
+    def __init__(self, axis, center, inner_radius, outer_radius, color='r'):
+        super().__init__(
+            axis,
+            center=center,
+            radius=[inner_radius, outer_radius],
+            color=color,
+            interactions='resize',      # centre is fixed to beam position
+        )
