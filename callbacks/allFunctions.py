@@ -9,7 +9,8 @@ from PyQt5 import QtCore as qtc
 from PyQt5 import QtGui as qtg
 import callbacks.appClass as appClass
 from callbacks.appClass import *
-from annotationsClasses.interactiveCircle import InteractiveCircle
+from annotationsClasses.InteractiveCircle import InteractiveCircle
+from annotationsClasses.interactiveAnnulus import InteractiveAnnulus
 from annotationsClasses.interactivePoint import InteractivePoint
 
 def importCallbacks(self):
@@ -1829,8 +1830,8 @@ def annularDetectorCallbacks(self):
             self.AnnRi_NF.setMaximum(k.max()*self.D.annWidth)
             self.AnnRo_NF.setMaximum(k.max()*self.D.annWidth)
 
-            # ublock signals
-            self.blockAllSignals = True
+            # unblock signals
+            self.blockAllSignals = False
             
             # set maximum scattering angle
             self.P.RMax = k.max()
@@ -1866,7 +1867,7 @@ def annularDetectorCallbacks(self):
             self.P.ScanDirInit = 1; # Flag scan directions as aligned
             enableAnnUI() # Enable/Disable GUI elements
             self.A.removeGroup('ScanDir') # Try to remove existing scan direction ROIs
-            if self.ScanDirUnlock.isChecked(self):
+            if self.ScanDirUnlock.isChecked():
                 drawScanDir() # Draw annotations
             self.SettingsWindow.ShowDfrnAxes.click() # Update diffraction axes annotations
 
@@ -3507,7 +3508,7 @@ def plotVectorField(self,id):
     vec = fig.vecField
 
     # if vector field sampling == 0, or not currently in CoM or DPC modes, return
-    if (not vec) or (self.DetrMode.currentData() in ["CoMMod", "DPCMod"]):
+    if (not vec) or (self.DetrMode.currentData() not in ["CoMMod", "DPCMod"]):
         return
     
     # Plot vector arrows over the selected image
