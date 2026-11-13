@@ -27,11 +27,14 @@ Annotation attributes (self.A.*)
 
 from annotationsClasses.interactiveCircle import InteractiveCircle
 from annotationsClasses.interactivePoint import InteractivePoint
-from callbacks.allFunctions import plotImage, isDiffToPrev
 import numpy as np
 
 
 def virtualApertureCallbacks(self):  # noqa: C901
+    # Deferred import to avoid circular dependency with allFunctions.py
+    # (allFunctions imports this module; importing allFunctions here at
+    # module level would create a cycle).
+    from callbacks.allFunctions import plotImage, isDiffToPrev  # noqa: E402
 
     if self.blockAllSignals:
         return
