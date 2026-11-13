@@ -1,192 +1,231 @@
 """
-histBoxWidget.py – Interactive histogram ROI for display-limit adjustment.
-
-Replaces the MATLAB `drawrectangle` / `drawpoint` ROI combo.
-The widget draws:
-  • A semi-transparent rectangle spanning [limitLow, limitHigh]
-  • A dashed blue vertical line at limitLow  (Lo handle)
-  • A dashed red  vertical line at limitHigh (Hi handle)
-
-Mouse interactions (all within the histogram axes):
-  • Drag Lo line  → adjusts lower limit only
-  • Drag Hi line  → adjusts upper limit only
-  • Drag interior of the rect (not a handle) → translates both (brightness shift)
-  • On button-release the on_change callback fires with (new_lo, new_hi)
-
-The caller (updateDispImgStats) converts (lo, hi) back to slider values:
-    brightness_slider = clamp(50 + (maxVal+minVal - hi - lo) / (2*intensityRange) * 100,  0, 100)
-    contrast_slider   = clamp(2**((maxVal-minVal - hi + lo) / (2*intensityRange) * 2) * 50, 0, 100)
+histBoxWidget.py
+================
+Provides:
+  - HistBox  : a draggable shaded-span widget overlaid on the histogram axes.
+               Calls an ``on_change(lo, hi)`` callback whenever the user
+               drags either edge or the whole box.
+  - histbox_to_sliders : converts absolute intensity limits back to the
+               brightness (0–100) and contrast (0–100) slider values used
+               by displayCallbacks.
 """
 
 import numpy as np
+from matplotlib.patches import Rectangle
+from matplotlib.widgets import AxesWidget
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-class HistBox:
-    """Interactive histogram range selector."""
+# ---------------------------------------------------------------------------
+# histbox_to_sliders
+# ---------------------------------------------------------------------------
 
-    # Width (in data units) of the hit-test zone around each handle line
-    _HANDLE_FRAC = 0.015  # 1.5% of the x-axis span
+def histbox_to_sliders(lo: float, hi: float,
+                       minVal: float, maxVal: float) -> tuple[float, float]:
+    """Convert absolute display limits to brightness / contrast slider values.
 
-    def __init__(self, ax, limitLow, limitHigh, on_change):
-        """
-        Parameters
-        ----------
-        ax         : matplotlib.axes.Axes  – the histogram axes
-        limitLow   : float  – initial lower display limit
-        limitHigh  : float  – initial upper display limit
-        on_change  : callable(lo, hi)  – fired once on mouse-release
-        """
-        self.ax = ax
-        self._lo = float(limitLow)
-        self._hi = float(limitHigh)
-        self.on_change = on_change
+    Inverts the mapping applied in ``plotImage``::
 
-        # Drag state
-        self._drag_mode = None   # 'lo' | 'hi' | 'box'
-        self._press_x   = None
-        self._press_lo  = None
-        self._press_hi  = None
+        brightness = (fig.brightness - 50) / 100            # –0.5 … +0.5
+        contrast   = log2(max(eps, fig.contrast / 50)) / 2  # log scale
 
-        # Visual elements
-        self._span = ax.axvspan(limitLow, limitHigh,
-                                alpha=0.15, color='steelblue', zorder=2,
-                                label='_histbox_span')
-        self._lo_line = ax.axvline(limitLow,
-                                   color='dodgerblue', linewidth=1.5,
-                                   linestyle='--', zorder=3,
-                                   label='_histbox_lo')
-        self._hi_line = ax.axvline(limitHigh,
-                                   color='tomato', linewidth=1.5,
-                                   linestyle='--', zorder=3,
-                                   label='_histbox_hi')
+        limitLow  = minVal – (brightness – contrast) * intensityRange
+        limitHigh = maxVal – (brightness + contrast) * intensityRange
 
-        canvas = ax.figure.canvas
-        self._cid_press   = canvas.mpl_connect('button_press_event',   self._on_press)
-        self._cid_move    = canvas.mpl_connect('motion_notify_event',  self._on_move)
-        self._cid_release = canvas.mpl_connect('button_release_event', self._on_release)
-
-    # ── public ────────────────────────────────────────────────────────────────
-
-    def update_position(self, lo, hi):
-        """Reposition the visuals (called externally when sliders change)."""
-        self._lo = float(lo)
-        self._hi = float(hi)
-        self._redraw()
-        self.ax.figure.canvas.draw_idle()
-
-    def remove(self):
-        """Detach events and remove all artists."""
-        canvas = self.ax.figure.canvas
-        for cid in (self._cid_press, self._cid_move, self._cid_release):
-            canvas.mpl_disconnect(cid)
-        for artist in (self._span, self._lo_line, self._hi_line):
-            try:
-                artist.remove()
-            except Exception:
-                pass
-
-    # ── private ───────────────────────────────────────────────────────────────
-
-    def _redraw(self):
-        lo, hi = self._lo, self._hi
-        # Update axvspan: its polygon has vertices at x = lo and x = hi
-        poly = self._span.get_xy()
-        poly[:, 0] = [lo, lo, hi, hi, lo]
-        self._span.set_xy(poly)
-        # Update the two handle lines
-        self._lo_line.set_xdata([lo, lo])
-        self._hi_line.set_xdata([hi, hi])
-
-    def _handle_tol(self):
-        xl = self.ax.get_xlim()
-        return self._HANDLE_FRAC * abs(xl[1] - xl[0])
-
-    def _on_press(self, event):
-        if event.inaxes is not self.ax or event.xdata is None:
-            return
-        x   = event.xdata
-        tol = self._handle_tol()
-
-        if abs(x - self._lo) <= tol:
-            self._drag_mode = 'lo'
-        elif abs(x - self._hi) <= tol:
-            self._drag_mode = 'hi'
-        elif self._lo < x < self._hi:
-            self._drag_mode = 'box'
-        else:
-            return  # click outside → ignore
-
-        self._press_x  = x
-        self._press_lo = self._lo
-        self._press_hi = self._hi
-
-    def _on_move(self, event):
-        if self._drag_mode is None:
-            return
-        if event.inaxes is not self.ax or event.xdata is None:
-            return
-
-        dx = event.xdata - self._press_x
-        xl = self.ax.get_xlim()
-        x0, x1 = min(xl), max(xl)
-
-        if self._drag_mode == 'lo':
-            new_lo = np.clip(self._press_lo + dx, x0, self._hi)
-            self._lo = float(new_lo)
-        elif self._drag_mode == 'hi':
-            new_hi = np.clip(self._press_hi + dx, self._lo, x1)
-            self._hi = float(new_hi)
-        elif self._drag_mode == 'box':
-            width  = self._press_hi - self._press_lo
-            new_lo = np.clip(self._press_lo + dx, x0, x1 - width)
-            self._lo = float(new_lo)
-            self._hi = float(new_lo + width)
-
-        self._redraw()
-        self.ax.figure.canvas.draw_idle()
-
-    def _on_release(self, event):
-        if self._drag_mode is None:
-            return
-        self._drag_mode = None
-        # Fire callback so the caller can update sliders
-        try:
-            self.on_change(self._lo, self._hi)
-        except Exception:
-            pass
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-def _clamp(v, lo, hi):
-    return max(lo, min(hi, v))
-
-
-def histbox_to_sliders(lo, hi, minVal, maxVal):
-    """
-    Convert histogram ROI edges to (brightness_slider, contrast_slider).
-
-    Inverse of the display-limit formula in plotImage:
-        limitLow  = minVal − (brightness − contrast) * intensityRange
-        limitHigh = maxVal − (brightness + contrast) * intensityRange
+    Parameters
+    ----------
+    lo, hi      : float  – the dragged window limits (same units as the image)
+    minVal, maxVal : float – the image's raw min / max (passed to plotImage)
 
     Returns
     -------
-    brightness_slider : float clamped [0, 100]
-    contrast_slider   : float clamped [0, 100]
+    b_ui : float  – brightness slider value in [0, 100]  (clamped)
+    c_ui : float  – contrast  slider value in [0, 100]  (clamped)
     """
-    intensityRange = maxVal - minVal
-    if intensityRange == 0 or not np.isfinite(intensityRange):
+    intensity_range = maxVal - minVal
+    if intensity_range == 0:
         return 50.0, 50.0
 
-    brightness_raw = (maxVal + minVal - hi - lo) / (2.0 * intensityRange)
-    brightness_slider = _clamp(50.0 + brightness_raw * 100.0, 0.0, 100.0)
+    # brightness: derived from (lo + hi) sum
+    # lo + hi = minVal + maxVal – 2*brightness*intensityRange
+    brightness = (minVal + maxVal - lo - hi) / (2.0 * intensity_range)
+    b_ui = float(np.clip(brightness * 100.0 + 50.0, 0.0, 100.0))
 
-    # contrast in log2 space: contrast = log2(fig.contrast/50)/2
-    # → fig.contrast = 50 * 2^(2*contrast_raw)
-    contrast_raw = (maxVal - minVal - hi + lo) / (2.0 * intensityRange)
-    eps = np.finfo(np.single).eps
-    contrast_linear = 2.0 ** (2.0 * contrast_raw)   # = fig.contrast / 50
-    contrast_slider = _clamp(50.0 * max(contrast_linear, eps), 0.0, 100.0)
+    # contrast: derived from (hi – lo) difference
+    # hi – lo = intensityRange – 2*contrast*intensityRange
+    # contrast = (1 – (hi – lo)/intensityRange) / 2
+    # contrast = log2(c_ui / 50) / 2  →  c_ui = 50 * 2^(2*contrast)
+    span = hi - lo
+    raw_contrast = (1.0 - span / intensity_range) / 2.0
+    c_ui = float(np.clip(50.0 * 2.0 ** (2.0 * raw_contrast), 0.0, 100.0))
 
-    return brightness_slider, contrast_slider
+    return b_ui, c_ui
+
+
+# ---------------------------------------------------------------------------
+# HistBox
+# ---------------------------------------------------------------------------
+
+class HistBox(AxesWidget):
+    """Interactive shaded box on a histogram axes for brightness/contrast control.
+
+    The box represents the display window [lo, hi].  The user can:
+      * drag the **left edge** to move ``lo``
+      * drag the **right edge** to move ``hi``
+      * drag the **body** to shift the whole window
+
+    When a drag ends (mouse-button-release) ``on_change(lo, hi)`` is called.
+
+    Parameters
+    ----------
+    ax        : matplotlib Axes – the histogram axes
+    lo, hi    : float – initial low / high display limits (data units)
+    on_change : callable(lo, hi) – called when limits change; may be None
+    edge_tol  : float – fraction of axes width treated as an edge grab (default 0.03)
+    color     : str   – face colour of the shaded region
+    alpha     : float – transparency of the shaded region
+    """
+
+    def __init__(self, ax, lo: float, hi: float,
+                 on_change=None,
+                 edge_tol: float = 0.03,
+                 color: str = "steelblue",
+                 alpha: float = 0.25):
+        super().__init__(ax)
+
+        self._lo = float(lo)
+        self._hi = float(hi)
+        self._on_change = on_change
+        self._edge_tol = edge_tol
+
+        # --- shaded rectangle ---
+        ylim = ax.get_ylim()
+        self._rect = Rectangle(
+            (self._lo, ylim[0]),
+            width=self._hi - self._lo,
+            height=ylim[1] - ylim[0],
+            facecolor=color,
+            alpha=alpha,
+            edgecolor="steelblue",
+            linewidth=1.0,
+            zorder=3,
+        )
+        ax.add_patch(self._rect)
+
+        # --- edge markers (thin vertical lines) ---
+        self._line_lo, = ax.plot(
+            [self._lo, self._lo], ylim,
+            color="steelblue", linewidth=1.5, zorder=4
+        )
+        self._line_hi, = ax.plot(
+            [self._hi, self._hi], ylim,
+            color="steelblue", linewidth=1.5, zorder=4
+        )
+
+        # drag state
+        self._drag_mode = None   # 'lo', 'hi', 'body', or None
+        self._drag_x0   = None   # data-x at mouse-press
+        self._drag_lo0  = None   # lo at drag start
+        self._drag_hi0  = None   # hi at drag start
+
+        self.connect_event('button_press_event',   self._on_press)
+        self.connect_event('button_release_event', self._on_release)
+        self.connect_event('motion_notify_event',  self._on_motion)
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def update_position(self, lo: float, hi: float) -> None:
+        """Reposition the box without triggering the on_change callback."""
+        self._lo = float(lo)
+        self._hi = float(hi)
+        self._redraw()
+
+    def remove(self) -> None:
+        """Remove all artists from the axes."""
+        try:
+            self._rect.remove()
+        except Exception:
+            pass
+        try:
+            self._line_lo.remove()
+        except Exception:
+            pass
+        try:
+            self._line_hi.remove()
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _redraw(self) -> None:
+        ylim = self.ax.get_ylim()
+        self._rect.set_x(self._lo)
+        self._rect.set_width(self._hi - self._lo)
+        self._rect.set_height(ylim[1] - ylim[0])
+        self._rect.set_y(ylim[0])
+        for line, x in ((self._line_lo, self._lo), (self._line_hi, self._hi)):
+            line.set_xdata([x, x])
+            line.set_ydata(ylim)
+        self.ax.figure.canvas.draw_idle()
+
+    def _axes_x_tol(self) -> float:
+        """Edge-grab tolerance in data units."""
+        xl = self.ax.get_xlim()
+        return self._edge_tol * abs(xl[1] - xl[0])
+
+    def _classify_hit(self, xdata: float) -> str | None:
+        """Return 'lo', 'hi', 'body', or None depending on where the click landed."""
+        tol = self._axes_x_tol()
+        if abs(xdata - self._lo) < tol:
+            return 'lo'
+        if abs(xdata - self._hi) < tol:
+            return 'hi'
+        if self._lo < xdata < self._hi:
+            return 'body'
+        return None
+
+    # ------------------------------------------------------------------
+    # Event handlers
+    # ------------------------------------------------------------------
+
+    def _on_press(self, event) -> None:
+        if event.inaxes is not self.ax or event.button != 1:
+            return
+        mode = self._classify_hit(event.xdata)
+        if mode is None:
+            return
+        self._drag_mode = mode
+        self._drag_x0   = event.xdata
+        self._drag_lo0  = self._lo
+        self._drag_hi0  = self._hi
+
+    def _on_motion(self, event) -> None:
+        if self._drag_mode is None or event.inaxes is not self.ax:
+            return
+        dx = event.xdata - self._drag_x0
+        xl = self.ax.get_xlim()
+        lo_bound, hi_bound = min(xl), max(xl)
+
+        if self._drag_mode == 'lo':
+            new_lo = np.clip(self._drag_lo0 + dx, lo_bound, self._hi)
+            self._lo = float(new_lo)
+        elif self._drag_mode == 'hi':
+            new_hi = np.clip(self._drag_hi0 + dx, self._lo, hi_bound)
+            self._hi = float(new_hi)
+        else:  # 'body'
+            span   = self._drag_hi0 - self._drag_lo0
+            new_lo = np.clip(self._drag_lo0 + dx, lo_bound, hi_bound - span)
+            self._lo = float(new_lo)
+            self._hi = float(new_lo + span)
+
+        self._redraw()
+
+    def _on_release(self, event) -> None:
+        if self._drag_mode is None or event.button != 1:
+            return
+        self._drag_mode = None
+        if callable(self._on_change):
+            self._on_change(self._lo, self._hi)
