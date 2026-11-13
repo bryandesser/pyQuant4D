@@ -54,6 +54,14 @@ callbacks.importCallbacks
    :undoc-members:
    :show-inheritance:
 
+callbacks.realSpaceROICallbacks
+--------------------------------
+
+.. automodule:: callbacks.realSpaceROICallbacks
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 annotationsClasses
 ------------------
 
@@ -68,6 +76,16 @@ annotationsClasses
    :show-inheritance:
 
 .. automodule:: annotationsClasses.interactiveRectangle
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: annotationsClasses.interactivePolygon
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: annotationsClasses.interactivePoint
    :members:
    :undoc-members:
    :show-inheritance:
