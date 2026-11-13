@@ -4,6 +4,7 @@
 import os
 import sys
 from datetime import datetime
+import sphinx_rtd_theme
 
 # Make the package importable from the repo root (for autodoc).
 # conf.py lives in docs/source/, so go up two levels.
