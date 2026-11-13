@@ -29,7 +29,7 @@ from PyQt5 import QtCore as qtc
 from PyQt5 import QtGui as qtg
 import callbacks.appClass as appClass
 from callbacks.appClass import *
-from annotationsClasses.InteractiveCircle import InteractiveCircle
+from annotationsClasses.interactiveCircle import InteractiveCircle
 from annotationsClasses.interactiveAnnulus import InteractiveAnnulus
 from annotationsClasses.interactivePoint import InteractivePoint
 from callbacks.virtualApertureCallbacks import virtualApertureCallbacks as _virtualApertureCallbacks
