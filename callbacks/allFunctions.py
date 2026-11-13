@@ -2,7 +2,27 @@ import matplotlib.backend_bases
 import os, sys, traceback, re, gc, psutil, importlib, h5py, matplotlib,time
 from PIL import Image
 import numpy as np
-import torch
+try:
+    import torch
+except ImportError:
+    # torch is an optional dependency (install with: pip install pyquant4d[gpu])
+    # Provide a null-object stub so all torch.cuda.* call sites work without
+    # modification and simply report zero GPUs available.
+    class _TorchStub:                                        # noqa: E302
+        class cuda:
+            @staticmethod
+            def is_available():                              return False
+            @staticmethod
+            def device_count():                              return 0
+            @staticmethod
+            def get_device_properties(i):
+                raise RuntimeError("torch not installed; install pyquant4d[gpu]")
+            @staticmethod
+            def get_device_name(i):
+                raise RuntimeError("torch not installed; install pyquant4d[gpu]")
+        @staticmethod
+        def device(x):                                       return x
+    torch = _TorchStub()  # type: ignore[assignment]
 from multiprocessing.pool import ThreadPool
 from PyQt5 import QtWidgets as qtw
 from PyQt5 import QtCore as qtc
