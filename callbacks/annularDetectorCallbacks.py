@@ -1,265 +1,599 @@
-from callbacks.allFunctions import enableWindows,plotImage,isDiffToPrev,plotImage
+from callbacks.allFunctions import enableWindows, plotImage, isDiffToPrev
 from annotationsClasses.interactiveAnnulus import InteractiveAnnulus
+from annotationsClasses.interactivePoint import InteractivePoint
 import numpy as np
 
 def annularDetectorCallbacks(self):
 
-    def limitAnnUI(self):
-        """ Function to update Annular detector UI limits/labels when coordinate options change """
+    def limitAnnUI():
+        """Update annular detector UI limits/labels when coordinate options change."""
         self.AnnRi_NF.blockSignals(True)
         self.AnnRo_NF.blockSignals(True)
-        self.AnnRi_NF.setSuffix(" "+self.SettingsWindow.DCUnit.currentData())
-        self.AnnRo_NF.setSuffix(" "+self.SettingsWindow.DCUnit.currentData())
-        self.AnnRi_NF.setRange(0,self.P.RMax*self.DfPxR)
-        self.AnnRo_NF.setRange(0,self.P.RMax*self.DfPxR)
-        self.AnnRi_NF.setSingleStep(0.25*self.DfPxR)
-        self.AnnRo_NF.setSingleStep(0.25*self.DfPxR)
+        self.AnnRi_NF.setSuffix(" " + self.SettingsWindow.DCUnit.currentData())
+        self.AnnRo_NF.setSuffix(" " + self.SettingsWindow.DCUnit.currentData())
+        self.AnnRi_NF.setRange(0, self.P.RMax * self.DfPxR)
+        self.AnnRo_NF.setRange(0, self.P.RMax * self.DfPxR)
+        self.AnnRi_NF.setSingleStep(0.25 * self.DfPxR)
+        self.AnnRo_NF.setSingleStep(0.25 * self.DfPxR)
         self.AnnRi_NF.blockSignals(False)
         self.AnnRo_NF.blockSignals(False)
 
-    def enableAnnUI(self):
-        """ Function to enable/disable UI """
-        # current detector mode
+    def enableAnnUI():
+        """Enable/disable UI elements based on current detector mode."""
         dmod = self.DetrMode.currentData()
 
-        # Disable/enable segmented panel
+        # Segmented panel only active in DPC mode
         self.dpcControls.setEnabled(dmod == "DPCMod")
 
-        # Change Enable state of scan direction UIs, except `self.ScanDirUnlock`
+        # Scan direction controls follow the unlock checkbox
         self.comControls.setEnabled(self.ScanDirUnlock.isChecked())
-        self.ScanDirUnlock.setEnabled(dmod in ["CoMMod","DPCMod"])
+        self.ScanDirUnlock.setEnabled(dmod in ["CoMMod", "DPCMod"])
 
-        # Highlight to align Scanning Direction
-        if (dmod in ["CoMMod" "DPCMod"]) and (not self.P.ScanDirInit):
+        # Highlight scan direction panel if not yet aligned
+        if (dmod in ["CoMMod", "DPCMod"]) and (not self.P.ScanDirInit):
             bc = self.C.WarnC.name()
         else:
             bc = self.C.BgC.name()
-        self.ScanDirGrid.BackgroundColor = bc # Set scan direction panel color
-        self.comControls.setStyleSheet("background-color:"+bc)
+        self.ScanDirGrid.setStyleSheet("background-color:" + bc)
+        self.comControls.setStyleSheet("background-color:" + bc)
 
+    # ------------------------------------------------------------------
+    # drawSegDetr — draw segmented-detector annotations on diffraction ax
+    # ------------------------------------------------------------------
+    def drawSegDetr():
+        """
+        Draw segmented detector overlay on the diffraction pattern.
+
+        Creates:
+          self.A.SegDetrL  : list of Line2D objects — one per segment divider
+          self.A.SegDetrL0 : Line2D — highlighted reference line at DetRot=0
+          self.A.SegDetrCir: list of Line2D objects — NRung-1 interior circles
+          self.A.SegDetrP0 : InteractivePoint — drag handle at outer tip of ref line
+        """
+        ax = self.Fig.Dfrn.ax
+
+        # --- remove existing SegDetr annotations ---
+        for attr in ('SegDetrL', 'SegDetrCir'):
+            obj = getattr(self.A, attr)
+            if obj is not None:
+                for item in obj:
+                    try:
+                        item.remove()
+                    except ValueError:
+                        pass
+                setattr(self.A, attr, None)
+        for attr in ('SegDetrL0',):
+            obj = getattr(self.A, attr)
+            if obj is not None:
+                try:
+                    obj.remove()
+                except ValueError:
+                    pass
+                setattr(self.A, attr, None)
+        if self.A.SegDetrP0 is not None:
+            self.A.SegDetrP0.remove()
+            self.A.SegDetrP0 = None
+
+        # --- read current parameters ---
+        ri_idx, ro_idx = self.AnnRi.value()
+        ri_px = ri_idx * self.D.annWidth
+        ro_px = ro_idx * self.D.annWidth
+        nseg  = int(self.NSeg.value())
+        nrung = int(self.NRung.value())
+        dr    = self.DetRot.value()          # degrees
+        b0    = self.B0                      # (x, y) beam centre in pixels
+
+        if ro_px <= 0:
+            return  # nothing to draw yet
+
+        # --- segment divider lines (NSeg lines from inner to outer radius) ---
+        seg_angles = np.linspace(dr, dr + 360.0, nseg + 1)[:-1]  # NSeg angles
+        lines = []
+        for ang in seg_angles:
+            rad = np.radians(ang)
+            x = [b0[0] + ri_px * np.cos(rad), b0[0] + ro_px * np.cos(rad)]
+            y = [b0[1] + ri_px * np.sin(rad), b0[1] + ro_px * np.sin(rad)]
+            line, = ax.plot(x, y, color='w', linewidth=1.5, zorder=5,
+                            solid_capstyle='round')
+            lines.append(line)
+        self.A.SegDetrL = lines if lines else None
+
+        # --- highlighted reference line at DetRot (thicker, used as rotation origin) ---
+        rad0 = np.radians(dr)
+        x0 = [b0[0] + ri_px * np.cos(rad0), b0[0] + ro_px * np.cos(rad0)]
+        y0 = [b0[1] + ri_px * np.sin(rad0), b0[1] + ro_px * np.sin(rad0)]
+        self.A.SegDetrL0, = ax.plot(x0, y0, color='w', linewidth=3.0,
+                                     zorder=5, solid_capstyle='round')
+
+        # --- interior rung circles (NRung > 1 → NRung-1 concentric rings) ---
+        rung_circles = []
+        if nrung > 1:
+            rung_radii = np.linspace(ri_px, ro_px, nrung + 1)[1:-1]
+            theta = np.linspace(0, 2 * np.pi, 361)
+            for r in rung_radii:
+                cx = b0[0] + r * np.cos(theta)
+                cy = b0[1] + r * np.sin(theta)
+                circ, = ax.plot(cx, cy, color='w', linewidth=1.0, zorder=5)
+                rung_circles.append(circ)
+        self.A.SegDetrCir = rung_circles if rung_circles else None
+
+        # --- interactive rotation handle at outer tip of reference line ---
+        pt_artist = ax.scatter(
+            b0[0] + ro_px * np.cos(rad0),
+            b0[1] + ro_px * np.sin(rad0),
+            color='w', s=60, zorder=6, animated=False
+        )
+        self.A.SegDetrP0 = InteractivePoint(pt_artist)
+        self.A.SegDetrP0.connect()
+        # When drag handle moves → update detector rotation and redraw
+        self.A.SegDetrP0.positionChanged.connect(lambda: moveAnnDetr())
+
+        self.Fig.Dfrn.canvas.draw_idle()
+
+    # ------------------------------------------------------------------
+    # drawScanDir — draw scan-direction arrows on diffraction pattern
+    # ------------------------------------------------------------------
+    def drawScanDir():
+        pass  # Phase 5
+
+    # ------------------------------------------------------------------
+    # moveAnnDetr — live-update detectors when parameters change
+    # ------------------------------------------------------------------
     def moveAnnDetr():
-        """ Function to live update annular/round/segmented detectors """
 
-        def moveAnnR(self):
-            """ Sub sub function for annular radii """
-
-            # get QRangeSlider values
-            innerRadius,outerRadius = self.AnnRi.value()
-            
-            # get diffraction scale set by user during alignment
+        def moveAnnR():
+            """Update annular/round detector radii."""
+            innerRadius, outerRadius = self.AnnRi.value()
             scale = self.DfPxR
 
-            # get inner/outer adf radii from the calling widget
             match self.sender():
-                # InteractiveAnnulus
                 case self.A.adf:
-                    innerRadius, outerRadius = (self.A.adf.radius/self.D.annWidth).astype(int)
-                # Inner Radius QDoubleSpinBox
+                    innerRadius, outerRadius = (
+                        self.A.adf.radius / self.D.annWidth
+                    ).astype(int)
                 case self.AnnRi_NF:
-                    innerRadius = round(self.AnnRi_NF.value()/self.D.annWidth/scale)
-                # Outer Radius QDoubleSpinBox 
+                    innerRadius = round(
+                        self.AnnRi_NF.value() / self.D.annWidth / scale
+                    )
                 case self.AnnRo_NF:
-                    outerRadius = round(self.AnnRo_NF.value()/self.D.annWidth/scale)
+                    outerRadius = round(
+                        self.AnnRo_NF.value() / self.D.annWidth / scale
+                    )
 
-            # allow user to drag inner/outer annulus over the other, swapping their relationships
-            if innerRadius>outerRadius:
-                innerRadius,outerRadius = outerRadius,innerRadius
-                #self.A.adfInnerCirc,self.A.adfOuterCirc = self.A.adfOuterCirc,self.A.adfInnerCirc #TODO delete?
+            # Swap if inner > outer (user dragged past each other)
+            if innerRadius > outerRadius:
+                innerRadius, outerRadius = outerRadius, innerRadius
 
-            # inner radius cannot be less than 0
-            if innerRadius<0:
-                innerRadius = 0
+            innerRadius = max(0, innerRadius)
+            outerRadius = min(self.P.RMax, outerRadius)
 
-            # outer radius cannot be greater than max scattering angle
-            if outerRadius>self.P.RMax:
-                outerRadius = self.P.RMax
-
-            # avoid triggering a valueChanged loop by blocking signals
+            # Block signals to avoid update loops
             self.AnnRi.blockSignals(True)
             self.AnnRi_NF.blockSignals(True)
             self.AnnRo_NF.blockSignals(True)
 
-            # set slider and numerical field values
-            self.AnnRi.setValue((innerRadius,outerRadius))
-            self.AnnRi_NF.setValue(innerRadius*self.D.annWidth*scale)
-            self.AnnRo_NF.setValue(outerRadius*self.D.annWidth*scale)
+            self.AnnRi.setValue((innerRadius, outerRadius))
+            self.AnnRi_NF.setValue(innerRadius * self.D.annWidth * scale)
+            self.AnnRo_NF.setValue(outerRadius * self.D.annWidth * scale)
 
-            # unblock trigger signals
             self.AnnRi.blockSignals(False)
             self.AnnRi_NF.blockSignals(False)
             self.AnnRo_NF.blockSignals(False)
 
-            # update point centers when updated via QRangeSlider or QDoubleSpinBoxes
+            # Sync the InteractiveAnnulus if the sender was not the annotation
             if self.sender() is not self.A.adf:
-                self.A.adf.radius = np.array([innerRadius,outerRadius]).clip(np.finfo(np.single).eps,self.P.RMax)*self.D.annWidth
+                self.A.adf.radius = (
+                    np.array([innerRadius, outerRadius])
+                    .clip(np.finfo(np.single).eps, self.P.RMax)
+                    * self.D.annWidth
+                )
                 self.A.adf.redraw()
 
-            #if isStaticEvt(evt): #TODO
-            #    mockUICallbacks(app,self.SaveImgPrefix) # Update saving prefix
-
-            # Whether to update segments as well #TODO
-            #if dmod == "DPCMod":
-            #    self.moveSeg()
-
-            # refresh real-space image given new inner/outer radii
-            # (add one to outer limit because python doesn't include the last term of the range)
-            if len(self.Fig.Real.ax.images)==0:
-                self.Image.Real = self.Data.sum(axis=1).reshape(self.D.NFrY,self.D.NFrX)
+            # Refresh real-space image
+            if len(self.Fig.Real.ax.images) == 0:
+                self.Image.Real = self.Data.sum(axis=1).reshape(
+                    self.D.NFrY, self.D.NFrX
+                )
                 self.ImageAx.Real = self.Fig.Real.ax.imshow(self.Image.Real)
             else:
-                self.Image.Real = self.adfImages[:,:,innerRadius:outerRadius+1].sum(axis=2)
+                self.Image.Real = self.adfImages[
+                    :, :, innerRadius : outerRadius + 1
+                ].sum(axis=2)
                 self.ImageAx.Real.set_data(self.Image.Real)
-            
+
             self.ImageAx.Real.autoscale()
             self.Fig.Real.canvas.draw()
+
         def moveSeg():
-            pass
+            """
+            Update segmented detector geometry.
+
+            If the sender is SegDetrP0 (the drag handle), derive the new
+            DetRot from the handle's position, update the UI, then redraw.
+            Otherwise just redraw with the current UI values.
+            """
+            # If drag handle moved → compute new rotation from point position
+            if (self.A.SegDetrP0 is not None
+                    and self.sender() is self.A.SegDetrP0):
+                xy  = self.A.SegDetrP0.position  # (x, y) in data coords
+                b0  = self.B0
+                new_rot = float(
+                    np.degrees(np.arctan2(xy[1] - b0[1], xy[0] - b0[0]))
+                ) % 360.0
+
+                self.DetRot.blockSignals(True)
+                self.DetRot_NF.blockSignals(True)
+                self.DetRot.setValue(int(round(new_rot)))
+                self.DetRot_NF.setValue(new_rot)
+                self.DetRot.blockSignals(False)
+                self.DetRot_NF.blockSignals(False)
+
+            # Redraw all SegDetr annotations with updated parameters
+            drawSegDetr()
+
         def moveScan():
-            pass
+            pass  # Phase 5
 
-        # current detector mode
+        # --- dispatch ---
         dmod = self.DetrMode.currentData()
+        ri, ro = self.AnnRi.value()
+        dr  = self.DetRot.value()
+        sd  = self.ScanDir.value()
+        syf = 1 - 2 * self.ScanDirYFlip.isChecked()
 
-        ri,ro = self.AnnRi.value()
-        dr = self.DetRot.value()
-        sd = self.ScanDir.value()
-        syf = 1-2*self.ScanDirYFlip.isChecked()
-
-        # Cases for different detectors #TODO - no .Tag attributes
         match self.sender():
-            case self.A.adf:
-                moveAnnR(self)
-            case self.A.SegDetrCir|self.A.SegDetrL|self.A.SegDetrL0|self.A.SegDetrP0:
-                moveSeg(self)
-            case self.A.ScanDirXline|self.A.ScanDirYline|self.A.ScanDirXcirc|self.A.ScanDirYcirc:
-                moveScan(self)
-            case self.DetrMode|self.UpdateImages:
-                moveAnnR(self)
+            case self.A.adf | self.AnnRi | self.AnnRi_NF | self.AnnRo_NF:
+                moveAnnR()
+            case (self.DetRot | self.DetRot_NF | self.NRung | self.NSeg
+                  | self.A.SegDetrCir | self.A.SegDetrL
+                  | self.A.SegDetrL0  | self.A.SegDetrP0):
+                moveSeg()
+            case (self.ScanDirUnlock | self.ScanDirYFlip
+                  | self.ScanDir | self.ScanDir_NF
+                  | self.A.ScanDirXline | self.A.ScanDirYline
+                  | self.A.ScanDirXcirc | self.A.ScanDirYcirc):
+                moveScan()
+            case self.DetrMode | self.UpdateImages:
+                moveAnnR()
                 if self.ScanDirUnlock.isChecked():
-                    moveScan(self)  # Update scan directions as well
-        
-        # Whether to update images
+                    moveScan()
+
+        # --- image updates ---
         if toUpdateImage(self):
-            # Skip calculations of new BF/DF `self.Image.Real` if annular radii are not changed
-            if isDiffToPrev(self,'AnnR',[ri,ro]): #or isStaticEvt(evt)
-                # 2D matrix of distances from central beam, X/Y on the 1st/2nd dimensions
-                mask_ann = np.sqrt((np.arange(0,self.D.NPxX)-self.B0[0])**2 + (np.arange(0,self.D.NPxY)-self.B0[1])**2)
-                mask_ann = (mask_ann >= ri) and (mask_ann <= ro)
-                self.Image.DfrnMask = mask_ann
-                # (add one to outer limit because python doesn't include the last term of the range)
-                self.Image.Real = self.adfImages[:,:,ri:ro+1].sum(axis=2)
-          
-            # CoM/DPC calculations; skip if parameters unchanged
+            # Recompute BF/DF only if annular radii changed
+            if isDiffToPrev(self, 'AnnR', [ri, ro]):
+                # 2D distance matrix is recalculated in integrateAnnular;
+                # here just recompute the real-space image from cached adfImages
+                mask_ann = (self.A.k >= ri) & (self.A.k <= ro)
+                self.Image.DfrnMask = mask_ann.astype(self.D.DataType).T
+                self.Image.Real = self.adfImages[
+                    :, :, ri : ro + 1
+                ].sum(axis=2)
+
+            # CoM or DPC computation
             if dmod in ["CoMMod", "DPCMod"]:
-                if isDiffToPrev(self,'CoM_P',[ri,ro,sd,syf,dr]): # or isStaticEvt(evt):
-                    calcCoM(ri, ro, sd, syf, dr)
-            
-            # Update images
-            plotAllPatterns(self)
-    
-    def drawAnnDetr(self):
-        """ initiallize the annular detector annotations """
-        # define center location and starting radii for annular detector
-        c = self.B0
-        r1 = self.AnnRi.value()[0]*self.D.annWidth
-        r2 = self.AnnRi.value()[1]*self.D.annWidth
-    
-        # generate adf detector
+                if isDiffToPrev(self, 'CoM_P', [ri, ro, sd, syf, dr]):
+                    if dmod == "CoMMod":
+                        calcCoM(ri, ro, sd, syf)
+                    else:                        # DPCMod
+                        calcDPC(ri, ro, dr)
+
+            plotAllPatterns()
+
+    # ------------------------------------------------------------------
+    # drawAnnDetr — initialise the annular detector annotations
+    # ------------------------------------------------------------------
+    def drawAnnDetr():
+        """Initialise the annular detector InteractiveAnnulus annotation."""
+        c  = self.B0
+        r1 = self.AnnRi.value()[0] * self.D.annWidth
+        r2 = self.AnnRi.value()[1] * self.D.annWidth
+
         if self.A.adf is None:
-            self.A.adf = InteractiveAnnulus(center=c, radius=(r1,r2), axis=self.Fig.Dfrn.ax, color='r', interactions='resize')
+            self.A.adf = InteractiveAnnulus(
+                center=c, radius=(r1, r2),
+                axis=self.Fig.Dfrn.ax,
+                color='r', interactions='resize'
+            )
             self.A.adf.connect()
-            self.A.adf.updateAnnulus.connect(lambda: moveAnnDetr(self))
-    
-    def drawSegDetr():
-        pass
-    
-    def drawScanDir():
-        pass
-    
-    def integrateAnnular(self):
-        # generate meshgrid, divide by annulus width and round so distance increments away
-        # from transmitted beam as integers to allow for direct use with QRangeSlider[int]
-        # and array indexing; self.D.annWidth = 0.5 by default
-        xgrid,ygrid = np.ogrid[-self.B0[0]:self.D.NPxX-self.B0[0],-self.B0[1]:self.D.NPxY-self.B0[1]]
-        self.A.k = np.int32(np.sqrt(xgrid**2+ygrid**2)/self.D.annWidth)
-        k = self.A.k.flatten()
+            self.A.adf.updateAnnulus.connect(lambda: moveAnnDetr())
 
-        # generate a vector of pixel distances from transmitted beam center (divided by annWidth)
-        distance = np.arange(0,k.max()+1)
+    # ------------------------------------------------------------------
+    # integrateAnnular — build the adfImages cube
+    # ------------------------------------------------------------------
+    def integrateAnnular():
+        """
+        Build self.adfImages: (NFrY, NFrX, n_rings) cube of annular integrals.
+        Only rerun when the transmitted-beam centre changes.
+        """
+        if isDiffToPrev(self, "B0", self.B0):
+            xgrid, ygrid = np.ogrid[
+                -self.B0[0] : self.D.NPxX - self.B0[0],
+                -self.B0[1] : self.D.NPxY - self.B0[1],
+            ]
+            self.A.k = np.int32(
+                np.sqrt(xgrid ** 2 + ygrid ** 2) / self.D.annWidth
+            )
+            k = self.A.k.flatten()
 
-        # create adf annular masks of annWidth pixel width
-        adfMask = np.where((k.reshape(1,len(k))>=distance.reshape(len(distance),1)) & (k.reshape(1,len(k))<(distance.reshape(len(distance),1)+0.5)), True, False).T
+            distance = np.arange(0, k.max() + 1)
+            adfMask = np.where(
+                (k.reshape(1, len(k)) >= distance.reshape(len(distance), 1))
+                & (k.reshape(1, len(k)) < distance.reshape(len(distance), 1) + 0.5),
+                True,
+                False,
+            ).T
 
-        # generate all adf images from 0.0.5 pixel annuli; reshape to 3D for faster plotting
-        self.adfImages = self.Data@adfMask
-        self.adfImages = np.reshape(self.adfImages,(self.D.NFrY,self.D.NFrX,-1))
+            self.adfImages = self.Data @ adfMask
+            self.adfImages = np.reshape(
+                self.adfImages, (self.D.NFrY, self.D.NFrX, -1)
+            )
 
-        # set adfInner and adfOuter slider limits based on k.max()
-        self.AnnRi.setMaximum(k.max())
+            # Update UI slider limits
+            self.blockAllSignals = True
+            self.AnnRi.setMaximum(k.max())
+            self.AnnRi_NF.setMaximum(k.max() * self.D.annWidth)
+            self.AnnRo_NF.setMaximum(k.max() * self.D.annWidth)
+            self.blockAllSignals = False
 
-        # set adfInner and adfOuter numerical field limits based on k.max()/2
-        self.AnnRi_NF.setMaximum(k.max()*self.D.annWidth)
-        self.AnnRo_NF.setMaximum(k.max()*self.D.annWidth)
-        
-        # set maximum scattering angle
-        self.P.RMax = k.max()
+            self.P.RMax = k.max()
 
-    def plotAllPatterns(self):
-        # always update primary and mask images
-        ids = [iID for iType,iID in zip(self.G.ImgType,self.G.ImgID) if iType in ["Primary","Mask"]]
-        # update CoM/DPC images if in the correct mode
-        if self.DetrMode.currentData() in ["CoMMod","DPCMod"]:
-            ids += [iID for iType,iID in zip(self.G.ImgType,self.G.ImgID) if (iID != "ColorWheel") and (iType=='CoM')]
-        
-        # Update images if visible OR not in changing event; include CoMs if in the modes
-        for id in ids:
-            if self.Fig[id].isVisible(): # or isStaticEvt(evt): #TODO?
-                plotImage(self, id)
-    
-    def calcCoM():
+    # ------------------------------------------------------------------
+    # calcCoM — intensity-weighted centre-of-mass calculation (CoMMod)
+    # ------------------------------------------------------------------
+    def calcCoM(ri, ro, sd, syf):
+        """
+        Compute CoM X/Y deflection images and derived iCoM/dCoM.
+
+        Parameters
+        ----------
+        ri, ro : int
+            Inner and outer annular radii indices (in units of annWidth).
+        sd : float
+            Scan-direction rotation angle in degrees.
+        syf : int
+            Y-flip factor: +1 (no flip) or -1 (flipped).
+        """
         def integrateCoM():
-            pass
-        pass
+            """Tikhonov-regularised Fourier integration of CoM → iCoM phase."""
+            ny, nx = self.Fig.CoMX.Image.shape
+            kx = np.fft.fftfreq(nx)
+            ky = np.fft.fftfreq(ny)
+            KX, KY = np.meshgrid(kx, ky)
+            k2 = KX ** 2 + KY ** 2
+            k2[0, 0] = 1.0  # prevent /0; DC → 0 after IFFT
 
+            FCoMX = np.fft.fft2(self.Fig.CoMX.Image)
+            FCoMY = np.fft.fft2(self.Fig.CoMY.Image)
 
-    b0 = self.B0  # Absolute pixel coordinates of central beam; only changes in `transBeamCallbacks()`
-    dmod = self.DetrMode.currentData() # Detector mode; when changed this callback will be called
+            # Fourier integration: phase = IFFT[(kx·FCoMX + ky·FCoMY) / (2πi·k²)]
+            self.Fig.iCoM.Image = np.fft.ifft2(
+                (KX * FCoMX + KY * FCoMY) / (2j * np.pi * k2)
+            ).real
+
+            # dCoM: divergence of CoM field
+            dCoMX = np.gradient(self.Fig.CoMX.Image, axis=1)
+            dCoMY = np.gradient(self.Fig.CoMY.Image, axis=0)
+            self.Fig.dCoM.Image = dCoMX + dCoMY
+
+        # Annular mask in diffraction space
+        mask = ((self.A.k >= ri) & (self.A.k <= ro)).flatten()
+        if not mask.any():
+            return
+
+        # Pixel coordinate grids relative to transmitted beam
+        xgrid, ygrid = np.mgrid[0 : self.D.NPxX, 0 : self.D.NPxY]
+        xweight = (xgrid.flatten() - self.B0[0]).astype(np.float32)
+        yweight = (ygrid.flatten() - self.B0[1]).astype(np.float32)
+
+        data_m = self.Data[:, mask].astype(np.float32)   # (NFr, n_masked)
+        norm   = data_m.sum(axis=1).clip(np.finfo(np.float32).eps, None)
+
+        CoMX_flat = (data_m @ xweight[mask]) / norm
+        CoMY_flat = (data_m @ yweight[mask]) / norm * syf
+
+        # Apply scan-direction rotation
+        c, s = np.cos(np.radians(sd)), np.sin(np.radians(sd))
+        CoM = np.array([[c, -s], [s, c]]) @ np.vstack([CoMX_flat, CoMY_flat])
+
+        self.Fig.CoMX.Image   = CoM[0].reshape(self.D.NFrY, self.D.NFrX)
+        self.Fig.CoMY.Image   = CoM[1].reshape(self.D.NFrY, self.D.NFrX)
+        self.Fig.CoMMag.Image = np.hypot(self.Fig.CoMX.Image, self.Fig.CoMY.Image)
+        self.Fig.CoMPh.Image  = np.arctan2(self.Fig.CoMY.Image, self.Fig.CoMX.Image)
+
+        integrateCoM()
+
+    # ------------------------------------------------------------------
+    # calcDPC — segment-integral DPC calculation (DPCMod)
+    # ------------------------------------------------------------------
+    def calcDPC(ri, ro, dr):
+        """
+        Compute DPC X/Y deflection images from segmented-detector integrals.
+
+        For NSeg segments at rotation dr, each segment subtends 360/NSeg degrees.
+        The DPC vector is the cos/sin-weighted sum of per-segment intensities,
+        normalised by the total annular intensity — analogous to CoM but discrete.
+
+        Results are stored in the same Fig.CoMX / CoMY / CoMMag / CoMPh slots so
+        the existing plotAllPatterns() and display pipeline work without changes.
+
+        Parameters
+        ----------
+        ri, ro : int
+            Annular radii indices.
+        dr : float
+            Detector rotation angle in degrees.
+        """
+        nseg  = int(self.NSeg.value())
+        nrung = int(self.NRung.value())
+
+        # Annular mask (combined across all rungs)
+        ann_mask = ((self.A.k >= ri) & (self.A.k <= ro)).flatten()
+        if not ann_mask.any():
+            return
+
+        # Pixel angle map (degrees, 0–360), computed relative to beam centre
+        xgrid, ygrid = np.mgrid[0 : self.D.NPxX, 0 : self.D.NPxY]
+        px_angle = np.degrees(
+            np.arctan2(
+                ygrid.flatten() - self.B0[1],
+                xgrid.flatten() - self.B0[0],
+            )
+        ) % 360.0  # (NPx,) in [0, 360)
+
+        # Build radial rung boundaries in pixel units
+        ri_px = ri * self.D.annWidth
+        ro_px = ro * self.D.annWidth
+        rung_edges = np.linspace(ri_px, ro_px, nrung + 1)   # nrung+1 edges
+
+        # Pixel radial distance (continuous, in pixel units)
+        px_radius = np.sqrt(
+            (xgrid.flatten() - self.B0[0]) ** 2
+            + (ygrid.flatten() - self.B0[1]) ** 2
+        )
+
+        # Segment angular boundaries (degrees, in [dr, dr+360))
+        seg_width  = 360.0 / nseg
+        seg_starts = np.array([dr + i * seg_width for i in range(nseg)]) % 360.0
+
+        # Accumulate DPC X/Y deflection across all rung × segment combinations
+        DPC_X = np.zeros(self.D.NFrY * self.D.NFrX, dtype=np.float32)
+        DPC_Y = np.zeros(self.D.NFrY * self.D.NFrX, dtype=np.float32)
+        norm   = np.zeros(self.D.NFrY * self.D.NFrX, dtype=np.float32)
+
+        for rung_i in range(nrung):
+            r_lo = rung_edges[rung_i]
+            r_hi = rung_edges[rung_i + 1]
+            rung_mask = (px_radius >= r_lo) & (px_radius < r_hi)
+
+            for seg_i in range(nseg):
+                # Mid-angle of this segment (pointing direction)
+                mid_ang_deg = (seg_starts[seg_i] + 0.5 * seg_width) % 360.0
+                mid_ang_rad = np.radians(mid_ang_deg)
+                cos_w = np.cos(mid_ang_rad)
+                sin_w = np.sin(mid_ang_rad)
+
+                # Angular mask: pixels whose angle falls within this segment
+                ang_lo = seg_starts[seg_i]
+                ang_hi = (ang_lo + seg_width) % 360.0
+
+                if ang_lo < ang_hi:
+                    ang_mask = (px_angle >= ang_lo) & (px_angle < ang_hi)
+                else:
+                    # Segment wraps through 0°
+                    ang_mask = (px_angle >= ang_lo) | (px_angle < ang_hi)
+
+                # Combined mask: annulus ∩ rung ∩ segment
+                seg_mask = ann_mask & rung_mask & ang_mask
+
+                if not seg_mask.any():
+                    continue
+
+                # Segment integral for every scan position:  (NFr,)
+                data_seg = self.Data[:, seg_mask].astype(np.float32)
+                seg_sum  = data_seg.sum(axis=1)  # (NFr,)
+
+                # Weighted contribution to DPC vector
+                DPC_X += cos_w * seg_sum
+                DPC_Y += sin_w * seg_sum
+                norm  += seg_sum
+
+        # Normalise — avoid /0 at pixels with zero total intensity
+        eps = np.finfo(np.float32).eps
+        safe_norm = norm.clip(eps, None)
+        DPC_X /= safe_norm
+        DPC_Y /= safe_norm
+
+        # Reshape to real-space images and store in the shared CoM slots
+        self.Fig.CoMX.Image   = DPC_X.reshape(self.D.NFrY, self.D.NFrX)
+        self.Fig.CoMY.Image   = DPC_Y.reshape(self.D.NFrY, self.D.NFrX)
+        self.Fig.CoMMag.Image = np.hypot(self.Fig.CoMX.Image, self.Fig.CoMY.Image)
+        self.Fig.CoMPh.Image  = np.arctan2(self.Fig.CoMY.Image, self.Fig.CoMX.Image)
+
+        # iCoM/dCoM from the DPC field (same Fourier integration as for CoM)
+        ny, nx = self.D.NFrY, self.D.NFrX
+        kx = np.fft.fftfreq(nx)
+        ky = np.fft.fftfreq(ny)
+        KX, KY = np.meshgrid(kx, ky)
+        k2 = KX ** 2 + KY ** 2
+        k2[0, 0] = 1.0
+        FDPC_X = np.fft.fft2(self.Fig.CoMX.Image)
+        FDPC_Y = np.fft.fft2(self.Fig.CoMY.Image)
+        self.Fig.iCoM.Image = np.fft.ifft2(
+            (KX * FDPC_X + KY * FDPC_Y) / (2j * np.pi * k2)
+        ).real
+        dDPC_X = np.gradient(self.Fig.CoMX.Image, axis=1)
+        dDPC_Y = np.gradient(self.Fig.CoMY.Image, axis=0)
+        self.Fig.dCoM.Image = dDPC_X + dDPC_Y
+
+    # ------------------------------------------------------------------
+    # plotAllPatterns — refresh visible image windows
+    # ------------------------------------------------------------------
+    def plotAllPatterns():
+        """Refresh the primary, mask, and (if in CoM/DPC mode) CoM images."""
+        ids = [
+            iID
+            for iType, iID in zip(self.G.ImgType, self.G.ImgID)
+            if iType in ["Primary", "Mask"]
+        ]
+        if self.DetrMode.currentData() in ["CoMMod", "DPCMod"]:
+            ids += [
+                iID
+                for iType, iID in zip(self.G.ImgType, self.G.ImgID)
+                if (iID != "ColorWheel") and (iType == "CoM")
+            ]
+        for id in ids:
+            if self.Fig[id].isVisible():
+                plotImage(self, id)
+
+    # ------------------------------------------------------------------
+    # Main dispatch
+    # ------------------------------------------------------------------
+    if self.blockAllSignals:
+        return
+
+    b0   = self.B0
+    dmod = self.DetrMode.currentData()
 
     match self.sender():
-        case self.DCSys: # Change coordinate options
-            limitAnnUI(self) # UI limits
-        case self.DetrMode: # Entering current mode
-            limitAnnUI(self) # UI limits
-            self.ScanDirUnlock.setChecked(False) # Lock scan directions first upon entering annular modes
-            enableAnnUI(self) # UI enable/disable
-            integrateAnnular(self) # Update annular integral mask
-            drawAnnDetr(self) # Draw detectors
+        case self.DCSys:
+            limitAnnUI()
+        case self.DetrMode:
+            limitAnnUI()
+            self.ScanDirUnlock.setChecked(False)
+            enableAnnUI()
+            integrateAnnular()
+            drawAnnDetr()
             if dmod == "DPCMod":
-                drawSegDetr() # Whether to draw segmented detectors
-            moveAnnDetr(self) # Update UI/ROIs
-            enableWindows(self,True) # Enable windows
-        case self.AnnRi|self.AnnRi_NF|self.AnnRo|self.AnnRo_NF|self.AnnRLink|self.DetRot|self.DetRot_NF|self.NSeg|self.NRung|self.ScanDir|self.ScanDir_NF|self.ScanDirYFlip|self.UpdateImages:
-            moveAnnDetr(self) # Update UI/ROIs
+                drawSegDetr()
+            moveAnnDetr()
+            enableWindows(self, True)
+        case (self.AnnRi | self.AnnRi_NF | self.AnnRo_NF
+              | self.DetRot | self.DetRot_NF | self.NSeg | self.NRung
+              | self.ScanDir | self.ScanDir_NF | self.ScanDirYFlip
+              | self.UpdateImages):
+            moveAnnDetr()
         case self.ScanDirUnlock:
-            self.P.ScanDirInit = 1; # Flag scan directions as aligned
-            enableAnnUI(self) # Enable/Disable GUI elements
-            self.A.removeGroup('ScanDir') # Try to remove existing scan direction ROIs
-            if self.ScanDirUnlock.isChecked(self):
-                drawScanDir(self) # Draw annotations
-            self.SettingsWindow.ShowDfrnAxes.click() # Update diffraction axes annotations
+            self.P.ScanDirInit = 1
+            enableAnnUI()
+            self.A.removeGroup('ScanDir')
+            if self.ScanDirUnlock.isChecked():
+                drawScanDir()
+            self.SettingsWindow.ShowDfrnAxes.click()
 
 
-""" external functions """
+# ------------------------------------------------------------------
+# Module-level helpers
+# ------------------------------------------------------------------
 
 def toUpdateImage(self):
     """
-    Function to determine whether to update images
-    Return true if any: 1) `self.SettingsWindow.CalcPolicy.currentData()` is 2 (active update)
-                    OR 2) `self.SettingsWindow.CalcPolicy.currentData()` is 1 (reduced) and not when changing
-                    OR 3) is a manual update (from update buttons or detector mode change)
-    #TODO - currently does not support reduced update functionality
+    Return True if images should be recomputed now.
+
+    Rules:
+      calc == 2  → always update (active policy)
+      calc == 1  → reduced (not yet implemented; treated as always)
+      sender is UpdateImages or DetrMode → manual trigger
     """
     calc = self.SettingsWindow.CalcPolicy.currentData()
-    #upd = (calc == 2) or (calc and isStaticEvt(evt)) or (evt.Source == self.UpdateImages) or (self.sender() == self.DetrMode)
-    update = (calc == 2) or (self.sender() in [self.UpdateImages,self.DetrMode])
-    return update
+    return (calc == 2) or (self.sender() in [self.UpdateImages, self.DetrMode])
