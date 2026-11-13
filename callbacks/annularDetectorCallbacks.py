@@ -2,6 +2,11 @@ from callbacks.allFunctions import enableWindows, plotImage, isDiffToPrev
 from annotationsClasses.interactiveAnnulus import InteractiveAnnulus
 from annotationsClasses.interactivePoint import InteractivePoint
 import numpy as np
+try:
+    import torch
+    _TORCH_AVAILABLE = True
+except ImportError:
+    _TORCH_AVAILABLE = False
 
 def annularDetectorCallbacks(self):
 
@@ -447,7 +452,15 @@ def annularDetectorCallbacks(self):
                 False,
             ).T
 
-            self.adfImages = self.Data @ adfMask
+            # GPU path: use torch CUDA tensor for the large matrix multiply
+            if _TORCH_AVAILABLE and self.D.GPU is not None and torch.cuda.is_available():
+                device = torch.device(self.D.GPU)
+                Data_t    = torch.from_numpy(np.ascontiguousarray(self.Data)).to(device, dtype=torch.float32)
+                adfMask_t = torch.from_numpy(np.ascontiguousarray(adfMask)).to(device, dtype=torch.float32)
+                self.adfImages = (Data_t @ adfMask_t).cpu().numpy()
+                del Data_t, adfMask_t
+            else:
+                self.adfImages = self.Data @ adfMask
             self.adfImages = np.reshape(
                 self.adfImages, (self.D.NFrY, self.D.NFrX, -1)
             )
@@ -509,11 +522,21 @@ def annularDetectorCallbacks(self):
         xweight = (xgrid.flatten() - self.B0[0]).astype(np.float32)
         yweight = (ygrid.flatten() - self.B0[1]).astype(np.float32)
 
-        data_m = self.Data[:, mask].astype(np.float32)   # (NFr, n_masked)
-        norm   = data_m.sum(axis=1).clip(np.finfo(np.float32).eps, None)
-
-        CoMX_flat = (data_m @ xweight[mask]) / norm
-        CoMY_flat = (data_m @ yweight[mask]) / norm * syf
+        # GPU path: move masked data + weight vectors to CUDA for dot products
+        if _TORCH_AVAILABLE and self.D.GPU is not None and torch.cuda.is_available():
+            device = torch.device(self.D.GPU)
+            data_m_t  = torch.from_numpy(np.ascontiguousarray(self.Data[:, mask])).to(device, dtype=torch.float32)
+            xw_t      = torch.from_numpy(xweight[mask]).to(device)
+            yw_t      = torch.from_numpy(yweight[mask]).to(device)
+            norm_t    = data_m_t.sum(dim=1).clamp(min=torch.finfo(torch.float32).tiny)
+            CoMX_flat = (data_m_t @ xw_t / norm_t).cpu().numpy()
+            CoMY_flat = (data_m_t @ yw_t / norm_t).cpu().numpy() * syf
+            del data_m_t, xw_t, yw_t, norm_t
+        else:
+            data_m    = self.Data[:, mask].astype(np.float32)   # (NFr, n_masked)
+            norm      = data_m.sum(axis=1).clip(np.finfo(np.float32).eps, None)
+            CoMX_flat = (data_m @ xweight[mask]) / norm
+            CoMY_flat = (data_m @ yweight[mask]) / norm * syf
 
         # Apply scan-direction rotation
         c, s = np.cos(np.radians(sd)), np.sin(np.radians(sd))
@@ -613,8 +636,14 @@ def annularDetectorCallbacks(self):
                     continue
 
                 # Segment integral for every scan position:  (NFr,)
-                data_seg = self.Data[:, seg_mask].astype(np.float32)
-                seg_sum  = data_seg.sum(axis=1)  # (NFr,)
+                if _TORCH_AVAILABLE and self.D.GPU is not None and torch.cuda.is_available():
+                    device   = torch.device(self.D.GPU)
+                    seg_t    = torch.from_numpy(np.ascontiguousarray(self.Data[:, seg_mask])).to(device, dtype=torch.float32)
+                    seg_sum  = seg_t.sum(dim=1).cpu().numpy()
+                    del seg_t
+                else:
+                    data_seg = self.Data[:, seg_mask].astype(np.float32)
+                    seg_sum  = data_seg.sum(axis=1)  # (NFr,)
 
                 # Weighted contribution to DPC vector
                 DPC_X += cos_w * seg_sum
