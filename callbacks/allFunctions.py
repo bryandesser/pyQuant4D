@@ -12,6 +12,7 @@ from callbacks.appClass import *
 from annotationsClasses.InteractiveCircle import InteractiveCircle
 from annotationsClasses.interactiveAnnulus import InteractiveAnnulus
 from annotationsClasses.interactivePoint import InteractivePoint
+from callbacks.virtualApertureCallbacks import virtualApertureCallbacks as _virtualApertureCallbacks
 
 def importCallbacks(self):
     def gatherImportOptions(preview):
@@ -1045,7 +1046,7 @@ def detectorModeCallbacks(self):
                 pass#flashBackground(self, self.ScanDirGrid) # Flashing to align scan direction #TODO
         case "VrApMod": # 'Virtual Aperture'
             self.DfrnDetrTabGroup.setCurrentIndex(3)
-            #virtualApertureCallbacks(self) #TODO
+            virtualApertureCallbacks(self)
         case "CustMod":
             self.DfrnDetrTabGroup.setCurrentIndex(4)
             self.SettingsWindow.SettingsTabGroup.setTabVisible(self.SettingsWindow.SettingsTabGroup.indexOf(self.SettingsWindow.MathTab),True)
@@ -1155,8 +1156,8 @@ def transBeamCallbacks(self):
             # If this is the initializing alignment, then do swap byte check and auto-align
             if not self.P.TransBeamInit:
                 datasetOptCallbacks(self) # checks for nans and asks if user wants to swap byteorder
-                #autoAlign() #TODO
-            
+                autoAlign(self)
+
             enableWindows(self,True) # Enable windows
 
         case self.UpdateImages: # Update images
@@ -1165,10 +1166,10 @@ def transBeamCallbacks(self):
             self.Fig.Real.Image = np.reshape(self.Data.sum(axis=1), self.D.NFr)
 
         case self.TBAutoAlign: # Auto-align
-            pass#autoAlign() #TODO
+            autoAlign(self)
 
         case self.TBCrossAlign: # Align transmitted beam via two crossed lines
-            pass#crossAlign() #TODO
+            crossAlign(self)
         
     # Update dependent variables
     moveTransBeam(self)
@@ -1241,13 +1242,237 @@ def moveTransBeam(self):
 
 
 def virtualApertureCallbacks(self):
-    pass
+    """Delegate to the full implementation in virtualApertureCallbacks.py."""
+    _virtualApertureCallbacks(self)
+
+def autoAlign(self):
+    """
+    Auto-detect the transmitted beam centre (and radius) from the PACBED
+    (Position-Averaged Convergent Beam Electron Diffraction) pattern,
+    using the Circular Hough Transform implemented in imfindcircles.py.
+
+    Strategy
+    --------
+    1.  Sum all diffraction patterns over real-space positions → PACBED.
+    2.  Determine a sensible radius search range from the current TBR,
+        falling back to a broad range on first call.
+    3.  Run imfindcircles on the PACBED; take the strongest circle.
+    4.  Update TBX, TBY, TBR and call moveTransBeam to propagate.
+    """
+    from callbacks.imfindcircles import imfindcircles
+
+    nPx  = self.D.NPx           # (height, width) tuple
+    rmax_abs = max(1, self.P.RMax)
+
+    # Build the PACBED: sum all scan positions (axis 0 of the flat array)
+    pacbed = np.nansum(self.Data, axis=0).reshape(nPx).astype(np.float64)
+
+    # ── Radius search range ───────────────────────────────────────────────
+    tbr = self.TBR.value()
+    if tbr > 1:
+        # Use ±50 % of the current beam-disc radius, clamped to sensible values
+        rmin = max(1,          int(np.floor(0.5  * tbr)))
+        rmax = min(rmax_abs,   int(np.ceil( 1.5  * tbr)))
+    else:
+        # First-time call: search over the central quarter of the pattern
+        rmin = 1
+        rmax = max(2, int(np.ceil(min(nPx) / 4)))
+
+    if rmax <= rmin:
+        rmax = rmin + 1
+
+    # ── Run circle finder ─────────────────────────────────────────────────
+    try:
+        centers, radii, metric = imfindcircles(
+            pacbed, [rmin, rmax],
+            ObjectPolarity='bright',
+            Method='PhaseCode',
+            Sensitivity=0.85,
+        )
+    except Exception:
+        # PhaseCode requires rmax > rmin; fall back to TwoStage if needed
+        try:
+            centers, radii, metric = imfindcircles(
+                pacbed, [rmin, rmax],
+                ObjectPolarity='bright',
+                Method='TwoStage',
+                Sensitivity=0.85,
+            )
+        except Exception:
+            return   # give up gracefully — leave B0/TBR unchanged
+
+    if len(centers) == 0:
+        return  # no circle found — leave B0 unchanged
+
+    # Best match: imfindcircles already sorts by descending metric
+    cx, cy = float(centers[0, 0]), float(centers[0, 1])
+    r      = float(radii[0])
+
+    # Clamp to valid pixel range
+    cx = np.clip(cx, 1, nPx[1])
+    cy = np.clip(cy, 1, nPx[0])
+    r  = np.clip(r,  np.finfo(np.single).eps, rmax_abs)
+
+    self.blockAllSignals = True
+    self.TBX.setValue(cx);    self.TBX_NF.setValue(cx)
+    self.TBY.setValue(cy);    self.TBY_NF.setValue(cy)
+    self.TBR.setValue(r);     self.TBR_NF.setValue(r)
+    self.blockAllSignals = False
+
+    moveTransBeam(self)
+
+
+def crossAlign(self):
+    """
+    Manual beam-centre alignment via an interactive cross-hair cursor.
+
+    Draws two draggable lines (H + V) on the diffraction window that
+    follow the mouse.  A single left-click fixes the intersection as the
+    new B0 (TBX, TBY) and removes the cursor.
+
+    A second call to crossAlign (e.g. user presses the button again)
+    while a cursor is already active will remove it without updating B0.
+    """
+    canvas = self.Fig.Dfrn.canvas
+    ax     = self.Fig.Dfrn.ax
+
+    # ── toggle off if already active ────────────────────────────────────
+    if hasattr(self, '_crossAlignState') and self._crossAlignState is not None:
+        _state = self._crossAlignState
+        for cid in _state['cids']:
+            canvas.mpl_disconnect(cid)
+        for line in _state['lines']:
+            try:
+                line.remove()
+            except Exception:
+                pass
+        canvas.draw_idle()
+        self._crossAlignState = None
+        return
+
+    # ── create crosshair lines ───────────────────────────────────────────
+    xl = ax.get_xlim()
+    yl = ax.get_ylim()
+    b0 = self.B0
+
+    h_line = ax.axhline(b0[1], color='yellow', linewidth=1,
+                         linestyle='--', alpha=0.8, zorder=10)
+    v_line = ax.axvline(b0[0], color='yellow', linewidth=1,
+                         linestyle='--', alpha=0.8, zorder=10)
+    canvas.draw_idle()
+
+    def _on_move(event):
+        if event.inaxes is not ax or event.xdata is None:
+            return
+        h_line.set_ydata([event.ydata, event.ydata])
+        v_line.set_xdata([event.xdata, event.xdata])
+        canvas.draw_idle()
+
+    def _on_click(event):
+        if event.inaxes is not ax or event.xdata is None:
+            return
+        if event.button != 1:   # left-click only
+            return
+
+        new_x = float(np.clip(event.xdata, 1, self.D.NPx[1]))
+        new_y = float(np.clip(event.ydata, 1, self.D.NPx[0]))
+
+        self.blockAllSignals = True
+        self.TBX.setValue(new_x)
+        self.TBX_NF.setValue(new_x)
+        self.TBY.setValue(new_y)
+        self.TBY_NF.setValue(new_y)
+        self.blockAllSignals = False
+
+        # Tear down the crosshair
+        crossAlign(self)   # second call → removes state
+        moveTransBeam(self)
+
+    cids = [
+        canvas.mpl_connect('motion_notify_event', _on_move),
+        canvas.mpl_connect('button_press_event',  _on_click),
+    ]
+
+    self._crossAlignState = {
+        'cids':  cids,
+        'lines': [h_line, v_line],
+    }
+
 
 def customDetectorCallbacks(self):
     pass
 
 def mathCallbacks(self):
-    pass
+    """
+    Evaluate the formula in MathFormula (CustMod).
+
+    Supported variables (case-sensitive):
+        A   – current Real image (self.Fig.Real.Image)
+        B   – current DfrnMask image (self.Fig.DfrnMask.Image)
+        C   – diffraction preview (self.Fig.Dfrn.Image if set)
+        D   – CoM magnitude (self.Fig.CoMX / CoMY combined, if available)
+
+    Supported Python / numpy operators:
+        +  -  *  /  **  @  &  |  ~  .T  np.xxx(...)
+
+    MATLAB shorthands translated before evaluation:
+        .^  →  **      element-wise power
+        .*  →  *       element-wise multiply (arrays multiply element-wise in numpy anyway)
+        .'  →  .T      element-wise transpose
+        end →  -1      (simple end-of-array alias)
+        ^   →  **      (scalar power fall-through)
+
+    The result is stored in self.Fig.Real.Image and plotted.
+    """
+    formula = self.SettingsWindow.MathFormula.toPlainText().strip()
+    if not formula:
+        return
+
+    # ── Translate MATLAB shorthands → Python/numpy ───────────────────────
+    formula = formula.replace('.^', '**')   # element-wise power
+    formula = formula.replace('.*', '*')    # element-wise multiply
+    formula = formula.replace(".'", '.T')   # transpose
+    formula = formula.replace('end', '-1')  # end-of-array index
+    # bare ^ that wasn't already converted (scalar context)
+    formula = re.sub(r'(?<!\*)\^', '**', formula)
+
+    # ── Build evaluation namespace ────────────────────────────────────────
+    def _safe_img(img):
+        return np.ma.masked_invalid(img).astype(np.float64) if img is not None else None
+
+    ns = {
+        'np'  : np,
+        'A'   : _safe_img(self.Fig.Real.Image),
+        'B'   : _safe_img(self.Fig.DfrnMask.Image),
+        'C'   : _safe_img(getattr(self.Fig.Dfrn, 'Image', None)),
+        'D'   : _safe_img(getattr(self.Fig, 'CoMMag', None)),
+        'abs' : np.abs,
+        'sum' : np.nansum,
+        'mean': np.nanmean,
+        'max' : np.nanmax,
+        'min' : np.nanmin,
+        'sqrt': np.sqrt,
+        'log' : np.log,
+        'log2': np.log2,
+        'exp' : np.exp,
+        'fft' : np.fft.fft2,
+        'ifft': np.fft.ifft2,
+    }
+
+    # ── Evaluate ─────────────────────────────────────────────────────────
+    try:
+        result = eval(formula, {"__builtins__": {}}, ns)  # restrict builtins
+        result = np.array(result, dtype=np.float64)
+    except Exception as exc:
+        qtw.QMessageBox.warning(
+            self, "Math formula error",
+            f"Could not evaluate formula:\n{formula}\n\nError: {exc}"
+        )
+        return
+
+    # ── Store and display ─────────────────────────────────────────────────
+    self.Fig.Real.Image = result
+    plotImage(self, 'Real')
 
 def saveVect(self):
     pass
@@ -1444,6 +1669,11 @@ def slotsSignals(self):
     self.TBX_NF.valueChanged.connect(lambda: moveTransBeam(self))
     self.TBY_NF.valueChanged.connect(lambda: moveTransBeam(self))
     self.TBR_NF.valueChanged.connect(lambda: moveTransBeam(self))
+    self.TBAutoAlign.clicked.connect(lambda: transBeamCallbacks(self))
+    self.TBCrossAlign.clicked.connect(lambda: transBeamCallbacks(self))
+
+    # Math formula (CustMod)
+    self.SettingsWindow.MathEval.clicked.connect(lambda: mathCallbacks(self))
     
     # preview tab on main UI
     self.PvBL.clicked.connect(lambda: previewCallbacks(self))
@@ -1494,6 +1724,14 @@ def slotsSignals(self):
     self.ScanDirYFlip.clicked.connect(lambda: annularDetectorCallbacks(self))
     self.ScanDir_NF.valueChanged.connect(lambda: annularDetectorCallbacks(self))
     self.ScanDir.valueChanged.connect(lambda: annularDetectorCallbacks(self))
+
+    # virtual aperture connections
+    self.VrApR.valueChanged.connect(lambda: virtualApertureCallbacks(self))
+    self.VrApSymm.currentIndexChanged.connect(lambda: virtualApertureCallbacks(self))
+    self.VrApInvert.clicked.connect(lambda: virtualApertureCallbacks(self))
+    self.VrApMirror.clicked.connect(lambda: virtualApertureCallbacks(self))
+    self.VrApMirrRot.valueChanged.connect(lambda: virtualApertureCallbacks(self))
+    self.VrApMirrRot_NF.valueChanged.connect(lambda: virtualApertureCallbacks(self))
 
     # Settings window, units choices
     self.SettingsWindow.DCSys.currentIndexChanged.connect(lambda: detrCoordCallbacks(self))
@@ -3486,33 +3724,40 @@ def updateDispImgStats(self,id,minVal,maxVal,limitLow,limitHigh,limitRange):
 
     # Update histogram annotations skip if values unchanged
     if isDiffToPrev(self,'hist',(ax,minVal,maxVal,limitLow,limitHigh,limitRange,fig.gamma,self.SettingsWindow.HistLog.isChecked())):
-        # Update ROIs #TODO
-        #try:
-        #    self.A.histBox.remove()
-        #    self.A.histBox = None
-        #except:
-        #    pass
-
-        # Draw ROI of range if not yet #TODO
+        # Create histogram ROI on first call; afterwards just reposition it
         if self.A.histBox is None:
-            pass#self.A.hist.Box = drawrectangle(self.SettingsWindow.HistAxes,'Position',[1 1 1 1],'LineWidth',1,'MarkerSize',eps(),'FaceAlpha',.1,'InteractionsAllowed','translate')
-            #self.A.hist.Hi = drawpoint(self.SettingsWindow.HistAxes,'Position',[1 1])
-            #self.A.hist.Lo = drawpoint(self.SettingsWindow.HistAxes,'Position',[1 1])
-            #addlistener([self.A.hist.Box self.A.hist.Lo self.A.hist.Hi],'MovingROI',@moveHistHiLo)
-            #ud.Move = addlistener([self.A.hist.Box self.A.hist.Lo self.A.hist.Hi],'ROIMoved',@moveHistHiLo)
-            #set([self.A.hist.Box self.A.hist.Lo self.A.hist.Hi],'Deletable',0,'UserData',ud,'Tag','HistROI')
+            from callbacks.histBoxWidget import HistBox, histbox_to_sliders
+            hist_ax = self.SettingsWindow.HistAxes.axes
 
-        # Save current display limits to ROIs #TODO
-        #self.A.histBox.ax = ax
-        #self.A.histBox.minVal = minVal
-        #self.A.histBox.maxVal = maxVal
-        #self.A.histBox.limitLow = limitLow
-        #self.A.histBox.limitHigh = limitHigh
-        #self.A.histBox.limitRange = limitRange
-          
-        # Update ROI if not the caller
-        if self.sender() is not self.A.histBox:
-            pass#moveHistHiLo(self.Sender()) #TODO
+            def _on_histbox_change(lo, hi):
+                """Convert dragged limits back to brightness/contrast sliders."""
+                b_new, c_new = histbox_to_sliders(lo, hi, minVal, maxVal)
+                # Block the other spinbox while updating to avoid re-entry
+                for w in [self.SettingsWindow.DispBrightness,
+                          self.SettingsWindow.DispContrast,
+                          self.SettingsWindow.DispBrightness_NF,
+                          self.SettingsWindow.DispContrast_NF]:
+                    w.blockSignals(True)
+                self.SettingsWindow.DispBrightness.setValue(int(round(b_new)))
+                self.SettingsWindow.DispBrightness_NF.setValue(b_new)
+                self.SettingsWindow.DispContrast.setValue(int(round(c_new)))
+                self.SettingsWindow.DispContrast_NF.setValue(c_new)
+                for w in [self.SettingsWindow.DispBrightness,
+                          self.SettingsWindow.DispContrast,
+                          self.SettingsWindow.DispBrightness_NF,
+                          self.SettingsWindow.DispContrast_NF]:
+                    w.blockSignals(False)
+                # Trigger a display refresh
+                fig.brightness = int(round(b_new))
+                fig.contrast   = int(round(c_new))
+                displayCallbacks(self)
+
+            self.A.histBox = HistBox(hist_ax, limitLow, limitHigh,
+                                     on_change=_on_histbox_change)
+
+        # Reposition ROI if the caller is NOT the histBox itself (avoid loop)
+        elif self.sender() is not self.A.histBox:
+            self.A.histBox.update_position(limitLow, limitHigh)
 
         # Update other annotations
         # remove gamma curve
