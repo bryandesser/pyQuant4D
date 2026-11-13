@@ -134,7 +134,88 @@ def annularDetectorCallbacks(self):
     # drawScanDir — draw scan-direction arrows on diffraction pattern
     # ------------------------------------------------------------------
     def drawScanDir():
-        pass  # Phase 5
+        """
+        Draw scan X/Y direction indicators on the diffraction pattern.
+
+        Two arrows (Line2D) emanate from the beam centre along the scan X
+        and Y axes; each has an InteractivePoint drag handle at its tip.
+        Dragging the X handle updates ScanDir; dragging the Y handle updates
+        ScanDir – 90° (since Y is always perpendicular to X).
+
+        Annotations stored:
+          self.A.ScanDirXline  : Line2D — X-direction arrow
+          self.A.ScanDirYline  : Line2D — Y-direction arrow
+          self.A.ScanDirXcirc  : InteractivePoint — drag handle at X tip
+          self.A.ScanDirYcirc  : InteractivePoint — drag handle at Y tip
+        """
+        ax = self.Fig.Dfrn.ax
+
+        # --- remove existing scan-direction annotations ---
+        for attr in ('ScanDirXline', 'ScanDirYline'):
+            obj = getattr(self.A, attr)
+            if obj is not None:
+                try:
+                    obj.remove()
+                except ValueError:
+                    pass
+                setattr(self.A, attr, None)
+        for attr in ('ScanDirXcirc', 'ScanDirYcirc'):
+            obj = getattr(self.A, attr)
+            if obj is not None:
+                obj.remove()
+                setattr(self.A, attr, None)
+
+        # --- parameters ---
+        sd  = self.ScanDir.value()      # scan rotation in degrees
+        syf = 1 - 2 * self.ScanDirYFlip.isChecked()   # Y flip: +1 or -1
+        b0  = self.B0                   # beam centre (x, y)
+        # Arrow length: 25% of max scattering radius, min 20 px
+        arrow_len = max(20.0, 0.25 * self.P.RMax * self.D.annWidth)
+
+        rad_x = np.radians(sd)
+        rad_y = np.radians(sd + 90.0 * syf)
+
+        # Tip positions
+        tip_x = np.array([b0[0] + arrow_len * np.cos(rad_x),
+                           b0[1] + arrow_len * np.sin(rad_x)])
+        tip_y = np.array([b0[0] + arrow_len * np.cos(rad_y),
+                           b0[1] + arrow_len * np.sin(rad_y)])
+
+        # --- X-direction line (orange) ---
+        self.A.ScanDirXline, = ax.plot(
+            [b0[0], tip_x[0]], [b0[1], tip_x[1]],
+            color='#FF8C00', linewidth=2.0, zorder=7,
+            solid_capstyle='round'
+        )
+        ax.annotate('X', xy=(tip_x[0], tip_x[1]),
+                    color='#FF8C00', fontsize=8, zorder=8,
+                    ha='center', va='center')
+
+        # --- Y-direction line (cyan) ---
+        self.A.ScanDirYline, = ax.plot(
+            [b0[0], tip_y[0]], [b0[1], tip_y[1]],
+            color='#00BFFF', linewidth=2.0, zorder=7,
+            solid_capstyle='round'
+        )
+        ax.annotate('Y', xy=(tip_y[0], tip_y[1]),
+                    color='#00BFFF', fontsize=8, zorder=8,
+                    ha='center', va='center')
+
+        # --- Drag handle: X tip ---
+        pt_x = ax.scatter(tip_x[0], tip_x[1],
+                           color='#FF8C00', s=50, zorder=9, animated=False)
+        self.A.ScanDirXcirc = InteractivePoint(pt_x)
+        self.A.ScanDirXcirc.connect()
+        self.A.ScanDirXcirc.positionChanged.connect(lambda: moveAnnDetr())
+
+        # --- Drag handle: Y tip ---
+        pt_y = ax.scatter(tip_y[0], tip_y[1],
+                           color='#00BFFF', s=50, zorder=9, animated=False)
+        self.A.ScanDirYcirc = InteractivePoint(pt_y)
+        self.A.ScanDirYcirc.connect()
+        self.A.ScanDirYcirc.positionChanged.connect(lambda: moveAnnDetr())
+
+        self.Fig.Dfrn.canvas.draw_idle()
 
     # ------------------------------------------------------------------
     # moveAnnDetr — live-update detectors when parameters change
@@ -232,7 +313,49 @@ def annularDetectorCallbacks(self):
             drawSegDetr()
 
         def moveScan():
-            pass  # Phase 5
+            """
+            Live-update scan direction from drag handle or UI spinner.
+
+            If the sender is ScanDirXcirc: derive new ScanDir from the angle
+            of that handle relative to B0.
+            If the sender is ScanDirYcirc: derive ScanDir = angle - 90° (corrected
+            for the Y-flip setting, since the Y arrow is always perpendicular to X).
+            Then redraw both arrows with the updated ScanDir value.
+            """
+            b0  = self.B0
+            syf = 1 - 2 * self.ScanDirYFlip.isChecked()
+
+            if (self.A.ScanDirXcirc is not None
+                    and self.sender() is self.A.ScanDirXcirc):
+                # X handle moved: its angle is the new ScanDir
+                xy = self.A.ScanDirXcirc.position
+                new_sd = float(
+                    np.degrees(np.arctan2(xy[1] - b0[1], xy[0] - b0[0]))
+                ) % 360.0
+                self.ScanDir.blockSignals(True)
+                self.ScanDir_NF.blockSignals(True)
+                self.ScanDir.setValue(int(round(new_sd)))
+                self.ScanDir_NF.setValue(new_sd)
+                self.ScanDir.blockSignals(False)
+                self.ScanDir_NF.blockSignals(False)
+
+            elif (self.A.ScanDirYcirc is not None
+                  and self.sender() is self.A.ScanDirYcirc):
+                # Y handle moved: its angle is ScanDir + 90*syf → subtract to get ScanDir
+                xy = self.A.ScanDirYcirc.position
+                y_ang = float(
+                    np.degrees(np.arctan2(xy[1] - b0[1], xy[0] - b0[0]))
+                )
+                new_sd = (y_ang - 90.0 * syf) % 360.0
+                self.ScanDir.blockSignals(True)
+                self.ScanDir_NF.blockSignals(True)
+                self.ScanDir.setValue(int(round(new_sd)))
+                self.ScanDir_NF.setValue(new_sd)
+                self.ScanDir.blockSignals(False)
+                self.ScanDir_NF.blockSignals(False)
+
+            # Redraw scan direction arrows with updated angle
+            drawScanDir()
 
         # --- dispatch ---
         dmod = self.DetrMode.currentData()
@@ -576,7 +699,20 @@ def annularDetectorCallbacks(self):
         case self.ScanDirUnlock:
             self.P.ScanDirInit = 1
             enableAnnUI()
-            self.A.removeGroup('ScanDir')
+            # Remove any existing scan-direction annotations before redrawing
+            for attr in ('ScanDirXline', 'ScanDirYline'):
+                obj = getattr(self.A, attr)
+                if obj is not None:
+                    try:
+                        obj.remove()
+                    except ValueError:
+                        pass
+                    setattr(self.A, attr, None)
+            for attr in ('ScanDirXcirc', 'ScanDirYcirc'):
+                obj = getattr(self.A, attr)
+                if obj is not None:
+                    obj.remove()
+                    setattr(self.A, attr, None)
             if self.ScanDirUnlock.isChecked():
                 drawScanDir()
             self.SettingsWindow.ShowDfrnAxes.click()
