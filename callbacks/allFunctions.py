@@ -1247,25 +1247,37 @@ def virtualApertureCallbacks(self):
 
 def autoAlign(self):
     """
-    Auto-detect the transmitted beam centre (and radius) from the PACBED
-    (Position-Averaged Convergent Beam Electron Diffraction) pattern,
-    using the Circular Hough Transform implemented in imfindcircles.py.
+    Auto-detect the transmitted beam centre (and radius) using the
+    Circular Hough Transform (imfindcircles.py).
 
-    Strategy
-    --------
-    1.  Sum all diffraction patterns over real-space positions → PACBED.
-    2.  Determine a sensible radius search range from the current TBR,
-        falling back to a broad range on first call.
-    3.  Run imfindcircles on the PACBED; take the strongest circle.
-    4.  Update TBX, TBY, TBR and call moveTransBeam to propagate.
+    Input pattern
+    -------------
+    * No real-space ROI active (RealROIShape == 'full'):
+        PACBED = sum of ALL probe positions.
+    * Real-space ROI active:
+        Weighted average over the probe positions selected by the ROI
+        (uses self.Fig.RealMask.Image as weights), so e.g. a single
+        point ROI gives the pattern of exactly that probe position.
+
+    In either case ``self.Fig.Dfrn.Image`` already holds the correct
+    pattern (it is updated whenever the ROI changes), so we read it
+    directly rather than re-computing the sum.
     """
     from callbacks.imfindcircles import imfindcircles
 
-    nPx  = self.D.NPx           # (height, width) tuple
+    nPx      = self.D.NPx           # (height, width) tuple
     rmax_abs = max(1, self.P.RMax)
 
-    # Build the PACBED: sum all scan positions (axis 0 of the flat array)
-    pacbed = np.nansum(self.Data, axis=0).reshape(nPx).astype(np.float64)
+    # ── Choose the input pattern ──────────────────────────────────────────
+    roi_shape = self.RealROIShape.currentData()   # 'full', 'point', …
+
+    if roi_shape == 'full' or self.Fig.Dfrn.Image is None:
+        # Full PACBED: sum every probe position
+        pacbed = np.nansum(self.Data, axis=0).reshape(nPx).astype(np.float64)
+    else:
+        # ROI-weighted average: already computed and stored in Fig.Dfrn.Image
+        # (shape = nPx, normalised by the number of included probe positions)
+        pacbed = np.asarray(self.Fig.Dfrn.Image, dtype=np.float64).reshape(nPx)
 
     # ── Radius search range ───────────────────────────────────────────────
     tbr = self.TBR.value()
