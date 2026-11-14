@@ -1,6 +1,5 @@
-from callbacks.notifDLG import notifDLG
+from callbacks.allFunctions import notifDLG, checkNaN, getImportInfo
 from callbacks.importCallbacks import importCallbacks
-from callbacks.checkNaN import checkNaN
 import numpy as np
 
 def datasetOptCallbacks(self):

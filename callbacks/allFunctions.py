@@ -34,211 +34,98 @@ from annotationsClasses.interactiveAnnulus import InteractiveAnnulus
 from annotationsClasses.interactivePoint import InteractivePoint
 from callbacks.virtualApertureCallbacks import virtualApertureCallbacks as _virtualApertureCallbacks
 
+def gatherImportOptions(self, preview):
+    """Gather import options from the Import window UI fields.
+
+    Parameters
+    ----------
+    self : app instance
+    preview : bool
+        True when called for preview (skips GPU device selection).
+
+    Returns
+    -------
+    D
+        Data-container populated from the Import window UI.
+    """
+    from callbacks.appClass import D  # noqa: E402
+
+    d = D()  # initialize
+
+    d.filePath = self.ImportWindow.ImpFilePath.text()
+    [d.fileDir, d.fileName] = os.path.split(d.filePath)
+    d.fileDir = d.fileDir + os.sep
+    d.subImg = self.ImportWindow.ImpSubImg.currentText()
+
+    # BYTES offset of: 1) the dataset from the beginning of file,
+    #                  2) before and 3) after each frame
+    d.Offset = self.ImportWindow.DataOffset.value()
+    d.FrHead = self.ImportWindow.FrHead.value()
+    d.FrFoot = self.ImportWindow.FrFoot.value()
+
+    # Endianness ('b' big / 'l' little), Data type, Byte size
+    d.ByteOrder = self.ImportWindow.ImpByteOrder.currentData()
+    d.DataType = self.ImportWindow.ImpDataType.currentData()
+    d.ByteSize = self.ByteSize[d.DataType]
+
+    # Physical or virtual memory loading
+    d.mem = self.ImportWindow.ImpMemType.currentText()
+
+    # Select GPU if acceleration enabled AND not in Import Preview Mode
+    d.GPU = self.ImportWindow.ImpGPU.currentData()
+    if not preview and d.GPU is not None:
+        torch.device(0 if torch.cuda.is_available() else "cpu")
+
+    # Pixel/frame dimensions and binning/sampling distance
+    d.DNPxX = self.ImportWindow.DNPxX.value()
+    d.DNPxY = self.ImportWindow.DNPxY.value()
+    d.PxD = self.ImportWindow.IPxD.value()
+    d.DNFrX = self.ImportWindow.DNFrX.value()
+    d.DNFrY = self.ImportWindow.DNFrY.value()
+    d.FrD = self.ImportWindow.IFrD.value()
+
+    # Starting points and number of pixels/frames after binning/sampling
+    d.PxX1 = self.ImportWindow.IPxX1.value()
+    d.PxY1 = self.ImportWindow.IPxY1.value()
+    d.NPxX = self.ImportWindow.INPxX.value()
+    d.NPxY = self.ImportWindow.INPxY.value()
+    d.FrX1 = self.ImportWindow.IFrX1.value()
+    d.FrY1 = self.ImportWindow.IFrY1.value()
+    d.NFrX = self.ImportWindow.INFrX.value()
+    d.NFrY = self.ImportWindow.INFrY.value()
+
+    # Frequently used dimension parameters
+    d.NPx = np.array([d.NPxX, d.NPxY])
+    d.NPxS = d.NPxX * d.NPxY
+    d.NFr = np.array([d.NFrY, d.NFrX])
+    d.NFrS = d.NFrX * d.NFrY
+
+    # Estimated memory usage for current dataset
+    d.EstMem = self.T.EstMem
+
+    # Keep-previous option
+    d.KeepP = self.ImportWindow.ImpKeepP.isChecked()
+
+    # Notes at import
+    d.NoteFileMeta = self.ImportWindow.ImpFileMetaNotes.toPlainText()
+    d.NoteImp = self.ImportWindow.ImpNotes.toPlainText()
+
+    # HDF5 dataset path within the file
+    d.h5ds = []
+    if self.ImportWindow.HDF5Button.isChecked() and ("Physical Memory" in d.mem):
+        d.h5ds = d.subImg
+
+    return d
+
+
 def importCallbacks(self):
-    def gatherImportOptions(preview):
-        d = D() # initialize 
-
-        d.filePath = self.ImportWindow.ImpFilePath.text()
-        [d.fileDir, d.fileName] = os.path.split(d.filePath)
-        d.fileDir = d.fileDir+os.sep
-        d.subImg = self.ImportWindow.ImpSubImg.currentText()
-
-        # BYTES offset of: 1) the dataset from the beginning of file, 2) before and 3) after each frame
-        d.Offset = self.ImportWindow.DataOffset.value()
-        d.FrHead = self.ImportWindow.FrHead.value()
-        d.FrFoot = self.ImportWindow.FrFoot.value()
-
-        # Endianness (big 'b' or little 'l'), Data type of the dataset and Size in bytes of the data type
-        d.ByteOrder = self.ImportWindow.ImpByteOrder.currentData()
-        d.DataType = self.ImportWindow.ImpDataType.currentData()
-        d.ByteSize = self.ByteSize[d.DataType]
-
-        # Physical or virtual memory loading
-        d.mem = self.ImportWindow.ImpMemType.currentText()
-
-        # Select GPU if acceleration is enabled AND not in Import Preview Mode
-        d.GPU = self.ImportWindow.ImpGPU.currentData()
-        if not preview and d.GPU!=None:
-            torch.device(0 if torch.cuda.is_available() else "cpu")
-
-        # Dimensions of pixels/frames in file and import binning/sampling distance
-        d.DNPxX = self.ImportWindow.DNPxX.value()
-        d.DNPxY = self.ImportWindow.DNPxY.value()
-        d.PxD = self.ImportWindow.IPxD.value()
-        d.DNFrX = self.ImportWindow.DNFrX.value()
-        d.DNFrY = self.ImportWindow.DNFrY.value()
-        d.FrD = self.ImportWindow.IFrD.value()
-
-        # Starting points and Number of pixels/frames after binning/sampling to import
-        d.PxX1 = self.ImportWindow.IPxX1.value()
-        d.PxY1 = self.ImportWindow.IPxY1.value()
-        d.NPxX = self.ImportWindow.INPxX.value()
-        d.NPxY = self.ImportWindow.INPxY.value()
-        d.FrX1 = self.ImportWindow.IFrX1.value()
-        d.FrY1 = self.ImportWindow.IFrY1.value()
-        d.NFrX = self.ImportWindow.INFrX.value()
-        d.NFrY = self.ImportWindow.INFrY.value()
-
-        # Frequently used dimension parameters
-        d.NPx = np.array([d.NPxX,d.NPxY])
-        d.NPxS = d.NPxX * d.NPxY
-        d.NFr = np.array([d.NFrY,d.NFrX]) 
-        d.NFrS = d.NFrX * d.NFrY
-
-        # Estimated memory usage for current dataset
-        d.EstMem = self.T.EstMem
-
-        # Swap dataset option+self.ImpNotes.Value
-        d.KeepP = self.ImportWindow.ImpKeepP.isChecked()
-
-        # Notes at import
-        d.NoteFileMeta = self.ImportWindow.ImpFileMetaNotes.toPlainText()
-        d.NoteImp = self.ImportWindow.ImpNotes.toPlainText()
-
-        # H5 dataset path within the H5 file. if not set empty, the H5 library API will be called when importing
-        d.h5ds = []
-        if self.ImportWindow.HDF5Button.isChecked() and  ("Physical Memory" in d.mem):
-            d.h5ds = d.subImg
-
-        return d
-
-    match self.sender():
-        case self.ShowImportWdw:
-            if self.ShowImportWdw.isChecked():
-                # Enter Import Preview Mode
-                if self.DetrMode.currentData != "PrvwMod":
-                    self.DetrMode.setCurrentIndex(self.DetrMode.findData("PrvwMod"))
-                
-                # if the file path exists, keep all fields accessible; else disable all by file selection button
-                fileExists = os.path.exists(self.ImportWindow.ImpFilePath.text())
-                self.ImportWindow.DatasetInfoFrame.setEnabled(fileExists)
-                self.ImportWindow.ImportOptionsFrame.setEnabled(fileExists)
-                self.ImportWindow.ImpFilePath.setEnabled(fileExists)
-                self.ImportWindow.ImportDataButton.setEnabled(fileExists)
-                self.ImportWindow.ImpKeepP.setEnabled(fileExists)
-                self.ImportWindow.ImpFileSelect.setEnabled(True)
-                self.ImportWindow.ImportCancelButton.setEnabled(True)
-
-                # set default button to "Select" if file does NOT exist; else default to "Import"
-                self.ImportWindow.ImportDataButton.setDefault(fileExists)
-                self.ImportWindow.ImportDataButton.setAutoDefault(fileExists)
-                self.ImportWindow.ImpFileSelect.setDefault(not fileExists)
-                self.ImportWindow.ImpFileSelect.setAutoDefault(not fileExists)
-                
-                # show import UI
-                self.ImportWindow.show()
-            else:
-                self.ImportWindow.ImportCancelButton.click()
-
-        case self.ImportWindow.ImportCancelButton: # Hide window when closing
-            self.ImportWindow.hide()
-            self.ShowImportWdw.setChecked(False)
-            # return to previous detector mode from Import Preview Mode
-            if (self.DetrMode.currentData() == "PrvwMod") and (self.P.DetrMode != None):
-                self.DetrMode.setCurrentIndex(self.DetrMode.findData(self.P.DetrMode))
-
-        case self.ImportWindow.ImportDataButton|self.PreviewButton: # When the "Import Data" or "Preview" button is pressed
-            self.T.Preview = D() # reset the preview parameters
-
-            # warn user if file does not exist at path, or the datatype is not selected; else import data
-            if not os.path.exists(self.ImportWindow.ImpFilePath.text()):
-                notifDLG(self, self.ImportWindow, 'warn', 'The entered file path is invalid!', 'Invalid File!')
-            
-            elif self.ImportWindow.ImpDataType.currentData() == "unknown":
-                notifDLG(self, self.ImportWindow, 'warn', 'Select the correct data type!', 'Select Data Type!')
-            
-            else:
-                if self.sender() == self.ImportWindow.ImportDataButton: # Import data
-                    self.ImportWindow.hide()
-                    unloadData(self, self.ImportWindow.ImpKeepP.isChecked())
-                    self.D = gatherImportOptions(preview=False)
-                    self.T.prev_D = self.D # Backup current `self.D`
-                    importData(self)
-                else: # Preview
-                    self.T.Preview = gatherImportOptions(preview=True)
-
-        case self.SettingsWindow.SwapDfrnXY|self.SettingsWindow.SwapRealXY: # Refresh axes settings etc when dimensions swapped
-            prepareData(self)
-
+    """Delegate to the full implementation in importCallbacks.py."""
+    from callbacks.importCallbacks import importCallbacks as _impl  # noqa: E402
+    _impl(self)
 def previewCallbacks(self):
-    # bypass execution if signals are actively being blocked (i.e. for programmatically updating UI values)
-    if self.blockAllSignals:
-        return
-
-    match self.sender():
-        case self.DetrMode: # Entering mode
-            self.Fig.Preview.ax.cla()
-            self.Fig.Preview.Image = None # Clear previous preview
-            self.ImageAx.Preview = None # clear AxesImage
-            enableWindows(self,True) # Enable windows
-        
-        case self.PvFrX|self.PvFrY:
-            self.PreviewButton.click() # Preview
-
-        case self.PvBC|self.PvBL|self.PvBR|self.PvCC|self.PvCL|self.PvCR|self.PvTC|self.PvTL|self.PvTR: # Location buttons
-            #set fractional probe position; naming convetion is horrible #TODO
-            match self.sender(): 
-                # PvB* = Bottom; PvC* = Vertical Center; PvT* = Top
-                case self.PvBC|self.PvBL|self.PvBR:
-                    frY = self.PvFrY.maximum()
-                case self.PvCC|self.PvCL|self.PvCR:
-                    frY = np.ceil(self.PvFrY.maximum()/2)
-                case self.PvTC|self.PvTL|self.PvTR:
-                    frY = 1
-                
-            match self.sender(): 
-                # Pv*L = Left; Pv*C = Horizontal Center; Pv*R = Right
-                case self.PvBR|self.PvCR|self.PvTR:
-                    frX = self.PvFrX.maximum()
-                case self.PvBC|self.PvCC|self.PvTC:
-                    frX = np.ceil(self.PvFrX.maximum()/2)
-                case self.PvBL|self.PvCL|self.PvTL:
-                    frX = 1
-
-            self.blockAllSignals = True
-            self.PvFrX.setValue(int(frX))
-            self.PvFrY.setValue(int(frY))
-            self.blockAllSignals = False
-            self.PreviewButton.click() # Preview
-          
-        case self.PreviewButton|self.UpdateImages:
-            self.Fig.Preview.ax.cla()
-            self.Fig.Preview.Image = None # Clear previous preview
-            self.ImageAx.Preview = None # clear AxesImage
-            self.Fig.Preview.show()
-            # Get parameters
-            importCallbacks(self)
-            d = self.T.Preview
-            ifx = self.PvFrX.value()-1 # indices displayed in GUI start at 1; python indices start at 0 -->
-            ify = self.PvFrY.value()-1 # subtract 1 to get to the beginning of the frame of interest
-
-            if d != None:
-                dnpx = d.DNPxX
-                dnpy = d.DNPxY
-                dnfx = d.DNFrX
-                dnfy = d.DNFrY
-                self.P.PreviewAxLim = np.array([0, dnpx, dnpy, 0]) - 0.5
-                self.Fig.Preview.ax.set_xlim(self.P.PreviewAxLim[0:2])
-                self.Fig.Preview.ax.set_ylim(self.P.PreviewAxLim[2:])
-                try:
-                    if not d.h5ds == []: # Preview HDF5
-                        f = h5py.File(d.filePath)
-                        if d.h5ds in f:
-                            frame = f[d.h5ds][ify,ifx,:,:]
-                            f.close()
-                        else:
-                            f.close()
-                            return
-                    else: # Preview others
-                        skipBytes = d.Offset + (d.FrHead + dnpx*dnpy*d.ByteSize + d.FrFoot)*(dnfx*ify + ifx) + d.FrHead
-                        frame = np.fromfile(file=d.filePath,offset=skipBytes,count=1,dtype=str(dnpx*dnpy)+d.DataType).reshape(dnpx,dnpy)
-
-                    self.Fig.Preview.Image = frame
-                    plotImage(self,"Preview") # Plot image
-                    datasetOptCallbacks(self) # Check NaN
-                except:
-                    notifDLG(self,self.Fig.Preview,'error',"Errors occurred during preview! Maybe reached end-of-file.", 'Error during Preview!')
-                    
+    """Delegate to the full implementation in previewCallbacks.py."""
+    from callbacks.previewCallbacks import previewCallbacks as _impl  # noqa: E402
+    _impl(self)
 def notifDLG(self, parent, icon="", msg="", ttl="", opt=[]):
     """ Wrapper for notification dialogs; use `sprintf()` before calling this function to process "\n" in `msg` """
     sel=''
@@ -876,7 +763,9 @@ def axeDirCallbacks(self):
     pass
 
 def realSpaceROICallbacks(self):
-    pass
+    """Delegate to the full implementation in realSpaceROICallbacks.py."""
+    from callbacks.realSpaceROICallbacks import realSpaceROICallbacks as _impl  # noqa: E402
+    _impl(self)
 
 def clearDetectors(self):
 
@@ -1076,68 +965,9 @@ def detectorModeCallbacks(self):
     enableWindows(self,True)
 
 def datasetOptCallbacks(self):
-    match self.sender():
-        case self.SettingsWindow.SwapByteOrder: # Swap byte-order
-            #msg = "Swapping byte order ..." #TODO
-            #self.T.progDLG = progDLG(self, sprintf("\n#s\n",msg), "Byte Order Swap") #TODO
-            self.progressBar.setMaximum(0)
-            try:
-                self.Data.byteswap(inplace=True)
-            except:
-                notifDLG(self,self,'error',"It seems the system does not have enough memory for this process! Maybe try to increase system's virtual memory.", "Out of Memory")
-                return
-
-            self.D.ByteOrder = ['b','l'][self.D.ByteOrder=='b'] # swap `l`<->`b` at `self.D.ByteOrder`
-            self.SettingsWindow.DataInfo.setPlainText(getImportInfo(self))
-            self.UpdateImages.tirgger()
-            #delete(self.T.progDLG) #TODO
-            self.progressBar.setValue(1)
-            self.progressBar.setMaximum(1)
-            sel = notifDLG(self,self,'quest',"Does the current byte-order look correct?",'Byte Order Swap',["Yes","No. Revert"])
-            
-            # Run the process again if selected "No ....."
-            if sel.startswith("No"):
-               self.SettingsWindow.SwapByteOrder.click()#datasetOptCallbacks(self,struct('Source',self.SwapByteOrder,'EventName',"")) #TODO?
-
-        case self.SettingsWindow.SwapDfrnXY|self.SettingsWindow.SwapRealXY:
-            # Diffraction or real-space
-            if self.sender() == self.SettingsWindow.SwapDfrnXY:
-                # Swap diffraction X/Y dimensions
-                self.D.swapDiff()
-                #self.D.DNPxX,self.D.DNPxY = self.D.DNPxY,self.D.DNPxX
-                #self.D.NPxX,self.D.NPxY = self.D.NPxY,self.D.NPxX
-                #self.D.PxX1,self.D.PxY1 = self.D.PxY1,self.D.PxX1
-                #self.D.NPx = np.flip(self.D.NPx)
-
-            else:
-                # Delete all Real-space ROIs;  
-                self.A.removeGroup("ROI")
-                self.P.TransBeamInit = 1
-
-                # Swap real X/Y dimensions
-                self.D.swapReal()
-                #self.D.DNFrX,self.D.DNFrY = self.D.DNFrY,self.D.DNFrX
-                #self.D.NFrX,self.D.NFrY = self.D.NFrY,self.D.NFrX
-                #self.D.FrX1,self.D.FrY1 = self.D.FrY1,self.D.FrX1
-                #self.D.NFr = np.flip(self.D.NFr)
-            
-            # Re-prepare the imported data
-            importCallbacks(self)
-        
-            self.SettingsWindow.DataInfo.setPlainText(getImportInfo(self))
-          
-        case self.PreviewButton:
-            sel = checkNaN(self, image=self.Fig.Preview.Image, preview=True) # Check data NaN/Inf, without asking to sway byte-order
-            if sel == 'Set NaNs to 0':
-                self.Data[np.ma.masked_invalid(self.Data).mask]=0
-
-        case other:
-            self.SettingsWindow.DataInfo.setPlainText(getImportInfo(self))
-            # Check data NaN/Inf, ask whether to sway byte-order
-            sel = checkNaN(self, image=self.Fig.Dfrn.Image, preview=False)
-            if sel == 'Set NaNs to 0':
-                self.Data[np.ma.masked_invalid(self.Data).mask]=0
-
+    """Delegate to the full implementation in datasetOptCallbacks.py."""
+    from callbacks.datasetOptCallbacks import datasetOptCallbacks as _impl  # noqa: E402
+    _impl(self)
 def getImportInfo(self):
     """ Function to update current data info """
     d = self.D
@@ -1900,295 +1730,9 @@ def detrCoordCallbacks(self):
             self.SettingsWindow.DCSys.currentIndexChanged.emit(self.SettingsWindow.DCSys.currentIndex())
 
 def annularDetectorCallbacks(self):
-
-    def limitAnnUI():
-        """ Function to update Annular detector UI limits/labels when coordinate options change """
-        self.blockAllSignals = True
-        self.AnnRi_NF.setSuffix(" "+self.SettingsWindow.DCUnit.currentData())
-        self.AnnRo_NF.setSuffix(" "+self.SettingsWindow.DCUnit.currentData())
-        self.AnnRi_NF.setRange(0,self.P.RMax*self.DfPxR)
-        self.AnnRo_NF.setRange(0,self.P.RMax*self.DfPxR)
-        self.AnnRi_NF.setSingleStep(0.25*self.DfPxR)
-        self.AnnRo_NF.setSingleStep(0.25*self.DfPxR)
-        self.blockAllSignals = False
-
-    def enableAnnUI():
-        """ Function to enable/disable parts of annular/DPC/CoM UI """
-        # current detector mode
-        dmod = self.DetrMode.currentData()
-
-        # Disable/enable segmented panel
-        self.dpcControls.setEnabled(dmod == "DPCMod")
-
-        # Change Enable state of scan direction UIs, except `self.ScanDirUnlock`
-        self.comControls.setEnabled(self.ScanDirUnlock.isChecked())
-        self.ScanDirUnlock.setEnabled(dmod in ["CoMMod","DPCMod"])
-
-        # Highlight to align Scanning Direction
-        if (dmod in ["CoMMod" "DPCMod"]) and (not self.P.ScanDirInit):
-            bc = self.C.WarnC.name()
-        else:
-            bc = self.C.BgC.name()
-        self.comControls.BackgroundColor = bc # Set scan direction panel color
-        self.comControls.setStyleSheet("background-color:"+bc)
-
-    def moveAnnDetr():
-        """ Function to live update annular/round/segmented detectors """
-
-        def moveAnnR():
-            """ Sub sub function for annular radii """
-
-            # get QRangeSlider values
-            innerRadius,outerRadius = self.AnnRi.value()
-            
-            # get diffraction scale set by user during alignment
-            scale = self.DfPxR
-
-            # get inner/outer adf radii from the calling widget
-            match self.sender():
-                # InteractiveAnnulus
-                case self.A.adf:
-                    innerRadius, outerRadius = (self.A.adf.radius/self.D.annWidth).astype(int)
-                # Inner Radius QDoubleSpinBox
-                case self.AnnRi_NF:
-                    innerRadius = round(self.AnnRi_NF.value()/self.D.annWidth/scale)
-                # Outer Radius QDoubleSpinBox 
-                case self.AnnRo_NF:
-                    outerRadius = round(self.AnnRo_NF.value()/self.D.annWidth/scale)
-
-            # allow user to drag inner/outer annulus over the other, swapping their relationships
-            if innerRadius>outerRadius:
-                innerRadius,outerRadius = outerRadius,innerRadius
-                #self.A.adfInnerCirc,self.A.adfOuterCirc = self.A.adfOuterCirc,self.A.adfInnerCirc #TODO delete?
-
-            # inner radius cannot be less than 0
-            if innerRadius<0:
-                innerRadius = 0
-
-            # outer radius cannot be greater than max scattering angle
-            if outerRadius>self.P.RMax:
-                outerRadius = self.P.RMax
-
-            # avoid triggering a valueChanged loop by blocking signals
-            self.blockAllSignals = True
-
-            # set slider and numerical field values
-            self.AnnRi.setValue((innerRadius,outerRadius))
-            self.AnnRi_NF.setValue(innerRadius*self.D.annWidth*scale)
-            self.AnnRo_NF.setValue(outerRadius*self.D.annWidth*scale)
-
-            # unblock signals
-            self.blockAllSignals = False
-
-            # update point centers when updated via QRangeSlider or QDoubleSpinBoxes
-            if self.sender() is not self.A.adf:
-                self.A.adf.radius = np.array([innerRadius,outerRadius]).clip(np.finfo(np.single).eps,self.P.RMax)*self.D.annWidth
-                self.A.adf.redraw()
-
-            #if isStaticEvt(evt): #TODO
-            #    self.SaveWindow.SaveImgPrefix.textChanged.emit(self.SaveWindow.SaveImgPrefix.text()) # Update saving prefix
-
-            # Whether to update segments as well
-            if dmod == "DPCMod":
-                moveSeg()
-
-            # refresh real-space image given new inner/outer radii
-            # (add one to outer limit because python doesn't include the last term of the range)
-            #if len(self.Fig.Real.ax.images)==0:
-            #    self.Fig.Real.Image = self.Data.sum(axis=1).reshape(self.D.NFrY,self.D.NFrX)
-            #    #self.ImageAx.Real = self.Fig.Real.ax.imshow(self.Fig.Real.Image)
-            #else:
-            #    self.Fig.Real.Image = self.adfImages[:,:,innerRadius:outerRadius+1].sum(axis=2)
-            #    #self.ImageAx.Real.set_data(self.Fig.Real.Image)
-            
-            #self.Fig.Real.canvas.draw_idle()
-            
-        def moveSeg():
-            pass
-        def moveScan():
-            pass
-
-        # current detector mode
-        dmod = self.DetrMode.currentData()
-
-        ri,ro = self.AnnRi.value()
-        dr = self.DetRot.value()
-        sd = self.ScanDir.value()
-        syf = 1-2*self.ScanDirYFlip.isChecked()
-
-        # Cases for different detectors #TODO - no .Tag attributes
-        match self.sender():
-            case self.A.adf|self.AnnRi|self.AnnRi_NF|self.AnnRo_NF:
-                moveAnnR()
-            case self.DetRot|self.DetRot_NF|self.NRung|self.NSeg|self.A.SegDetrCir|self.A.SegDetrL|self.A.SegDetrL0|self.A.SegDetrP0:
-                moveSeg()
-            case self.ScanDirUnlock|self.ScanDirYFlip|self.ScanDir|self.ScanDir_NF|self.A.ScanDirXline|self.A.ScanDirYline|self.A.ScanDirXcirc|self.A.ScanDirYcirc:
-                moveScan()
-            case self.DetrMode|self.UpdateImages:
-                moveAnnR()
-                if self.ScanDirUnlock.isChecked():
-                    moveScan()  # Update scan directions as well
-        
-        # Whether to update images
-        if toUpdateImage(self):
-            # Skip calculations of new BF/DF `self.Fig.Real.Image` if annular radii are not changed
-            if isDiffToPrev(self,'AnnR',[ri,ro]): #or isStaticEvt(evt)
-                # self.A.k is a 2D matrix of distances from central beam generated in integrateAnnular
-                # k is already modified by self.D.annWidth, so ri and ro can be used directly
-                self.Fig.DfrnMask.Image = np.ma.masked_inside(self.A.k,ri,ro).mask.astype(self.D.DataType).T # convert from bool to DataType
-
-                # (add 1 to outer limit because python doesn't include the last term of the range)
-                self.Fig.Real.Image = self.adfImages[:,:,ri:ro+1].sum(axis=2)
-          
-            # CoM/DPC calculations; skip if parameters unchanged
-            if dmod in ["CoMMod", "DPCMod"]:
-                if isDiffToPrev(self,'CoM_P',[ri,ro,sd,syf,dr]): # or isStaticEvt(evt):
-                    calcCoM()
-            
-            # Update images
-            plotAllPatterns(self)
-        
-        self.Fig.Dfrn.canvas.flush_events()
-    
-    def drawAnnDetr():
-        """ initiallize the annular detector annotations """
-        # define center location and starting radii for annular detector
-        c = self.B0
-        r1 = self.AnnRi.value()[0]*self.D.annWidth
-        r2 = self.AnnRi.value()[1]*self.D.annWidth
-    
-        # generate adf detector
-        if self.A.adf is None:
-            self.A.adf = InteractiveCircle(center=c, radius=(r1,r2), axis=self.Fig.Dfrn.ax, color='r', interactions='resize')
-            self.A.adf.connect()
-            self.A.adf.updateCircle.connect(lambda: moveAnnDetr())
-            self.Fig.Dfrn.canvas.flush_events()
-    
-    def drawSegDetr():
-        pass
-    
-    def drawScanDir():
-        pass
-    
-    def integrateAnnular():
-        #  only rerun the annular integration if transmitted disk center is changed
-        if isDiffToPrev(self,"B0",self.B0):
-            # generate meshgrid, divide by annulus width and round so distance increments away
-            # from transmitted beam as integers to allow for direct use with QRangeSlider[int]
-            # and array indexing; self.D.annWidth = 0.5 by default
-            xgrid,ygrid = np.ogrid[-self.B0[0]:self.D.NPxX-self.B0[0],-self.B0[1]:self.D.NPxY-self.B0[1]]
-            self.A.k = np.int32(np.sqrt(xgrid**2+ygrid**2)/self.D.annWidth)
-            k = self.A.k.flatten()
-
-            # generate a vector of pixel distances from transmitted beam center (divided by annWidth)
-            distance = np.arange(0,k.max()+1)
-
-            # create adf annular masks of annWidth pixel width
-            adfMask = np.where((k.reshape(1,len(k))>=distance.reshape(len(distance),1)) & (k.reshape(1,len(k))<(distance.reshape(len(distance),1)+0.5)), True, False).T
-
-            # generate all adf images from 0.0.5 pixel annuli; reshape to 3D for faster plotting
-            self.adfImages = self.Data@adfMask
-            self.adfImages = np.reshape(self.adfImages,(self.D.NFrY,self.D.NFrX,-1))
-
-            # block signals whilst UI components are updated
-            self.blockAllSignals = True
-
-            # set adfInner and adfOuter slider limits based on k.max()
-            self.AnnRi.setMaximum(k.max())
-
-            # set adfInner and adfOuter numerical field limits based on k.max()/2
-            self.AnnRi_NF.setMaximum(k.max()*self.D.annWidth)
-            self.AnnRo_NF.setMaximum(k.max()*self.D.annWidth)
-
-            # unblock signals
-            self.blockAllSignals = False
-            
-            # set maximum scattering angle
-            self.P.RMax = k.max()
-   
-    def calcCoM():
-        def integrateCoM():
-            """Tikhonov-regularised Fourier integration of CoM → iCoM phase image."""
-            ny, nx = self.Fig.CoMX.Image.shape
-            kx = np.fft.fftfreq(nx)
-            ky = np.fft.fftfreq(ny)
-            KX, KY = np.meshgrid(kx, ky)
-            k2 = KX**2 + KY**2
-            k2[0, 0] = 1  # prevent division by zero; DC → 0 after IFFT
-
-            FCoMX = np.fft.fft2(self.Fig.CoMX.Image)
-            FCoMY = np.fft.fft2(self.Fig.CoMY.Image)
-
-            # Fourier integration: phase = IFFT[(kx·FCoMX + ky·FCoMY) / (2πi·k²)]
-            self.Fig.iCoM.Image = np.fft.ifft2(
-                (KX * FCoMX + KY * FCoMY) / (2j * np.pi * k2)
-            ).real
-
-            # dCoM: divergence of CoM field (∂CoMX/∂x + ∂CoMY/∂y)
-            dCoMX = np.gradient(self.Fig.CoMX.Image, axis=1)
-            dCoMY = np.gradient(self.Fig.CoMY.Image, axis=0)
-            self.Fig.dCoM.Image = dCoMX + dCoMY
-
-        # Annular mask in diffraction space (flattened, matches self.Data column order)
-        mask = ((self.A.k >= ri) & (self.A.k <= ro)).flatten()
-        if not mask.any():
-            return  # nothing inside the selected annulus
-
-        # Pixel coordinate grids relative to transmitted beam, same layout as self.A.k
-        # self.A.k was built with ogrid[-B0[0]:NPxX-B0[0], -B0[1]:NPxY-B0[1]]
-        xgrid, ygrid = np.mgrid[0:self.D.NPxX, 0:self.D.NPxY]
-        xweight = (xgrid.flatten() - self.B0[0]).astype(np.float32)
-        yweight = (ygrid.flatten() - self.B0[1]).astype(np.float32)
-
-        # Mask-select data columns and compute intensity-weighted CoM
-        data_m = self.Data[:, mask].astype(np.float32)   # (NFrX*NFrY, n_masked)
-        norm = data_m.sum(axis=1).clip(np.finfo(np.float32).eps, None)
-
-        CoMX_flat = (data_m @ xweight[mask]) / norm        # (NFrX*NFrY,)
-        CoMY_flat = (data_m @ yweight[mask]) / norm * syf  # apply Y-axis flip
-
-        # Apply scan-direction rotation (sd in degrees, in scope from moveAnnDetr)
-        c, s = np.cos(np.radians(sd)), np.sin(np.radians(sd))
-        CoM = np.array([[c, -s], [s, c]]) @ np.vstack([CoMX_flat, CoMY_flat])
-
-        # Reshape to real-space images (NFrY × NFrX)
-        self.Fig.CoMX.Image   = CoM[0].reshape(self.D.NFrY, self.D.NFrX)
-        self.Fig.CoMY.Image   = CoM[1].reshape(self.D.NFrY, self.D.NFrX)
-        self.Fig.CoMMag.Image = np.hypot(self.Fig.CoMX.Image, self.Fig.CoMY.Image)
-        self.Fig.CoMPh.Image  = np.arctan2(self.Fig.CoMY.Image, self.Fig.CoMX.Image)
-
-        integrateCoM()
-
-    # bypass execution if signals are actively being blocked (i.e. for programmatically updating UI values)
-    if self.blockAllSignals:
-        return
-
-    b0 = self.B0  # Absolute pixel coordinates of central beam; only changes in `transBeamCallbacks()`
-    dmod = self.DetrMode.currentData() # Detector mode; when changed this callback will be called
-
-    match self.sender():
-        case self.SettingsWindow.DCSys: # Change coordinate options
-            limitAnnUI() # UI limits
-        case self.DetrMode: # Entering current mode
-            limitAnnUI() # UI limits
-            self.ScanDirUnlock.setChecked(False) # Lock scan directions first upon entering annular modes
-            enableAnnUI() # UI enable/disable
-            integrateAnnular() # Update annular integral mask
-            drawAnnDetr() # Draw detectors
-            if dmod == "DPCMod":
-                drawSegDetr() # Whether to draw segmented detectors
-            moveAnnDetr() # Update UI/ROIs
-            enableWindows(self,True) # Enable windows
-        case self.AnnRi|self.AnnRi_NF|self.AnnRo_NF|self.DetRot|self.DetRot_NF|self.NSeg|self.NRung|self.ScanDir|self.ScanDir_NF|self.ScanDirYFlip|self.UpdateImages:
-            moveAnnDetr() # Update UI/ROIs
-        case self.ScanDirUnlock:
-            self.P.ScanDirInit = 1; # Flag scan directions as aligned
-            enableAnnUI() # Enable/Disable GUI elements
-            self.A.removeGroup('ScanDir') # Try to remove existing scan direction ROIs
-            if self.ScanDirUnlock.isChecked():
-                drawScanDir() # Draw annotations
-            self.SettingsWindow.ShowDfrnAxes.click() # Update diffraction axes annotations
-
+    """Delegate to the full implementation in annularDetectorCallbacks.py."""
+    from callbacks.annularDetectorCallbacks import annularDetectorCallbacks as _impl  # noqa: E402
+    _impl(self)
 def plotAllPatterns(self):
     # always update primary and mask images
     ids = [iID for iType,iID in zip(self.G.ImgType,self.G.ImgID) if iType in ["Primary","Mask"]]
