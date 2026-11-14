@@ -51,21 +51,21 @@ def mathCallbacks(self):
         return np.ma.masked_invalid(img).astype(np.float64) if img is not None else None
 
     ns = {
-        'np'  : np,
-        'A'   : _safe_img(self.Fig.Real.Image),
-        'B'   : _safe_img(self.Fig.DfrnMask.Image),
-        'C'   : _safe_img(getattr(self.Fig.Dfrn, 'Image', None)),
-        'D'   : _safe_img(getattr(self.Fig, 'CoMMag', None)),
-        'abs' : np.abs,
-        'sum' : np.nansum,
+        'np': np,
+        'A': _safe_img(self.Fig.Real.Image),
+        'B': _safe_img(self.Fig.DfrnMask.Image),
+        'C': _safe_img(getattr(self.Fig.Dfrn, 'Image', None)),
+        'D': _safe_img(getattr(self.Fig, 'CoMMag', None)),
+        'abs': np.abs,
+        'sum': np.nansum,
         'mean': np.nanmean,
-        'max' : np.nanmax,
-        'min' : np.nanmin,
+        'max': np.nanmax,
+        'min': np.nanmin,
         'sqrt': np.sqrt,
-        'log' : np.log,
+        'log': np.log,
         'log2': np.log2,
-        'exp' : np.exp,
-        'fft' : np.fft.fft2,
+        'exp': np.exp,
+        'fft': np.fft.fft2,
         'ifft': np.fft.ifft2,
     }
 
@@ -100,4 +100,3 @@ def axeDirCallbacks(self):
 
 def saveVect(self):
     pass  # TODO
-

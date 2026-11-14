@@ -62,7 +62,7 @@ def _roi_to_mask(roi, shape, typ: str) -> np.ndarray:
     elif typ == 'rectangle':
         # InteractiveRectangle: rotation is always 0, so just check bounds
         theta = np.radians(roi.rotation)        # 0.0 for axis-aligned
-        c, s  = np.cos(theta), np.sin(theta)
+        c, s = np.cos(theta), np.sin(theta)
         R_inv = np.array([[c, s], [-s, c]])
         local = (pts - roi.center) @ R_inv.T
         return np.all(np.abs(local) <= roi.size / 2.0, axis=1).reshape(ny, nx)
@@ -128,7 +128,7 @@ def realSpaceROICallbacks(self):
                          for ii in range(self.SettingsWindow.DispImage.count())]
             rs_mask = (
                 (self.G.Img.space == 'Real') &
-                (self.G.Img.type  != 'Mask') &
+                (self.G.Img.type != 'Mask') &
                 self.G.Img.name.isin(img_names)
             )
 
@@ -182,7 +182,7 @@ def realSpaceROICallbacks(self):
                 poly_verts = np.array(vertices, dtype=float)
                 real_ids = self.G.Img[
                     (self.G.Img.space == 'Real') &
-                    (self.G.Img.type  != 'Mask')
+                    (self.G.Img.type != 'Mask')
                 ].id
 
                 for img_id in real_ids:
@@ -222,7 +222,7 @@ def realSpaceROICallbacks(self):
 
         real_ids = self.G.Img[
             (self.G.Img.space == 'Real') &
-            (self.G.Img.type  != 'Mask')
+            (self.G.Img.type != 'Mask')
         ].id
 
         for img_id in real_ids:
@@ -470,4 +470,3 @@ def realSpaceROICallbacks(self):
     # -- Any other sender (e.g. the ROI invert checkbox) -----------------
     else:
         moveRealROI()
-

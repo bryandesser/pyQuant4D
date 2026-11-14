@@ -71,18 +71,18 @@ def virtualApertureCallbacks(self):  # noqa: C901
 
     def _rotate_pt(pt, angle_deg, centre):
         """Rotate *pt* by *angle_deg* degrees around *centre*."""
-        c, s   = np.cos(np.radians(angle_deg)), np.sin(np.radians(angle_deg))
+        c, s = np.cos(np.radians(angle_deg)), np.sin(np.radians(angle_deg))
         offset = np.array(pt) - np.array(centre)
         rotated = np.array([c * offset[0] - s * offset[1],
-                             s * offset[0] + c * offset[1]])
+                            s * offset[0] + c * offset[1]])
         return rotated + np.array(centre)
 
     def _mirror_pt(pt, angle_deg, centre):
         """Reflect *pt* across a line through *centre* at *angle_deg* degrees."""
         offset = np.array(pt) - np.array(centre)
         a2 = 2.0 * np.radians(angle_deg)
-        mirrored = np.array([ np.cos(a2) * offset[0] + np.sin(a2) * offset[1],
-                               np.sin(a2) * offset[0] - np.cos(a2) * offset[1]])
+        mirrored = np.array([np.cos(a2) * offset[0] + np.sin(a2) * offset[1],
+                             np.sin(a2) * offset[0] - np.cos(a2) * offset[1]])
         return mirrored + np.array(centre)
 
     def _circle_mask(centre_xy, radius, shape):
@@ -115,11 +115,11 @@ def virtualApertureCallbacks(self):  # noqa: C901
           self.A.VrApMirL : Line2D mirror axis (if mirror enabled)
           self.A.VrApMirP : InteractivePoint drag handle on mirror axis
         """
-        ax  = self.Fig.Dfrn.ax
-        b0  = self.B0
-        r   = float(self.VrApR.value())
+        ax = self.Fig.Dfrn.ax
+        b0 = self.B0
+        r = float(self.VrApR.value())
         nsym = int(self.VrApSymm.currentData() or 1)
-        mirror   = self.VrApMirror.isChecked()
+        mirror = self.VrApMirror.isChecked()
         mirr_ang = float(self.VrApMirrRot.value())
 
         _remove_vr_annotations()
@@ -157,7 +157,7 @@ def virtualApertureCallbacks(self):  # noqa: C901
             for k in range(nsym):
                 rot_ang = 360.0 * k / nsym
                 orig_ctr = _rotate_pt(xy, rot_ang, b0)
-                mir_ctr  = _mirror_pt(orig_ctr, mirr_ang, b0)
+                mir_ctr = _mirror_pt(orig_ctr, mirr_ang, b0)
                 cx = mir_ctr[0] + r * np.cos(theta_circ)
                 cy = mir_ctr[1] + r * np.sin(theta_circ)
                 ln, = ax.plot(cx, cy, color='w', linewidth=1.0,
@@ -209,7 +209,7 @@ def virtualApertureCallbacks(self):  # noqa: C901
         if (self.A.VrAp is not None
                 and self.sender() is self.A.VrAp):
             new_ctr = self.A.VrAp.center.copy()
-            new_r   = float(self.A.VrAp.radius[0])
+            new_r = float(self.A.VrAp.radius[0])
 
             self.P.VrApXY = new_ctr
 
@@ -267,13 +267,13 @@ def virtualApertureCallbacks(self):  # noqa: C901
           4. Dot-product the boolean mask with self.Data → one value per scan pixel
           5. Store result as self.Fig.Real.Image
         """
-        b0   = self.B0
-        r    = float(self.VrApR.value())
+        b0 = self.B0
+        r = float(self.VrApR.value())
         nsym = int(self.VrApSymm.currentData() or 1)
-        invert  = self.VrApInvert.isChecked()
-        mirror  = self.VrApMirror.isChecked()
+        invert = self.VrApInvert.isChecked()
+        mirror = self.VrApMirror.isChecked()
         mirr_ang = float(self.VrApMirrRot.value())
-        xy   = np.asarray(self.P.VrApXY, dtype=float)
+        xy = np.asarray(self.P.VrApXY, dtype=float)
         shape = (self.D.NPxX, self.D.NPxY)
 
         # Collect all aperture centre positions
@@ -316,7 +316,7 @@ def virtualApertureCallbacks(self):  # noqa: C901
     def _toUpdateImage():
         calc = self.SettingsWindow.CalcPolicy.currentData()
         return (calc == 2) or (self.sender() in [self.UpdateImages,
-                                                  self.DetrMode])
+                                                 self.DetrMode])
 
     # ------------------------------------------------------------------
     # Main dispatch

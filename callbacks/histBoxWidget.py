@@ -123,13 +123,13 @@ class HistBox(AxesWidget):
 
         # drag state
         self._drag_mode = None   # 'lo', 'hi', 'body', or None
-        self._drag_x0   = None   # data-x at mouse-press
-        self._drag_lo0  = None   # lo at drag start
-        self._drag_hi0  = None   # hi at drag start
+        self._drag_x0 = None   # data-x at mouse-press
+        self._drag_lo0 = None   # lo at drag start
+        self._drag_hi0 = None   # hi at drag start
 
-        self.connect_event('button_press_event',   self._on_press)
+        self.connect_event('button_press_event', self._on_press)
         self.connect_event('button_release_event', self._on_release)
-        self.connect_event('motion_notify_event',  self._on_motion)
+        self.connect_event('motion_notify_event', self._on_motion)
 
     # ------------------------------------------------------------------
     # Public API
@@ -198,9 +198,9 @@ class HistBox(AxesWidget):
         if mode is None:
             return
         self._drag_mode = mode
-        self._drag_x0   = event.xdata
-        self._drag_lo0  = self._lo
-        self._drag_hi0  = self._hi
+        self._drag_x0 = event.xdata
+        self._drag_lo0 = self._lo
+        self._drag_hi0 = self._hi
 
     def _on_motion(self, event) -> None:
         if self._drag_mode is None or event.inaxes is not self.ax:
@@ -216,7 +216,7 @@ class HistBox(AxesWidget):
             new_hi = np.clip(self._drag_hi0 + dx, self._lo, hi_bound)
             self._hi = float(new_hi)
         else:  # 'body'
-            span   = self._drag_hi0 - self._drag_lo0
+            span = self._drag_hi0 - self._drag_lo0
             new_lo = np.clip(self._drag_lo0 + dx, lo_bound, hi_bound - span)
             self._lo = float(new_lo)
             self._hi = float(new_lo + span)

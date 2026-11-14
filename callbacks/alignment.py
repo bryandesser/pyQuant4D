@@ -18,37 +18,42 @@ except ImportError:
 
 def transBeamCallbacks(self):
     match self.sender():
-        case self.DetrMode: # Entering mode
+        case self.DetrMode:  # Entering mode
             # Create transmitted beam annotation, allow for disk as large as the entire diffraction pattern
             if self.A.tb is None:
-                self.A.tb = InteractiveCircle(center = self.B0, radius = self.TBR.value(), axis=self.Fig.Dfrn.ax, color="r", interactions="all")
+                self.A.tb = InteractiveCircle(
+                    center=self.B0,
+                    radius=self.TBR.value(),
+                    axis=self.Fig.Dfrn.ax,
+                    color="r",
+                    interactions="all")
                 self.A.tb.connect()
                 self.A.tb.updateCircle.connect(lambda: moveTransBeam(self))
                 self.Fig.Dfrn.canvas.draw_idle()
                 self.Fig.Dfrn.canvas.flush_events()
-            
+
             # Select `Dfrn` image and bring window to the front
             self.SettingsWindow.DispImage.setCurrentIndex(self.SettingsWindow.DispImage.findData("Dfrn"))
             self.Fig.Dfrn.activateWindow()
 
             # If this is the initializing alignment, then do swap byte check and auto-align
             if not self.P.TransBeamInit:
-                datasetOptCallbacks(self) # checks for nans and asks if user wants to swap byteorder
+                datasetOptCallbacks(self)  # checks for nans and asks if user wants to swap byteorder
                 autoAlign(self)
 
-            enableWindows(self,True) # Enable windows
+            enableWindows(self, True)  # Enable windows
 
-        case self.UpdateImages: # Update images
+        case self.UpdateImages:  # Update images
             # Create a summed image of all diffraction patterns simply for alignment and calibration
-            self.Fig.DfrnMask.Image = np.ones(self.D.NPx,self.D.DataType)
+            self.Fig.DfrnMask.Image = np.ones(self.D.NPx, self.D.DataType)
             self.Fig.Real.Image = np.reshape(self.Data.sum(axis=1), self.D.NFr)
 
-        case self.TBAutoAlign: # Auto-align
+        case self.TBAutoAlign:  # Auto-align
             autoAlign(self)
 
-        case self.TBCrossAlign: # Align transmitted beam via two crossed lines
+        case self.TBCrossAlign:  # Align transmitted beam via two crossed lines
             crossAlign(self)
-        
+
     # Update dependent variables
     moveTransBeam(self)
 
@@ -59,44 +64,44 @@ def moveTransBeam(self):
     # bypass execution if signals are actively being blocked (i.e. for programmatically updating UI values)
     if self.blockAllSignals:
         return
-    
-    b0 = np.array([self.TBX.value(),self.TBY.value()])
-    r = np.maximum(self.TBR.value(),np.finfo(np.single).eps)
+
+    b0 = np.array([self.TBX.value(), self.TBY.value()])
+    r = np.maximum(self.TBR.value(), np.finfo(np.single).eps)
     a = self.Alpha.value()
-    mrad_per_px = a/r
+    mrad_per_px = a / r
     nPix = self.D.NPx
 
     match self.sender():
-        case self.TBX|self.TBX_NF:
-            b0[0] = max(1, self.sender().value()); # Force X >= 1
-        case self.TBY|self.TBY_NF:
-            b0[1] = max(1, self.sender().value()); # Force Y >= 1
-        case self.TBR|self.TBR_NF:
-            r = self.sender().value(); # Radius
+        case self.TBX | self.TBX_NF:
+            b0[0] = max(1, self.sender().value())  # Force X >= 1
+        case self.TBY | self.TBY_NF:
+            b0[1] = max(1, self.sender().value())  # Force Y >= 1
+        case self.TBR | self.TBR_NF:
+            r = self.sender().value()  # Radius
         case self.Alpha:
             a = self.sender().value()
-            mrad_per_px = a/r # Calculate the diffraction scale
+            mrad_per_px = a / r  # Calculate the diffraction scale
         case self.mradPx:
             mrad_per_px = self.sender().value()
-            a = mrad_per_px*r # Manually set the diffraction scale
+            a = mrad_per_px * r  # Manually set the diffraction scale
         case self.A.tb:
             b0 = self.A.tb.center
             r = self.A.tb.radius
 
     # Restrict transmitted beam location/size
-    b0 = b0.clip([1,1],nPix)
+    b0 = b0.clip([1, 1], nPix)
     self.B0 = b0
-    self.P.RMax = np.ceil(np.linalg.norm(abs(self.P.DfCtr-b0)+self.P.DfCtr)) # Find the max allowed radius
-    r = np.clip(r,np.finfo(np.single).eps,self.P.RMax) # 0 < r <= RMax
+    self.P.RMax = np.ceil(np.linalg.norm(abs(self.P.DfCtr - b0) + self.P.DfCtr))  # Find the max allowed radius
+    r = np.clip(r, np.finfo(np.single).eps, self.P.RMax)  # 0 < r <= RMax
 
     # avoid triggering a valueChanged loop by blocking signals
     self.blockAllSignals = True
 
     # Update UI limits
-    self.TBR.setRange(0,self.P.RMax)
-    self.TBR_NF.setRange(0,self.P.RMax)
-    self.AnnRi.setRange(0,self.P.RMax)
-    self.VrApR.setRange(0,self.P.RMax)
+    self.TBR.setRange(0, self.P.RMax)
+    self.TBR_NF.setRange(0, self.P.RMax)
+    self.AnnRi.setRange(0, self.P.RMax)
+    self.VrApR.setRange(0, self.P.RMax)
 
     # Update UI values
     self.TBR.setValue(r)
@@ -107,7 +112,7 @@ def moveTransBeam(self):
     self.TBY_NF.setValue(b0[1])
     self.Alpha.setValue(a)
     self.mradPx.setValue(mrad_per_px)
-    
+
     # Update transmitted beam annotation
     if (self.sender() is not self.A.tb) and (self.A.tb is not None):
         self.A.tb.center = b0
@@ -118,7 +123,6 @@ def moveTransBeam(self):
     self.blockAllSignals = False
 
     detrCoordCallbacks(self)
-
 
 
 def autoAlign(self):
@@ -141,7 +145,7 @@ def autoAlign(self):
     """
     from callbacks.imfindcircles import imfindcircles
 
-    nPx      = self.D.NPx           # (height, width) tuple
+    nPx = self.D.NPx           # (height, width) tuple
     rmax_abs = max(1, self.P.RMax)
 
     # ── Choose the input pattern ──────────────────────────────────────────
@@ -159,8 +163,8 @@ def autoAlign(self):
     tbr = self.TBR.value()
     if tbr > 1:
         # Use ±50 % of the current beam-disc radius, clamped to sensible values
-        rmin = max(1,          int(np.floor(0.5  * tbr)))
-        rmax = min(rmax_abs,   int(np.ceil( 1.5  * tbr)))
+        rmin = max(1, int(np.floor(0.5 * tbr)))
+        rmax = min(rmax_abs, int(np.ceil(1.5 * tbr)))
     else:
         # First-time call: search over the central quarter of the pattern
         rmin = 1
@@ -194,21 +198,23 @@ def autoAlign(self):
 
     # Best match: imfindcircles already sorts by descending metric
     cx, cy = float(centers[0, 0]), float(centers[0, 1])
-    r      = float(radii[0])
+    r = float(radii[0])
 
     # Clamp to valid pixel range
     cx = np.clip(cx, 1, nPx[1])
     cy = np.clip(cy, 1, nPx[0])
-    r  = np.clip(r,  np.finfo(np.single).eps, rmax_abs)
+    r = np.clip(r, np.finfo(np.single).eps, rmax_abs)
 
     self.blockAllSignals = True
-    self.TBX.setValue(cx);    self.TBX_NF.setValue(cx)
-    self.TBY.setValue(cy);    self.TBY_NF.setValue(cy)
-    self.TBR.setValue(r);     self.TBR_NF.setValue(r)
+    self.TBX.setValue(cx)
+    self.TBX_NF.setValue(cx)
+    self.TBY.setValue(cy)
+    self.TBY_NF.setValue(cy)
+    self.TBR.setValue(r)
+    self.TBR_NF.setValue(r)
     self.blockAllSignals = False
 
     moveTransBeam(self)
-
 
 
 def crossAlign(self):
@@ -223,7 +229,7 @@ def crossAlign(self):
     while a cursor is already active will remove it without updating B0.
     """
     canvas = self.Fig.Dfrn.canvas
-    ax     = self.Fig.Dfrn.ax
+    ax = self.Fig.Dfrn.ax
 
     # ── toggle off if already active ────────────────────────────────────
     if hasattr(self, '_crossAlignState') and self._crossAlignState is not None:
@@ -245,9 +251,9 @@ def crossAlign(self):
     b0 = self.B0
 
     h_line = ax.axhline(b0[1], color='yellow', linewidth=1,
-                         linestyle='--', alpha=0.8, zorder=10)
+                        linestyle='--', alpha=0.8, zorder=10)
     v_line = ax.axvline(b0[0], color='yellow', linewidth=1,
-                         linestyle='--', alpha=0.8, zorder=10)
+                        linestyle='--', alpha=0.8, zorder=10)
     canvas.draw_idle()
 
     def _on_move(event):
@@ -279,12 +285,10 @@ def crossAlign(self):
 
     cids = [
         canvas.mpl_connect('motion_notify_event', _on_move),
-        canvas.mpl_connect('button_press_event',  _on_click),
+        canvas.mpl_connect('button_press_event', _on_click),
     ]
 
     self._crossAlignState = {
-        'cids':  cids,
+        'cids': cids,
         'lines': [h_line, v_line],
     }
-
-

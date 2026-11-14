@@ -8,6 +8,7 @@ try:
 except ImportError:
     _TORCH_AVAILABLE = False
 
+
 def annularDetectorCallbacks(self):
 
     def limitAnnUI():
@@ -83,10 +84,10 @@ def annularDetectorCallbacks(self):
         ri_idx, ro_idx = self.AnnRi.value()
         ri_px = ri_idx * self.D.annWidth
         ro_px = ro_idx * self.D.annWidth
-        nseg  = int(self.NSeg.value())
+        nseg = int(self.NSeg.value())
         nrung = int(self.NRung.value())
-        dr    = self.DetRot.value()          # degrees
-        b0    = self.B0                      # (x, y) beam centre in pixels
+        dr = self.DetRot.value()          # degrees
+        b0 = self.B0                      # (x, y) beam centre in pixels
 
         if ro_px <= 0:
             return  # nothing to draw yet
@@ -108,7 +109,7 @@ def annularDetectorCallbacks(self):
         x0 = [b0[0] + ri_px * np.cos(rad0), b0[0] + ro_px * np.cos(rad0)]
         y0 = [b0[1] + ri_px * np.sin(rad0), b0[1] + ro_px * np.sin(rad0)]
         self.A.SegDetrL0, = ax.plot(x0, y0, color='w', linewidth=3.0,
-                                     zorder=5, solid_capstyle='round')
+                                    zorder=5, solid_capstyle='round')
 
         # --- interior rung circles (NRung > 1 → NRung-1 concentric rings) ---
         rung_circles = []
@@ -171,9 +172,9 @@ def annularDetectorCallbacks(self):
                 setattr(self.A, attr, None)
 
         # --- parameters ---
-        sd  = self.ScanDir.value()      # scan rotation in degrees
+        sd = self.ScanDir.value()      # scan rotation in degrees
         syf = 1 - 2 * self.ScanDirYFlip.isChecked()   # Y flip: +1 or -1
-        b0  = self.B0                   # beam centre (x, y)
+        b0 = self.B0                   # beam centre (x, y)
         # Arrow length: 25% of max scattering radius, min 20 px
         arrow_len = max(20.0, 0.25 * self.P.RMax * self.D.annWidth)
 
@@ -182,9 +183,9 @@ def annularDetectorCallbacks(self):
 
         # Tip positions
         tip_x = np.array([b0[0] + arrow_len * np.cos(rad_x),
-                           b0[1] + arrow_len * np.sin(rad_x)])
+                          b0[1] + arrow_len * np.sin(rad_x)])
         tip_y = np.array([b0[0] + arrow_len * np.cos(rad_y),
-                           b0[1] + arrow_len * np.sin(rad_y)])
+                          b0[1] + arrow_len * np.sin(rad_y)])
 
         # --- X-direction line (orange) ---
         self.A.ScanDirXline, = ax.plot(
@@ -208,14 +209,14 @@ def annularDetectorCallbacks(self):
 
         # --- Drag handle: X tip ---
         pt_x = ax.scatter(tip_x[0], tip_x[1],
-                           color='#FF8C00', s=50, zorder=9, animated=False)
+                          color='#FF8C00', s=50, zorder=9, animated=False)
         self.A.ScanDirXcirc = InteractivePoint(pt_x)
         self.A.ScanDirXcirc.connect()
         self.A.ScanDirXcirc.positionChanged.connect(lambda: moveAnnDetr())
 
         # --- Drag handle: Y tip ---
         pt_y = ax.scatter(tip_y[0], tip_y[1],
-                           color='#00BFFF', s=50, zorder=9, animated=False)
+                          color='#00BFFF', s=50, zorder=9, animated=False)
         self.A.ScanDirYcirc = InteractivePoint(pt_y)
         self.A.ScanDirYcirc.connect()
         self.A.ScanDirYcirc.positionChanged.connect(lambda: moveAnnDetr())
@@ -283,7 +284,7 @@ def annularDetectorCallbacks(self):
                 self.ImageAx.Real = self.Fig.Real.ax.imshow(self.Image.Real)
             else:
                 self.Image.Real = self.adfImages[
-                    :, :, innerRadius : outerRadius + 1
+                    :, :, innerRadius: outerRadius + 1
                 ].sum(axis=2)
                 self.ImageAx.Real.set_data(self.Image.Real)
 
@@ -301,8 +302,8 @@ def annularDetectorCallbacks(self):
             # If drag handle moved → compute new rotation from point position
             if (self.A.SegDetrP0 is not None
                     and self.sender() is self.A.SegDetrP0):
-                xy  = self.A.SegDetrP0.position  # (x, y) in data coords
-                b0  = self.B0
+                xy = self.A.SegDetrP0.position  # (x, y) in data coords
+                b0 = self.B0
                 new_rot = float(
                     np.degrees(np.arctan2(xy[1] - b0[1], xy[0] - b0[0]))
                 ) % 360.0
@@ -327,7 +328,7 @@ def annularDetectorCallbacks(self):
             for the Y-flip setting, since the Y arrow is always perpendicular to X).
             Then redraw both arrows with the updated ScanDir value.
             """
-            b0  = self.B0
+            b0 = self.B0
             syf = 1 - 2 * self.ScanDirYFlip.isChecked()
 
             if (self.A.ScanDirXcirc is not None
@@ -365,8 +366,8 @@ def annularDetectorCallbacks(self):
         # --- dispatch ---
         dmod = self.DetrMode.currentData()
         ri, ro = self.AnnRi.value()
-        dr  = self.DetRot.value()
-        sd  = self.ScanDir.value()
+        dr = self.DetRot.value()
+        sd = self.ScanDir.value()
         syf = 1 - 2 * self.ScanDirYFlip.isChecked()
 
         match self.sender():
@@ -374,7 +375,7 @@ def annularDetectorCallbacks(self):
                 moveAnnR()
             case (self.DetRot | self.DetRot_NF | self.NRung | self.NSeg
                   | self.A.SegDetrCir | self.A.SegDetrL
-                  | self.A.SegDetrL0  | self.A.SegDetrP0):
+                  | self.A.SegDetrL0 | self.A.SegDetrP0):
                 moveSeg()
             case (self.ScanDirUnlock | self.ScanDirYFlip
                   | self.ScanDir | self.ScanDir_NF
@@ -395,7 +396,7 @@ def annularDetectorCallbacks(self):
                 mask_ann = (self.A.k >= ri) & (self.A.k <= ro)
                 self.Image.DfrnMask = mask_ann.astype(self.D.DataType).T
                 self.Image.Real = self.adfImages[
-                    :, :, ri : ro + 1
+                    :, :, ri: ro + 1
                 ].sum(axis=2)
 
             # CoM or DPC computation
@@ -413,7 +414,7 @@ def annularDetectorCallbacks(self):
     # ------------------------------------------------------------------
     def drawAnnDetr():
         """Initialise the annular detector InteractiveAnnulus annotation."""
-        c  = self.B0
+        c = self.B0
         r1 = self.AnnRi.value()[0] * self.D.annWidth
         r2 = self.AnnRi.value()[1] * self.D.annWidth
 
@@ -436,8 +437,8 @@ def annularDetectorCallbacks(self):
         """
         if isDiffToPrev(self, "B0", self.B0):
             xgrid, ygrid = np.ogrid[
-                -self.B0[0] : self.D.NPxX - self.B0[0],
-                -self.B0[1] : self.D.NPxY - self.B0[1],
+                -self.B0[0]: self.D.NPxX - self.B0[0],
+                -self.B0[1]: self.D.NPxY - self.B0[1],
             ]
             self.A.k = np.int32(
                 np.sqrt(xgrid ** 2 + ygrid ** 2) / self.D.annWidth
@@ -455,7 +456,7 @@ def annularDetectorCallbacks(self):
             # GPU path: use torch CUDA tensor for the large matrix multiply
             if _TORCH_AVAILABLE and self.D.GPU is not None and torch.cuda.is_available():
                 device = torch.device(self.D.GPU)
-                Data_t    = torch.from_numpy(np.ascontiguousarray(self.Data)).to(device, dtype=torch.float32)
+                Data_t = torch.from_numpy(np.ascontiguousarray(self.Data)).to(device, dtype=torch.float32)
                 adfMask_t = torch.from_numpy(np.ascontiguousarray(adfMask)).to(device, dtype=torch.float32)
                 self.adfImages = (Data_t @ adfMask_t).cpu().numpy()
                 del Data_t, adfMask_t
@@ -518,23 +519,23 @@ def annularDetectorCallbacks(self):
             return
 
         # Pixel coordinate grids relative to transmitted beam
-        xgrid, ygrid = np.mgrid[0 : self.D.NPxX, 0 : self.D.NPxY]
+        xgrid, ygrid = np.mgrid[0: self.D.NPxX, 0: self.D.NPxY]
         xweight = (xgrid.flatten() - self.B0[0]).astype(np.float32)
         yweight = (ygrid.flatten() - self.B0[1]).astype(np.float32)
 
         # GPU path: move masked data + weight vectors to CUDA for dot products
         if _TORCH_AVAILABLE and self.D.GPU is not None and torch.cuda.is_available():
             device = torch.device(self.D.GPU)
-            data_m_t  = torch.from_numpy(np.ascontiguousarray(self.Data[:, mask])).to(device, dtype=torch.float32)
-            xw_t      = torch.from_numpy(xweight[mask]).to(device)
-            yw_t      = torch.from_numpy(yweight[mask]).to(device)
-            norm_t    = data_m_t.sum(dim=1).clamp(min=torch.finfo(torch.float32).tiny)
+            data_m_t = torch.from_numpy(np.ascontiguousarray(self.Data[:, mask])).to(device, dtype=torch.float32)
+            xw_t = torch.from_numpy(xweight[mask]).to(device)
+            yw_t = torch.from_numpy(yweight[mask]).to(device)
+            norm_t = data_m_t.sum(dim=1).clamp(min=torch.finfo(torch.float32).tiny)
             CoMX_flat = (data_m_t @ xw_t / norm_t).cpu().numpy()
             CoMY_flat = (data_m_t @ yw_t / norm_t).cpu().numpy() * syf
             del data_m_t, xw_t, yw_t, norm_t
         else:
-            data_m    = self.Data[:, mask].astype(np.float32)   # (NFr, n_masked)
-            norm      = data_m.sum(axis=1).clip(np.finfo(np.float32).eps, None)
+            data_m = self.Data[:, mask].astype(np.float32)   # (NFr, n_masked)
+            norm = data_m.sum(axis=1).clip(np.finfo(np.float32).eps, None)
             CoMX_flat = (data_m @ xweight[mask]) / norm
             CoMY_flat = (data_m @ yweight[mask]) / norm * syf
 
@@ -542,10 +543,10 @@ def annularDetectorCallbacks(self):
         c, s = np.cos(np.radians(sd)), np.sin(np.radians(sd))
         CoM = np.array([[c, -s], [s, c]]) @ np.vstack([CoMX_flat, CoMY_flat])
 
-        self.Fig.CoMX.Image   = CoM[0].reshape(self.D.NFrY, self.D.NFrX)
-        self.Fig.CoMY.Image   = CoM[1].reshape(self.D.NFrY, self.D.NFrX)
+        self.Fig.CoMX.Image = CoM[0].reshape(self.D.NFrY, self.D.NFrX)
+        self.Fig.CoMY.Image = CoM[1].reshape(self.D.NFrY, self.D.NFrX)
         self.Fig.CoMMag.Image = np.hypot(self.Fig.CoMX.Image, self.Fig.CoMY.Image)
-        self.Fig.CoMPh.Image  = np.arctan2(self.Fig.CoMY.Image, self.Fig.CoMX.Image)
+        self.Fig.CoMPh.Image = np.arctan2(self.Fig.CoMY.Image, self.Fig.CoMX.Image)
 
         integrateCoM()
 
@@ -570,7 +571,7 @@ def annularDetectorCallbacks(self):
         dr : float
             Detector rotation angle in degrees.
         """
-        nseg  = int(self.NSeg.value())
+        nseg = int(self.NSeg.value())
         nrung = int(self.NRung.value())
 
         # Annular mask (combined across all rungs)
@@ -579,7 +580,7 @@ def annularDetectorCallbacks(self):
             return
 
         # Pixel angle map (degrees, 0–360), computed relative to beam centre
-        xgrid, ygrid = np.mgrid[0 : self.D.NPxX, 0 : self.D.NPxY]
+        xgrid, ygrid = np.mgrid[0: self.D.NPxX, 0: self.D.NPxY]
         px_angle = np.degrees(
             np.arctan2(
                 ygrid.flatten() - self.B0[1],
@@ -599,13 +600,13 @@ def annularDetectorCallbacks(self):
         )
 
         # Segment angular boundaries (degrees, in [dr, dr+360))
-        seg_width  = 360.0 / nseg
+        seg_width = 360.0 / nseg
         seg_starts = np.array([dr + i * seg_width for i in range(nseg)]) % 360.0
 
         # Accumulate DPC X/Y deflection across all rung × segment combinations
         DPC_X = np.zeros(self.D.NFrY * self.D.NFrX, dtype=np.float32)
         DPC_Y = np.zeros(self.D.NFrY * self.D.NFrX, dtype=np.float32)
-        norm   = np.zeros(self.D.NFrY * self.D.NFrX, dtype=np.float32)
+        norm = np.zeros(self.D.NFrY * self.D.NFrX, dtype=np.float32)
 
         for rung_i in range(nrung):
             r_lo = rung_edges[rung_i]
@@ -637,18 +638,19 @@ def annularDetectorCallbacks(self):
 
                 # Segment integral for every scan position:  (NFr,)
                 if _TORCH_AVAILABLE and self.D.GPU is not None and torch.cuda.is_available():
-                    device   = torch.device(self.D.GPU)
-                    seg_t    = torch.from_numpy(np.ascontiguousarray(self.Data[:, seg_mask])).to(device, dtype=torch.float32)
-                    seg_sum  = seg_t.sum(dim=1).cpu().numpy()
+                    device = torch.device(self.D.GPU)
+                    seg_t = torch.from_numpy(np.ascontiguousarray(
+                        self.Data[:, seg_mask])).to(device, dtype=torch.float32)
+                    seg_sum = seg_t.sum(dim=1).cpu().numpy()
                     del seg_t
                 else:
                     data_seg = self.Data[:, seg_mask].astype(np.float32)
-                    seg_sum  = data_seg.sum(axis=1)  # (NFr,)
+                    seg_sum = data_seg.sum(axis=1)  # (NFr,)
 
                 # Weighted contribution to DPC vector
                 DPC_X += cos_w * seg_sum
                 DPC_Y += sin_w * seg_sum
-                norm  += seg_sum
+                norm += seg_sum
 
         # Normalise — avoid /0 at pixels with zero total intensity
         eps = np.finfo(np.float32).eps
@@ -657,10 +659,10 @@ def annularDetectorCallbacks(self):
         DPC_Y /= safe_norm
 
         # Reshape to real-space images and store in the shared CoM slots
-        self.Fig.CoMX.Image   = DPC_X.reshape(self.D.NFrY, self.D.NFrX)
-        self.Fig.CoMY.Image   = DPC_Y.reshape(self.D.NFrY, self.D.NFrX)
+        self.Fig.CoMX.Image = DPC_X.reshape(self.D.NFrY, self.D.NFrX)
+        self.Fig.CoMY.Image = DPC_Y.reshape(self.D.NFrY, self.D.NFrX)
         self.Fig.CoMMag.Image = np.hypot(self.Fig.CoMX.Image, self.Fig.CoMY.Image)
-        self.Fig.CoMPh.Image  = np.arctan2(self.Fig.CoMY.Image, self.Fig.CoMX.Image)
+        self.Fig.CoMPh.Image = np.arctan2(self.Fig.CoMY.Image, self.Fig.CoMX.Image)
 
         # iCoM/dCoM from the DPC field (same Fourier integration as for CoM)
         ny, nx = self.D.NFrY, self.D.NFrX
@@ -704,7 +706,7 @@ def annularDetectorCallbacks(self):
     if self.blockAllSignals:
         return
 
-    b0   = self.B0
+    b0 = self.B0
     dmod = self.DetrMode.currentData()
 
     match self.sender():

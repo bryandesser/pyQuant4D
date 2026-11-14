@@ -8,7 +8,12 @@ from PyQt5 import QtCore as qtc
 from PyQt5 import QtGui as qtg
 import callbacks.appClass as appClass
 from callbacks.appClass import *
-import re, gc, psutil, importlib, h5py, time
+import re
+import gc
+import psutil
+import importlib
+import h5py
+import time
 import matplotlib
 
 
@@ -17,7 +22,7 @@ def prepDM(self):
     class struct(object):
         def __init__(self) -> None:
             pass
-    
+
     # Identify DM scalar type for byte reading
     def dmBin(btype, out_type):
         match btype:
@@ -26,7 +31,7 @@ def prepDM(self):
             case 3:
                 p, b = "i4", 4
             case 4:
-                p, b = "u2", 2 # OR Unicode string
+                p, b = "u2", 2  # OR Unicode string
             case 5:
                 p, b = "u4", 4
             case 6:
@@ -34,7 +39,7 @@ def prepDM(self):
             case 7:
                 p, b = "f8", 8
             case 8:
-                p, b = "i1", 1 # Boolean
+                p, b = "i1", 1  # Boolean
             case 9:
                 p, b = "i1", 1
             case 10:
@@ -51,13 +56,12 @@ def prepDM(self):
                 p, b = "Array", None
             case other:
                 p, b = "Unknown type", None
-        
 
         if out_type == 'p':
             prc_bytes = p
         elif out_type == 'b':
             prc_bytes = b
-        
+
         return prc_bytes
 
     def dbgDMBin(btype):
@@ -66,9 +70,9 @@ def prepDM(self):
         else:
             dbt = dmBin(btype, 'p')
         return dbt
-    
 
     # DM Image Data Type
+
     def dmImageType(iT, oo):
         match iT:
             case 1:
@@ -151,7 +155,7 @@ def prepDM(self):
                 px, sc, vt, bit = "scalar", "uint", 0, 64
             case other:
                 px = sc = vt = bit = None
-        
+
         match oo:
             case 'pixel':
                 d = px
@@ -162,8 +166,8 @@ def prepDM(self):
             case 'bit':
                 d = bit
             case other:
-                d = px+" "+str(sc)+str(bit)
-        
+                d = px + " " + str(sc) + str(bit)
+
         return d
 
     # Pack Image Data Type info
@@ -175,17 +179,18 @@ def prepDM(self):
         imgInfo.variant = dmImageType(dt, 'variant')
         imgInfo.bit = dmImageType(dt, 'bit')
         return imgInfo
-    
+
     # Read Tag that is not directory
     def readTag(ff, lv, label):
         Tg = struct()
-        
-        #tmp = ''.join([chr(let) for let in np.fromfile(ff.file,count=4,offset = int(ff.offset),dtype='u1')]) # "%%%%" for Tag
+
+        # tmp = ''.join([chr(let) for let in np.fromfile(ff.file,count=4,offset =
+        # int(ff.offset),dtype='u1')]) # "%%%%" for Tag
         ff.offset += 4
-        nTagType = np.fromfile(ff.file, count=1, dtype='>'+ff.w,offset = int(ff.offset))[0]
+        nTagType = np.fromfile(ff.file, count=1, dtype='>' + ff.w, offset=int(ff.offset))[0]
         ff.offset += ff.wSize
-        tagType = np.fromfile(ff.file, count=nTagType, dtype='>'+ff.w,offset = int(ff.offset))
-        ff.offset += int(nTagType)*ff.wSize
+        tagType = np.fromfile(ff.file, count=nTagType, dtype='>' + ff.w, offset=int(ff.offset))
+        ff.offset += int(nTagType) * ff.wSize
 
         nA = 1
         nM = 1
@@ -199,17 +204,16 @@ def prepDM(self):
         if tagType[isArray] == 15:
             nM = tagType[2 + isArray]
             isMultiItem = 1
-        
 
         sTypes = np.zeros(nM)
-        sTypes_s = [None]*nM
+        sTypes_s = [None] * nM
         sTypes_b = np.zeros(nM)
         for iM in range(nM):
-            sTypes[iM] = tagType[isArray + 3 * isMultiItem + (iM+1) * (1 + isMultiItem)-1]
+            sTypes[iM] = tagType[isArray + 3 * isMultiItem + (iM + 1) * (1 + isMultiItem) - 1]
             sTypes_s[iM] = dbgDMBin(sTypes[iM])
             sTypes_b[iM] = dmBin(sTypes[iM], 'b')
 
-        if isArray==1 and (not label.endswith("Name")):
+        if isArray == 1 and (not label.endswith("Name")):
             Tg.offset = int(ff.offset)
             if isMultiItem:
                 Tg.dim = [nM, nA]
@@ -231,7 +235,16 @@ def prepDM(self):
 
                 mTg = []
                 for iM in range(nM):
-                    mTg.append(np.fromfile(ff.file, count = 1, dtype = ff.bo + dmBin(sTypes[iM], 'p'), offset = int(ff.offset))[0])
+                    mTg.append(
+                        np.fromfile(
+                            ff.file,
+                            count=1,
+                            dtype=ff.bo +
+                            dmBin(
+                                sTypes[iM],
+                                'p'),
+                            offset=int(
+                                ff.offset))[0])
                     ff.offset += int(dmBin(sTypes[iM], 'b'))
 
                 if isMultiItem:
@@ -240,18 +253,18 @@ def prepDM(self):
                     aTg[iA] = mTg[0]
 
             if isArray:
-                Tg = aTg          
+                Tg = aTg
             else:
                 Tg = aTg[0]
 
         return Tg
-    
+
     # Read Tag directory
     def readTagGp(ff, lv):
         # Tag Group or Tag List
-        notList = np.fromfile(ff.file,dtype='u1',offset = int(ff.offset),count=1)[0] # 0 = Tag List, 1 = Tag Group
+        notList = np.fromfile(ff.file, dtype='u1', offset=int(ff.offset), count=1)[0]  # 0 = Tag List, 1 = Tag Group
         ff.offset += 2
-        nChd = np.fromfile(ff.file,dtype='>'+ff.w,offset = int(ff.offset),count=1)[0]
+        nChd = np.fromfile(ff.file, dtype='>' + ff.w, offset=int(ff.offset), count=1)[0]
         ff.offset += ff.wSize
 
         if notList:
@@ -260,32 +273,30 @@ def prepDM(self):
             Gp = []
 
         for iC in range(nChd):
-            tagType = np.fromfile(ff.file, dtype = 'u1', count = 1, offset = int(ff.offset))[0]
-            ff.offset +=1
-            labelSize = np.fromfile(ff.file, dtype = '>u2', count = 1, offset = int(ff.offset))[0]
-            ff.offset +=2
+            tagType = np.fromfile(ff.file, dtype='u1', count=1, offset=int(ff.offset))[0]
+            ff.offset += 1
+            labelSize = np.fromfile(ff.file, dtype='>u2', count=1, offset=int(ff.offset))[0]
+            ff.offset += 2
             label = ""
 
             if notList:
-                label0 = np.fromfile(ff.file, dtype = 'u1', count=labelSize, offset = int(ff.offset))
+                label0 = np.fromfile(ff.file, dtype='u1', count=labelSize, offset=int(ff.offset))
                 label0 = ''.join([chr(let) for let in label0])
                 ff.offset += labelSize
 
-                label = re.sub('[^a-zA-Z_0-9]+','',label0.replace(' ','_'))
-                if label=="":
+                label = re.sub('[^a-zA-Z_0-9]+', '', label0.replace(' ', '_'))
+                if label == "":
                     label = 'LABEL_FORMATTED_'
 
                 # increment labels with the same name
-                if hasattr(Gp,label):
+                if hasattr(Gp, label):
                     iL = 1
-                    while hasattr(Gp,label+str(iL)):
-                        iL+=1
-                    label = label+str(iL)
-
-
+                    while hasattr(Gp, label + str(iL)):
+                        iL += 1
+                    label = label + str(iL)
 
             if ff.v == 4:
-                tagSize = np.fromfile(ff.file, count = 1, dtype = '>'+ff.w, offset = int(ff.offset))[0]
+                tagSize = np.fromfile(ff.file, count=1, dtype='>' + ff.w, offset=int(ff.offset))[0]
                 ff.offset += ff.wSize
                 # Skip other Tags
                 if lv == 0 and label not in ["ImageList", "ImageSourceList"]:
@@ -300,10 +311,10 @@ def prepDM(self):
                     chd = readTag(ff, lv + 1, label)
 
             if notList:
-                setattr(Gp,label,chd)
+                setattr(Gp, label, chd)
             else:
                 Gp.append(chd)
-        
+
         return Gp
 
     def dmInfo(file):
@@ -318,7 +329,7 @@ def prepDM(self):
         ff.m = 0
 
         # Setup DM3 & 4 differences
-        ff.v = np.fromfile(ff.file,dtype=">u4",count=1)[0]
+        ff.v = np.fromfile(ff.file, dtype=">u4", count=1)[0]
         match ff.v:
             case 3:
                 ff.w = 'u4'
@@ -329,13 +340,12 @@ def prepDM(self):
                 return
         ff.wSize = np.dtype(ff.w).itemsize
 
-
         # Size of the root tag group, i.e. 24/16 bytes for DM4/3 (header + footer) smaller than the file size
-        ff.size = np.fromfile(ff.file,dtype='>'+ff.w,count=1,offset=4)[0]
+        ff.size = np.fromfile(ff.file, dtype='>' + ff.w, count=1, offset=4)[0]
         ff.offset = 4 + ff.wSize
 
         # Data endianness; probably only little ff.bo for DM4
-        endian = np.fromfile(ff.file,dtype='>u4',count=1,offset = int(ff.offset))[0]
+        endian = np.fromfile(ff.file, dtype='>u4', count=1, offset=int(ff.offset))[0]
         ff.offset += 4
         if endian:
             ff.bo = '<'
@@ -350,17 +360,15 @@ def prepDM(self):
 
         # Deal with `ImageSourceList`
         nImgs = len(Tg.ImageSourceList)
-        R = np.zeros(nImgs,dtype=int)
+        R = np.zeros(nImgs, dtype=int)
         for i in range(nImgs):
             R[i] = int(Tg.ImageSourceList[i].ImageRef)
-
 
         # Deal with  `ImageList[i]:ImageData:DataType` & `ImageList[i].Name`
         for i in range(nImgs):
             dt = Tg.ImageList[R[i]].ImageData.DataType
             Tg.ImageList[R[i]].ImageData.ImageDataType = imgDataType(dt)
             Tg.ImageList[R[i]].ImageData.Name = "".join([chr(let) for let in Tg.ImageList[R[i]].Name])
-
 
         # Setup return
         d = struct()
@@ -384,13 +392,13 @@ def prepDM(self):
     filename = self.D.fileName
 
     self.T.dm = dmInfo(filename)
-    
+
     self.ImportWindow.ImpSubImg.setEnabled(True)
 
     # List all images' names in `self.ImpSubImg`
     # Select sub-image with the largest dimension; unless manually selected
     if self.sender() is not self.ImportWindow.ImpSubImg:
-        pdim = np.zeros(len(self.T.dm)-1)
+        pdim = np.zeros(len(self.T.dm) - 1)
         self.ImportWindow.ImpSubImg.blockSignals(True)
         for i in range(pdim.size):
             self.ImportWindow.ImpSubImg.addItem(self.T.dm[i].Name)
@@ -407,7 +415,7 @@ def prepDM(self):
 
     for i in range(4):
         if i > dims.size:
-            dims[i] = 1 # Fill missing dimensions as 1
+            dims[i] = 1  # Fill missing dimensions as 1
 
     self.ImportWindow.DNPxX.setMaximum(np.iinfo(np.int32).max)
     self.ImportWindow.DNPxY.setMaximum(np.iinfo(np.int32).max)
@@ -421,30 +429,32 @@ def prepDM(self):
 
     # Find offset, file tail, data type, byte-order of dataset
     self.ImportWindow.DataOffset.setMaximum(self.T.FileSize)
-    self.ImportWindow.DataOffset.setValue(dm.Data.offset) #TODO
+    self.ImportWindow.DataOffset.setValue(dm.Data.offset)  # TODO
     try:
-        self.ImportWindow.ImpDataType.setCurrentIndex(self.ImportWindow.ImpDataType.findData(dm.Data.dataType[0])) #TODO
-    except:
+        self.ImportWindow.ImpDataType.setCurrentIndex(
+            self.ImportWindow.ImpDataType.findData(
+                dm.Data.dataType[0]))  # TODO
+    except BaseException:
         pass
 
     self.T.fileTail = int(finfo.fileSize - dm.Data.offset - dm.Data.size)
 
-    if dm.ImageDataType.pixel != "scalar": # If pixels are not scalars (e.g. complex image)
+    if dm.ImageDataType.pixel != "scalar":  # If pixels are not scalars (e.g. complex image)
         self.ImportWindow.ImpDataType.setCurrentIndex(self.ImportWindow.ImpDataType.findData("unknown"))
 
     # Is it little endian?
-    if finfo.liEndian==1:
+    if finfo.liEndian == 1:
         self.ImportWindow.ImpByteOrder.setCurrentIndex(0)
         bo = 'Little Endian'
     else:
         self.ImportWindow.ImpByteOrder.setCurrentIndex(1)
         bo = 'Big Endian'
 
-    notes = "Dim: X = {:d}, Y = {:d}, Z = {:d}, W = {:d}\nDM{:d}, {:s}\nData-type: {:s}\nSelected sub-image's offset is {:d} bytes.".format(dims[0],dims[1],dims[2],dims[3], finfo.version, bo, dm.ImageDataType.full, dm.Data.offset)
+    notes = "Dim: X = {:d}, Y = {:d}, Z = {:d}, W = {:d}\nDM{:d}, {:s}\nData-type: {:s}\nSelected sub-image's offset is {:d} bytes.".format(
+        dims[0], dims[1], dims[2], dims[3], finfo.version, bo, dm.ImageDataType.full, dm.Data.offset)
 
-    #if dims[3] == 1: #TODO
+    # if dims[3] == 1: #TODO
     #    guessFramesFromDimZ(dims[2])
 
     self.ImportWindow.FrHead.setValue(0)
     self.ImportWindow.FrFoot.setValue(0)
-
