@@ -31,6 +31,12 @@ jobs:
   import-test:
     name: Import test (${{ matrix.os }} / Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
+    # Ensure the repo root is on PYTHONPATH so that all top-level packages
+    # (callbacks/, annotationsClasses/, gui/) are importable regardless of
+    # how pip resolves the editable-install sys.path in the given
+    # setuptools/pip version combination on the runner.
+    env:
+      PYTHONPATH: ${{ github.workspace }}
     strategy:
       fail-fast: false
       matrix:
@@ -57,7 +63,10 @@ jobs:
             libxcb-xinerama0 libxcb-xinput0 libxcb-xfixes0
 
       - name: Install pyquant4d (no GPU extras)
-        run: pip install -e .
+        # editable_mode=compat forces setuptools to write a .pth file for the
+        # repo root (the pre-setuptools-64 behaviour), guaranteeing that all
+        # top-level packages resolve even on runners with very recent tooling.
+        run: pip install -e . --config-settings editable_mode=compat
 
       - name: Verify core imports (Linux — with Xvfb)
         if: runner.os == 'Linux'
